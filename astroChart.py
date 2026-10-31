@@ -56,6 +56,10 @@ MENU_XML = """
           <attribute name="label" translatable="yes">Configuration</attribute>
           <attribute name="action">win.settingsConfiguration</attribute>
         </item>
+        <item>
+          <attribute name="label" translatable="yes">Aspects</attribute>
+          <attribute name="action">win.settingsAspects</attribute>
+        </item>
       </section>
     </submenu>
     <submenu>
@@ -288,7 +292,7 @@ END_XML = """
 """
 
 #basics
-import math, sys, os.path, datetime, socket, gettext, codecs, webbrowser, pytz
+import math, sys, os.path, datetime, calendar, socket, gettext, codecs, webbrowser, pytz, locale
 
 #copyfile
 from shutil import copyfile
@@ -329,6 +333,38 @@ VERSION = "1.1.111"
 APPLICATION_ID = "org.openastro.AstroApp"
 #maximal number of items of history
 LIMIT=10
+#years of transit date bar, the included swiss ephemeris files
+#cover 1200-2400 AD, a margin of one year is left for timezones
+TRANSIT_YEAR_MIN = 1201
+TRANSIT_YEAR_MAX = 2398
+#aspects, always all of them in this order (template symbols orb<degree>)
+ASPECT_DEGREES = [ 0 , 30 , 45 , 60 , 72 , 90 , 120 , 135 , 144 , 150 , 180 ]
+ASPECT_IS_MAJOR = [ 1 , 0 , 0 , 1 , 0 , 1 , 1 , 0 , 0 , 0 , 1 ]
+ASPECT_IS_MINOR = [ 0 , 1 , 1 , 0 , 1 , 0 , 0 , 1 , 1 , 0 , 0 ]
+ASPECT_COLORS = [ '#5757e2' , '#810757' , '#b14e58' , '#d59e28' , '#1f99b3' , '#dc0000' , '#36d100' , '#985a10' , '#7a9810' , '#fff600' , '#510060' ]
+#aspect sets, order of the pages in the aspect settings
+ASPECT_CHART_TYPES = ( 'radix' , 'transit' , 'synastry' )
+#upper limit of the orb in the aspect settings
+ASPECT_ORB_MAX = 15.0
+#default aspect settings, radix is stored in settings_aspect (shared with
+#the Gtk3 programs), transit and synastry in settings_aspect_chart
+ASPECT_DEFAULTS = {
+	'radix': {
+		'visible':      [ 1 , 0 , 0 , 1 , 1 , 1 , 1 , 0 , 1 , 1 , 1 ],
+		'visible_grid': [ 1 , 0 , 0 , 1 , 1 , 1 , 1 , 0 , 1 , 1 , 1 ],
+		'orb':          [ 10 , 3 , 3 , 6 , 2 , 8 , 8 , 3 , 2 , 3 , 10 ]
+		},
+	'transit': {
+		'visible':      [ 1 , 0 , 0 , 1 , 0 , 1 , 1 , 0 , 0 , 1 , 1 ],
+		'visible_grid': [ 1 , 0 , 0 , 1 , 0 , 1 , 1 , 0 , 0 , 1 , 1 ],
+		'orb':          [ 2 , 1 , 1 , 2 , 1 , 2 , 2 , 1 , 1 , 1 , 2 ]
+		},
+	'synastry': {
+		'visible':      [ 1 , 0 , 0 , 1 , 0 , 1 , 1 , 0 , 0 , 1 , 1 ],
+		'visible_grid': [ 1 , 0 , 0 , 1 , 0 , 1 , 1 , 0 , 0 , 1 , 1 ],
+		'orb':          [ 6 , 1 , 1 , 4 , 1 , 5 , 5 , 1 , 1 , 2 , 6 ]
+		}
+	}
 #dimensions of chart
 CHARTX = 772.2 
 CHARTY = 546.0
@@ -404,6 +440,23 @@ def dprint(str):
 	""" debug print function """
 	if "--debug" in sys.argv or DEBUG:
 		print('%s' % str)
+
+def aspectOrb(value, default):
+	""" orb from database (text, number, None, decimal comma) as float """
+	try:
+		orb = float(str(value).replace(',','.'))
+	except (TypeError, ValueError):
+		return float(default)
+	if math.isfinite(orb) and orb >= 0:
+		return orb
+	return float(default)
+
+def aspectFlag(value, default):
+	""" visibility flag from database as 0 or 1 """
+	try:
+		return 1 if int(value) else 0
+	except (TypeError, ValueError):
+		return default
 
 #directories
 if LOCAL:
@@ -749,14 +802,14 @@ class OpenAstroSqlite:
 		#default values for settings_aspect (if dbcheck)
 		if self.dbcheck:
 			dprint('dbcheck astrodb.settings_aspect')
-			degree = [ 0 , 30 , 45 , 60 , 72 , 90 , 120 , 135 , 144 , 150 , 180 ]
-			name = [ _('conjunction') , _('semi-sextile') , _('semi-square') , _('sextile') , _('quintile') , _('square') , _('trine') , _('sesquiquadrate') , _('biquintile') , _('quincunx') , _('opposition') ]
-			color = [ '#5757e2' ,	'#810757' , 			'#b14e58' ,	 '#d59e28' , '#1f99b3' ,'#dc0000' , '#36d100' , '#985a10' , 		  '#7a9810' , 	'#fff600' ,		 '#510060' ]
-			visible =      [ 1 , 0 , 0 , 1 , 1 , 1 , 1 , 0 , 1 , 1 , 1 ]
-			visible_grid = [ 1 , 0 , 0 , 1 , 1 , 1 , 1 , 0 , 1 , 1 , 1 ]
-			is_major =     [ 1 , 0 , 0 , 1 , 0 , 1 , 1 , 0 , 0 , 0 , 1 ]
-			is_minor =     [ 0 , 1 , 1 , 0 , 1 , 0 , 0 , 1 , 1 , 0 , 0 ]
-			orb =         [ 10 , 3 , 3 , 6 , 2 , 8 , 8 , 3 , 2 , 3 , 10 ]
+			degree = ASPECT_DEGREES
+			name = self.getAspectLabels()
+			color = ASPECT_COLORS
+			visible =      ASPECT_DEFAULTS['radix']['visible']
+			visible_grid = ASPECT_DEFAULTS['radix']['visible_grid']
+			is_major =     ASPECT_IS_MAJOR
+			is_minor =     ASPECT_IS_MINOR
+			orb =          ASPECT_DEFAULTS['radix']['orb']
 			#insert values
 			for i in range(len(degree)):
 				sql='INSERT OR %s INTO settings_aspect \
@@ -764,6 +817,21 @@ class OpenAstroSqlite:
 				VALUES(%s,"%s","%s",%s,%s,%s,%s,"%s")' % ( self.dbpurge,degree[i],name[i],color[i],visible[i],
 				visible_grid[i],is_major[i],is_minor[i],orb[i] )
 				self.cursor.execute(sql)
+		#aspect settings of transit and synastry charts (radix stays in settings_aspect,
+		#which is shared with the Gtk3 programs), new rows get the defaults on every start
+		sql='CREATE TABLE IF NOT EXISTS settings_aspect_chart (chart_type VARCHAR(16) NOT NULL\
+			 ,degree INTEGER NOT NULL, visible INTEGER, visible_grid INTEGER, orb REAL\
+			 ,PRIMARY KEY (chart_type, degree))'
+		self.cursor.execute(sql)
+		for ctype in ASPECT_CHART_TYPES:
+			if ctype == 'radix':
+				continue
+			default = ASPECT_DEFAULTS[ctype]
+			for i in range(len(ASPECT_DEGREES)):
+				sql='INSERT OR %s INTO settings_aspect_chart (chart_type, degree, visible, visible_grid, orb)\
+					VALUES(?,?,?,?,?)' % (self.dbpurge)
+				self.cursor.execute(sql,(ctype, ASPECT_DEGREES[i], default['visible'][i],
+					default['visible_grid'][i], float(default['orb'][i])))
 		#check for colors table in astrodb
 		if 'color_codes' not in self.tables:
 			sql='CREATE TABLE IF NOT EXISTS color_codes (name VARCHAR(50) UNIQUE\
@@ -1204,26 +1272,90 @@ class OpenAstroSqlite:
 			planet['label'] = planet_labels[i]
 		return planets
 
-	def getSettingsAspect(self):
+	def getSettingsAspect(self, chart_type='radix'):
+		"""
+		list of all aspects in the order of ASPECT_DEGREES (never filtered,
+		hidden aspects have visible/visible_grid 0), chart_type is one of
+		ASPECT_CHART_TYPES: radix from settings_aspect, transit and synastry
+		take visible, visible_grid and orb from settings_aspect_chart
+		"""
+		if chart_type not in ASPECT_CHART_TYPES:
+			chart_type = 'radix'
 		self.open()
 		sql = 'SELECT * FROM settings_aspect ORDER BY degree ASC'
 		self.cursor.execute(sql)
-		aspects = []
+		rows = {}
 		for row in self.cursor:
 			#degree, name, color, visible, visible_grid, is_major, is_minor, orb
-			aspects.append({'degree':row['degree'],'name':row['name'],'color':row['color']
-			,'visible':row['visible'],'visible_grid':row['visible_grid']
-			,'is_major':row['is_major'],'is_minor':row['is_minor'],'orb':row['orb']})
+			rows[row['degree']] = row
+		chart_rows = {}
+		if chart_type != 'radix':
+			try:
+				sql = 'SELECT degree, visible, visible_grid, orb FROM settings_aspect_chart WHERE chart_type=?'
+				self.cursor.execute(sql, (chart_type,))
+				for row in self.cursor:
+					chart_rows[row['degree']] = row
+			except sqlite3.OperationalError:
+				dprint('getSettingsAspect: no table settings_aspect_chart, using defaults')
 		self.close()
-		aspect_labels = [
+		aspect_labels = self.getAspectLabels()
+		default = ASPECT_DEFAULTS[chart_type]
+		aspects = []
+		for i, degree in enumerate(ASPECT_DEGREES):
+			row = rows.get(degree)
+			if chart_type == 'radix':
+				values = row
+			else:
+				values = chart_rows.get(degree)
+			aspects.append({'degree':degree, 'name':aspect_labels[i]
+			,'color':row['color'] if row is not None else None
+			,'visible':aspectFlag(values['visible'] if values is not None else None, default['visible'][i])
+			,'visible_grid':aspectFlag(values['visible_grid'] if values is not None else None, default['visible_grid'][i])
+			,'is_major':aspectFlag(row['is_major'] if row is not None else None, ASPECT_IS_MAJOR[i])
+			,'is_minor':aspectFlag(row['is_minor'] if row is not None else None, ASPECT_IS_MINOR[i])
+			,'orb':aspectOrb(values['orb'] if values is not None else None, default['orb'][i])})
+		return aspects
+
+	def getAspectLabels(self):
+		#translated aspect names in the order of ASPECT_DEGREES
+		return [
 			_('conjunction'), _('semi-sextile'), _('semi-square'),
 			_('sextile'), _('quintile') , _('square'),
 			_('trine'), _('sesquiquadrate'), _('biquintile'),
 			_('quincunx') , _('opposition')
 		]
-		for i, aspect in enumerate(aspects):
-			aspect['name'] = aspect_labels[i]
-		return aspects
+
+	def setSettingsAspect(self, chart_type, aspects):
+		"""
+		save visible, visible_grid and orb of aspects (list of dicts with degree),
+		radix into settings_aspect (orb as text like the Gtk3 programs, name is
+		never written), transit and synastry into settings_aspect_chart
+		"""
+		sql = []
+		values = []
+		labels = self.getAspectLabels()
+		for aspect in aspects:
+			visible = 1 if aspect['visible'] else 0
+			visible_grid = 1 if aspect['visible_grid'] else 0
+			orb = float(aspect['orb'])
+			if chart_type == 'radix':
+				if orb == int(orb):
+					orb = str(int(orb))
+				else:
+					orb = str(orb)
+				#a missing row gets the defaults first, else the update would be lost
+				i = ASPECT_DEGREES.index(aspect['degree'])
+				default = ASPECT_DEFAULTS['radix']
+				sql.append('INSERT OR IGNORE INTO settings_aspect (degree, name, color, visible, visible_grid, is_major, is_minor, orb) VALUES(?,?,?,?,?,?,?,?)')
+				values.append((aspect['degree'], labels[i], ASPECT_COLORS[i], default['visible'][i], default['visible_grid'][i],
+					ASPECT_IS_MAJOR[i], ASPECT_IS_MINOR[i], str(default['orb'][i])))
+				sql.append('UPDATE settings_aspect SET visible=?, visible_grid=?, orb=? WHERE degree=?')
+				values.append((visible, visible_grid, orb, aspect['degree']))
+			elif chart_type in ASPECT_CHART_TYPES:
+				sql.append('INSERT OR REPLACE INTO settings_aspect_chart (chart_type, degree, visible, visible_grid, orb) VALUES(?,?,?,?,?)')
+				values.append((chart_type, aspect['degree'], visible, visible_grid, orb))
+		if sql:
+			self.query(sql, values)
 
 	def getSettingsLocation(self):
 		#look if location is known
@@ -1604,6 +1736,9 @@ class AstroWindow(Gtk.ApplicationWindow):
 		setConfig_action = Gio.SimpleAction.new("settingsConfiguration", None)
 		setConfig_action.connect("activate", self.setConfiguration_callback)
 		self.add_action(setConfig_action)
+		setAspects_action = Gio.SimpleAction.new("settingsAspects", None)
+		setAspects_action.connect("activate", self.setAspects_callback)
+		self.add_action(setAspects_action)
 
 		# Menu 'Chart Types'
 		radix_action = Gio.SimpleAction.new("specialRadix", None)
@@ -1653,6 +1788,9 @@ class AstroWindow(Gtk.ApplicationWindow):
 		# display astrological chart
 		box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 		self.set_child(box)
+		# date bar above chart, visible for transit charts only
+		self.transitBar = self.makeTransitBar()
+		box.append(self.transitBar)
 		scrolled_window = Gtk.ScrolledWindow()
 		# Draw svg pixbuf
 		chart_name = app.makeSVG()
@@ -1871,6 +2009,9 @@ class AstroWindow(Gtk.ApplicationWindow):
 		chart_name = app.makeSVG()
 		self.image.setupSVG(chart_name)
 		self.image.queue_resize()
+		# date bar belongs to transit charts only
+		if app.type != "Transit":
+			self.transitBar.set_visible(False)
 
 	def updateChartData(self):
 		# check for internet connection
@@ -3061,6 +3202,7 @@ class AstroWindow(Gtk.ApplicationWindow):
 			app.t_timezone=float(data_record["timezone"])
 			app.charttype="%s (%s)" % (app.label["synastry"],app.t_name)
 			app.transit=True
+			app.synastry=True
 			#chart_name = app.makeSVG()
 		elif ctype == "Composite":
 			app.type="Composite"
@@ -3076,6 +3218,7 @@ class AstroWindow(Gtk.ApplicationWindow):
 			app.t_timezone=float(data_record["timezone"])
 			app.charttype="%s (%s)" % (app.label["composite"],app.t_name)
 			app.transit=False
+			app.synastry=False
 			#chart_name = app.makeSVG()
 		elif ctype == "Combine":
 			app.type="Combine"
@@ -3112,6 +3255,7 @@ class AstroWindow(Gtk.ApplicationWindow):
 			app.c_hour = app.decHourJoin(combine.hour,combine.minute,combine.second)
 			app.charttype = "%s (%s)" % (app.label["combine"],app.t_name)
 			app.transit = False
+			app.synastry = False
 			#set new date for printing in svg
 			app.year = app.c_year
 			app.month = app.c_month
@@ -3125,6 +3269,8 @@ class AstroWindow(Gtk.ApplicationWindow):
 			dt = pytz.timezone(app.timezone_str).localize(dt_input)
 			app.timezone=app.offsetToTz(dt.utcoffset())
 			app.utcToLocal()
+		# synastry is drawn as transit chart, but has no transit date
+		self.transitBar.set_visible(False)
 		chart_name = app.makeSVG()
 		self.image.setupSVG(chart_name)
 		self.image.queue_resize()
@@ -3426,6 +3572,208 @@ class AstroWindow(Gtk.ApplicationWindow):
 			os.execv(sys.executable, ['python'] + sys.argv)
 
 	"""
+	Menu item to set the aspects (line, grid, orb) per chart type:
+		setAspects_callback
+		settingsAspectsDefault
+		settingsAspectsSubmit
+		settingsAspectsClose
+	"""
+	def setAspects_callback(self, action, parameter):
+		#only one aspect settings window
+		if getattr(self, 'win_SA', None) is not None:
+			self.win_SA.present()
+			return
+		self.win_SA = Gtk.Window(title=_("Aspect Settings"), transient_for=self, modal=True)
+		self.win_SA.set_default_size(560,-1)
+		#window manager close button, cancel and ok all end in close-request
+		self.win_SA.connect('close-request', self.settingsAspectsClose)
+		#create a VBox
+		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True)
+		vbox.set_spacing(8)
+		vbox.props.margin_start = 16
+		vbox.props.margin_end = 16
+		vbox.props.margin_top = 16
+		vbox.props.margin_bottom = 16
+		#one notebook page per aspect set
+		self.aspectsNotebook = Gtk.Notebook(vexpand=True)
+		self.aspectsData = {}
+		self.aspectsSaved = {}
+		titles = {'radix':_('Radix'), 'transit':_('Transit'), 'synastry':_('Synastry')}
+		for ctype in ASPECT_CHART_TYPES:
+			grid = Gtk.Grid()
+			grid.set_column_spacing(12)
+			grid.set_row_spacing(4)
+			grid.props.margin_start = 12
+			grid.props.margin_end = 12
+			grid.props.margin_top = 12
+			grid.props.margin_bottom = 12
+			header = ['', _('Deg'), _('Aspect Name'), _('Visible\nin Circle'), _('Visible\nin Grid'), _('Orb')]
+			for col, text in enumerate(header):
+				grid.attach(Gtk.Label(label=text, justify=Gtk.Justification.CENTER), col, 0, 1, 1)
+			rows = []
+			saved = []
+			for row, aspect in enumerate(app.db.getSettingsAspect(ctype), start=1):
+				icon = Gtk.Image.new_from_file(os.path.join(app.cfg.iconAspects, '%s.svg' % (aspect['degree'])))
+				icon.set_pixel_size(16)
+				widgets = {'degree': aspect['degree']}
+				widgets['visible'] = Gtk.CheckButton(halign=Gtk.Align.CENTER)
+				widgets['visible'].set_active(aspect['visible'] == 1)
+				widgets['visible_grid'] = Gtk.CheckButton(halign=Gtk.Align.CENTER)
+				widgets['visible_grid'].set_active(aspect['visible_grid'] == 1)
+				#orb as text like the Gtk3 programs: accepts decimal point and comma,
+				#invalid input is marked instead of silently saved as 0
+				orb = aspect['orb']
+				widgets['orb'] = Gtk.Entry()
+				widgets['orb'].set_width_chars(6)
+				widgets['orb'].set_max_length(6)
+				widgets['orb'].set_alignment(1.0)
+				widgets['orb'].set_input_purpose(Gtk.InputPurpose.NUMBER)
+				widgets['orb'].set_text(self.aspectOrbText(orb))
+				line = [icon, Gtk.Label(label='%s°' % (aspect['degree']), xalign=1),
+					Gtk.Label(label=aspect['name'], xalign=0), widgets['visible'], widgets['visible_grid'], widgets['orb']]
+				for col, widget in enumerate(line):
+					grid.attach(widget, col, row, 1, 1)
+				rows.append(widgets)
+				saved.append({'degree':aspect['degree'], 'visible':aspect['visible'],
+					'visible_grid':aspect['visible_grid'], 'orb':orb})
+			self.aspectsData[ctype] = rows
+			self.aspectsSaved[ctype] = saved
+			scrolled_window = Gtk.ScrolledWindow()
+			scrolled_window.set_vexpand(True)
+			#show all aspects without scrolling if the screen allows
+			scrolled_window.set_propagate_natural_height(True)
+			scrolled_window.set_child(grid)
+			self.aspectsNotebook.append_page(scrolled_window, Gtk.Label(label=titles[ctype]))
+		vbox.append(self.aspectsNotebook)
+		#open the page of the chart shown
+		if app.type == "Transit":
+			if app.synastry:
+				self.aspectsNotebook.set_current_page(ASPECT_CHART_TYPES.index('synastry'))
+			else:
+				self.aspectsNotebook.set_current_page(ASPECT_CHART_TYPES.index('transit'))
+		else:
+			self.aspectsNotebook.set_current_page(ASPECT_CHART_TYPES.index('radix'))
+		#buttons
+		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+		button_box.set_homogeneous(True)
+		button_box.set_spacing(8)
+		button = Gtk.Button.new_with_mnemonic(label=_("Default"))
+		button.connect("clicked", self.settingsAspectsDefault)
+		button_box.append(button)
+		button = Gtk.Button.new_with_mnemonic(label=_("Cancel"))
+		button.connect("clicked", lambda w: self.win_SA.close())
+		button_box.append(button)
+		button = Gtk.Button.new_with_mnemonic(label=_("Apply"))
+		button.connect("clicked", lambda w: self.settingsAspectsSubmit(close=False))
+		button_box.append(button)
+		button = Gtk.Button.new_with_mnemonic(label=_("OK"))
+		button.connect("clicked", lambda w: self.settingsAspectsSubmit(close=True))
+		button_box.append(button)
+		vbox.append(button_box)
+		self.win_SA.set_child(vbox)
+		self.win_SA.present()
+
+	def settingsAspectsDefault(self, widget):
+		#reset the widgets of the current page only, saved with apply or ok
+		ctype = ASPECT_CHART_TYPES[self.aspectsNotebook.get_current_page()]
+		default = ASPECT_DEFAULTS[ctype]
+		for widgets in self.aspectsData[ctype]:
+			i = ASPECT_DEGREES.index(widgets['degree'])
+			widgets['visible'].set_active(default['visible'][i] == 1)
+			widgets['visible_grid'].set_active(default['visible_grid'][i] == 1)
+			widgets['orb'].set_text(self.aspectOrbText(default['orb'][i]))
+			widgets['orb'].remove_css_class('error')
+
+	def aspectOrbText(self, orb):
+		#orb with up to two decimals and the decimal point of the locale
+		text = ('%.2f' % (orb)).rstrip('0').rstrip('.')
+		return text.replace('.', locale.localeconv()['decimal_point'])
+
+	def aspectOrbParse(self, text, saved):
+		#orb from the entry (decimal point or comma), None if invalid,
+		#an unchanged orb keeps its stored value (no rounding of untouched data)
+		try:
+			orb = float(text.strip().replace(',', '.'))
+		except ValueError:
+			return None
+		if not math.isfinite(orb) or orb < 0:
+			return None
+		if round(orb, 2) == round(saved, 2):
+			return saved
+		if orb > ASPECT_ORB_MAX:
+			return None
+		return round(orb, 2)
+
+	def settingsAspectsSubmit(self, close=True):
+		new = {}
+		invalid = []
+		for ctype in ASPECT_CHART_TYPES:
+			rows = []
+			for i, widgets in enumerate(self.aspectsData[ctype]):
+				orb = self.aspectOrbParse(widgets['orb'].get_text(), self.aspectsSaved[ctype][i]['orb'])
+				if orb is None:
+					widgets['orb'].add_css_class('error')
+					if ctype not in invalid:
+						invalid.append(ctype)
+				else:
+					widgets['orb'].remove_css_class('error')
+				rows.append({'degree':widgets['degree'],
+					'visible':int(widgets['visible'].get_active()),
+					'visible_grid':int(widgets['visible_grid'].get_active()),
+					'orb':orb})
+			new[ctype] = rows
+		if invalid:
+			#nothing is saved, show the first page with an invalid orb
+			dprint('settingsAspectsSubmit: invalid orb in %s' % (invalid))
+			self.aspectsNotebook.set_current_page(ASPECT_CHART_TYPES.index(invalid[0]))
+			return
+		changed = []
+		for ctype in ASPECT_CHART_TYPES:
+			if new[ctype] != self.aspectsSaved[ctype]:
+				dprint('settingsAspectsSubmit: saving %s aspects' % (ctype))
+				app.db.setSettingsAspect(ctype, new[ctype])
+				self.aspectsSaved[ctype] = new[ctype]
+				changed.append(ctype)
+		if changed:
+			#keep zoom level
+			scale = self.image.scale
+			self.updateChart()
+			self.image.scale = scale
+			self.settingsAspectsTables(changed)
+		if close:
+			self.win_SA.close()
+
+	def settingsAspectsTables(self, changed):
+		#redraw open table windows with the changed aspect sets, the table
+		#of self.tabletype is drawn last (shared temp file and page count)
+		tables = []
+		if 'transit' in changed:
+			tables.append('timeline')
+		if 'radix' in changed:
+			tables.append('cuspaspects')
+		tables.sort(key=lambda t: t == getattr(self, 'tabletype', None))
+		for table in tables:
+			if table == 'timeline':
+				window = getattr(self, 'win_TMT', None)
+				if window is None or not window.get_visible():
+					continue
+				app.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
+			else:
+				window = getattr(self, 'win_TCA', None)
+				if window is None or not window.get_visible():
+					continue
+				app.makeCuspAspectsSVG(printing=None)
+			window.image.setupSVG(app.cfg.tempfilenametable)
+			window.image.queue_resize()
+
+	def settingsAspectsClose(self, window):
+		#forget the window, gtk destroys it after this handler
+		self.win_SA = None
+		self.aspectsData = {}
+		self.aspectsSaved = {}
+		return False
+
+	"""
 	Menu item to set home location:
 		settingsLocation
 		settingsLocationSubmit
@@ -3631,6 +3979,12 @@ class AstroWindow(Gtk.ApplicationWindow):
 	 'Chart Types' Menu Items Callbacks
 	  specialRadix
 	  specialTransit
+	  makeTransitBar
+	  setTransitNow
+	  setTransitDate
+	  transitSpinChanged
+	  transitSpinOutput
+	  transitRedraw
 	  specialSolar
 	  specialProgression
 	"""
@@ -3641,29 +3995,116 @@ class AstroWindow(Gtk.ApplicationWindow):
 		self.updateChart()
 
 	def specialTransit_callback(self, action, parameter):
-		app.type = "Transit"
-		app.charttype = app.label["transit"]
-		app.transit = True
-		app.t_geolon = float(app.home_geolon)
-		app.t_geolat = float(app.home_geolat)
+		#transit at home location, nearest timezone if home has none
+		app.t_timezonestr = app.home_timezonestr
+		if app.t_timezonestr not in pytz.all_timezones_set:
+			app.t_timezonestr = zonetab.nearest_tz(float(app.home_geolat), float(app.home_geolon), zonetab.timezones())[2]
+		self.transitZone.set_tooltip_text('%s (%s)' % (app.home_location, app.t_timezonestr))
+		self.transitBar.set_visible(True)
+		self.setTransitNow()
 
-		now = datetime.datetime.now()
-		app.timezone_str = zonetab.nearest_tz(app.t_geolat, app.t_geolon, zonetab. timezones())[2]
-		#aware datetime object
-		dt_input = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second)
-		dt = pytz.timezone(app.timezone_str).localize(dt_input)
-		#naive utc datetime object
-		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
-		#transit data
-		app.t_year = dt_utc.year
-		app.t_month = dt_utc.month
-		app.t_day = dt_utc.day
-		app.t_hour = app.decHourJoin(dt_utc.hour, dt_utc.minute, dt_utc.second)
-		app.t_timezone = app.offsetToTz(dt.utcoffset())
-		app.t_altitude = 25
-		#make svg with transit
-		app.charttype = "%s (%s-%02d-%02d %02d:%02d)" % (app.charttype, dt.year, dt.month, dt.day, dt.hour, dt.minute)
+	""" Date bar for transit charts, chart is updated on the fly """
+	def makeTransitBar(self):
+		self.transitSpinLock = False
+		self.transitRedrawPending = False
+		bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+		bar.props.margin_start = 12
+		bar.props.margin_end = 12
+		bar.props.margin_top = 6
+		bar.props.margin_bottom = 6
+		bar.append(Gtk.Label(label=_("Transit")+":"))
+		#bounds exceed the valid values by one page, so that stepping
+		#beyond the last day, month, hour or minute carries over
+		spinners = [
+			('D', _("Day"), -6, 38, 7),
+			('M', _("Month"), -2, 15, 3),
+			('Y', _("Year"), TRANSIT_YEAR_MIN, TRANSIT_YEAR_MAX, 10),
+			('h', _("Hour"), -6, 29, 6),
+			('m', _("Min"), -15, 74, 15) ]
+		self.transitSpin = {}
+		for key, label, lower, upper, page in spinners:
+			bar.append(Gtk.Label(label=label))
+			adjustment = Gtk.Adjustment(lower=lower, upper=upper, step_increment=1, page_increment=page)
+			spinner = Gtk.SpinButton()
+			spinner.props.adjustment = adjustment
+			spinner.set_numeric(True)
+			if key == 'Y':
+				spinner.set_width_chars(4)
+			else:
+				spinner.set_width_chars(2)
+				spinner.connect("output", self.transitSpinOutput)
+			spinner.connect("value-changed", self.transitSpinChanged, key)
+			self.transitSpin[key] = spinner
+			bar.append(spinner)
+		#timezone of transit
+		self.transitZone = Gtk.Label()
+		bar.append(self.transitZone)
+		button = Gtk.Button.new_with_mnemonic(label=_("Here and Now"))
+		button.connect("clicked", lambda w: self.setTransitNow())
+		bar.append(button)
+		bar.set_visible(False)
+		return bar
+
+	def setTransitNow(self):
+		now = datetime.datetime.now(pytz.timezone(app.t_timezonestr))
+		self.setTransitDate(now.replace(tzinfo=None, second=0, microsecond=0))
+
+	""" Set transit to local datetime dt, show it in the date bar and redraw """
+	def setTransitDate(self, dt):
+		#stay within the range of the ephemeris files
+		if dt.year < TRANSIT_YEAR_MIN or dt.year > TRANSIT_YEAR_MAX:
+			dt = self.transitDate
+		self.transitDate = dt
+		#show carried over values
+		self.transitSpinLock = True
+		self.transitSpin['D'].set_value(dt.day)
+		self.transitSpin['M'].set_value(dt.month)
+		self.transitSpin['Y'].set_value(dt.year)
+		self.transitSpin['h'].set_value(dt.hour)
+		self.transitSpin['m'].set_value(dt.minute)
+		self.transitSpinLock = False
+		dt_aware = app.localToTransit(dt)
+		self.transitZone.set_text(dt_aware.tzname() + app.decTzStr(app.t_timezone))
+		#fast scrolling through the dates is gathered into one redraw
+		if not self.transitRedrawPending:
+			self.transitRedrawPending = True
+			GLib.idle_add(self.transitRedraw)
+
+	def transitSpinChanged(self, spinner, key):
+		if self.transitSpinLock:
+			return
+		dt = self.transitDate
+		value = spinner.get_value_as_int()
+		if key == 'Y' or key == 'M':
+			if key == 'Y':
+				year, month = value, dt.month
+			else:
+				#month 13 is january of next year, month 0 december of last year
+				year, month = divmod(dt.year * 12 + value - 1, 12)
+				month += 1
+			#keep day within month, e.g. 31st of january + 1 month = 28th of february
+			day = min(dt.day, calendar.monthrange(year, month)[1])
+			dt = dt.replace(year=year, month=month, day=day)
+		elif key == 'D':
+			dt += datetime.timedelta(days=value - dt.day)
+		elif key == 'h':
+			dt += datetime.timedelta(hours=value - dt.hour)
+		elif key == 'm':
+			dt += datetime.timedelta(minutes=value - dt.minute)
+		self.setTransitDate(dt)
+
+	def transitSpinOutput(self, spinner):
+		#two digits for day, month, hour and minute
+		spinner.set_text('%02d' % spinner.get_value_as_int())
+		return True
+
+	def transitRedraw(self):
+		self.transitRedrawPending = False
+		#keep zoom level while scrolling through the dates
+		scale = self.image.scale
 		self.updateChart()
+		self.image.scale = scale
+		return False
 
 	def specialSolar_callback(self, action, parameter):
 		# create a new window
@@ -4177,6 +4618,8 @@ class AstroApplication(Gtk.Application):
 		# ZOOM 1 = 100%
 		self.zoom = 1
 		self.type = "Radix"
+		# synastry is drawn as type Transit, flag selects the synastry aspect set
+		self.synastry = False
 		# Default dpi for svg
 		self.default_dpi=400
 
@@ -4189,7 +4632,7 @@ class AstroApplication(Gtk.Application):
 	def do_activate(self):
 		#translate menu items
 		menu_items = [ _('Application'),_('Maximize'),_('About'),_('Quit'),_('Settings'),
-			_('Set Location'),_('Configuration'),_('Chart Types'),_('Radix Chart'),
+			_('Set Location'),_('Configuration'),_('Aspects'),_('Chart Types'),_('Radix Chart'),
 			_('Transit Chart'),_('Synastry Chart'),_('Composite Chart'),_('Combine Chart'),
 			_('Solar Return'),_('Solar Progression'),_('Tables'),_('Monthly Timeline'),
 			_('Cusp Aspects'),_('Zoom'),_('Out'),_('80%'),_('100%'),_('150%'),
@@ -4308,6 +4751,30 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		self.transit = False
 		return
 
+	"""
+	 Transit
+	  local date and time at home location converted to UTC,
+	  daylight saving time is regarded for every date
+	"""
+	def localToTransit(self, dt):
+		#aware datetime object
+		dt_aware = pytz.timezone(self.t_timezonestr).localize(dt)
+		#naive utc datetime object
+		dt_utc = dt_aware.replace(tzinfo=None) - dt_aware.utcoffset()
+		self.t_year = dt_utc.year
+		self.t_month = dt_utc.month
+		self.t_day = dt_utc.day
+		self.t_hour = self.decHourJoin(dt_utc.hour, dt_utc.minute, dt_utc.second)
+		self.t_timezone = self.offsetToTz(dt_aware.utcoffset())
+		self.t_geolon = float(self.home_geolon)
+		self.t_geolat = float(self.home_geolat)
+		self.t_altitude = 25
+		self.type = "Transit"
+		self.charttype = "%s (%s-%02d-%02d %02d:%02d)" % (self.label["transit"], dt.year, dt.month, dt.day, dt.hour, dt.minute)
+		self.transit = True
+		self.synastry = False
+		return dt_aware
+
 	""" make horoscope with zodiac ring """
 	def makeSVG( self , printing=None ):
 		#empty element points
@@ -4317,8 +4784,16 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		self.water=0.0
 		#get database planet settings	
 		self.planets = self.db.getSettingsPlanet()
-		#get database aspect settings
-		self.aspects = self.db.getSettingsAspect()
+		#get database aspect settings of the chart type (synastry is drawn as transit)
+		if self.type == "Transit":
+			if self.synastry:
+				self.aspectset = 'synastry'
+			else:
+				self.aspectset = 'transit'
+		else:
+			#Radix, Composite, Combine, Solar, SecondaryProgression
+			self.aspectset = 'radix'
+		self.aspects = self.db.getSettingsAspect(self.aspectset)
 		#update the labels
 		self.label = self.db.getLabel()
 		#Combine module data
@@ -4483,6 +4958,8 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			td['makeAspects'] = self.makeAspectsTransit( r , (r-160))
 			td['makeAspectGrid'] = self.makeAspectTransitGrid( r )
 			td['makePatterns'] = ''
+			#list of transit aspects takes the place of zodiac legend
+			td['makeLegend'] = ''
 		else:
 			td['transitRing'] = ""
 			td['degreeRing'] = self.degreeRing( r )
@@ -4496,6 +4973,7 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			td['makeAspects'] = self.makeAspects( r , (r-self.c3))
 			td['makeAspectGrid'] = self.makeAspectGrid( r )
 			td['makePatterns'] = self.makePatterns()
+			td['makeLegend'] = self.makeLegend()
 		td['circleX']=str(0)
 		td['circleY']=str(0)
 		td['svgWidth']=str(svgWidth)
@@ -4584,6 +5062,17 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		postype={"geo":self.label["apparent_geocentric"],"truegeo":self.label["true_geocentric"],
 				"topo":self.label["topocentric"],"helio":self.label["heliocentric"]}
 		td['stringPosition']=postype[self.db.astrocfg['postype']]
+		#header lines (x,y and font size as in template) keep clear of the
+		#chart circle, in transit charts also of the transit degrees outside
+		keep = r + 4
+		if self.type == "Transit":
+			keep = r + 16
+		header = [('stringTitle',30,24), ('stringName',50,12), ('stringLocation',62,10),
+			('stringDateTime',74,10), ('stringLat',86,10), ('stringLon',98,10), ('stringPosition',110,10)]
+		for key, y, size in header:
+			fit = self.fitFontSize(td[key], size, 20, y, "start", keep)
+			if fit < size:
+				td[key] = '<tspan style="font-size: %spx;">%s</tspan>' % (fit, td[key])
 		#paper_color_X
 		td['paper_color_0']=self.colors["paper_0"]
 		td['paper_color_1']=self.colors["paper_1"]
@@ -4608,7 +5097,6 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		td['makeHouses'] = self.makeHouses( r )
 		td['makePlanets'] = self.makePlanets( r )
 		td['makeElements'] = self.makeElements( r )
-		td['makeLegend'] = self.makeLegend()
 		td['makePlanetGrid'] = self.makePlanetGrid()
 		td['makeHousesGrid'] = self.makeHousesGrid()
 		#read template
@@ -4629,6 +5117,8 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 
 	""" make graphic for monthly timeline """
 	def makeTimelineSVG(self,printing,y,m):
+		#transits of the month use the aspect settings of transit charts
+		aspects = self.db.getSettingsAspect('transit')
 		tz = datetime.timedelta(seconds=float(self.timezone)*float(3600))
 		startdate = datetime.datetime(y,m,1,12) - tz
 		q,r = divmod(startdate.month, 12)
@@ -4653,35 +5143,27 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 					#skip moon on tmoddate
 					if x == 1:
 						continue
-					#loop orbs
-					if (self.planets[i]['visible'] == 1) & (self.planets[x]['visible'] == 1):	
-						for z in range(len(self.aspects)):
-							#only major aspects
-							if self.aspects[z]['is_major'] != 1:
-								continue
-							#check for personal planets and determine orb
-							orb_before = 4
-							orb_after = 4
-							#check if we want to display this aspect	
-							if	( float(self.aspects[z]['degree']) - orb_before ) <= diff <= ( float(self.aspects[z]['degree']) + orb_after ):
-								orb = diff - self.aspects[z]['degree']
-								if orb < 0:
-									orb = orb/-1						
-								#aspect grid dictionary
-								s="%02d%02d%02d"%(i,z,x)
-								astypes[s]=(i,x,z)
+					#aspect with orb of the transit aspect set
+					if (self.planets[i]['visible'] == 1) & (self.planets[x]['visible'] == 1):
+						z = self.matchAspect(diff, aspects)
+						if z is not None and aspects[z]['visible_grid'] == 1:
+							orb = abs(diff - aspects[z]['degree'])
+							#aspect grid dictionary
+							s="%02d%02d%02d"%(i,z,x)
+							astypes[s]=(i,x,z)
 
-								if s not in retrogrid:
-									retrogrid[s]={}
-								retrogrid[s][d]=tmoddata.planets_retrograde[x]
+							if s not in retrogrid:
+								retrogrid[s]={}
+							retrogrid[s][d]=tmoddata.planets_retrograde[x]
 
-								if s not in atgrid:
-									atgrid[s]={}
-								atgrid[s][d]=orb
+							if s not in atgrid:
+								atgrid[s]={}
+							atgrid[s][d]=orb
 		#sort
 		keys = list(astypes.keys())
 		keys.sort()
-		self.pages = int(math.ceil(len(keys)/65.0))
+		#at least one page (all transit aspects may be hidden)
+		self.pages = max(1, int(math.ceil(len(keys)/65.0)))
 		out = ""
 		#make numbers of days in month
 		dx=[80]
@@ -4735,24 +5217,33 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 				y,self.svgSafeHref(self.planets[x]['name']))
 			#aspect
 			out += '<g><use x="20" y="%s" xlink:href="#orb%s" /></g>\n'%(
-				y,self.aspects[z]['degree'])			
+				y,aspects[z]['degree'])
 			#inner planet
 			out += '<g transform="translate(40,%s)"><g transform="scale(.5)"><use x="0" y="0" xlink:href="#%s" /></g></g>\n'%(y,
 				self.svgSafeHref(self.planets[i]['name']))		
 			for d in range(delta.days):					
 				if d in atgrid[keys[m]]:
 					orb = atgrid[keys[m]][d]
-					op = .1+(.7-(orb/(4/.7))) #4 is maxorb
+					#opacity from .8 (exact) to .1 (at the orb of the aspect)
+					maxorb = aspects[z]['orb']
+					if maxorb > 0:
+						op = .8-.7*(orb/maxorb)
+					else:
+						op = .8
 					if op > 1:
 						op = 1
-					strop = str(float(orb))
-					out += '<rect x="%s" y="%s" width="20" height="16" style="fill: %s; fill-opacity:%s;" />'%(dx[d]-5,y-1,self.colors["aspect_%s" %(self.aspects[z]['degree'])],op)
+					#orb label fitting the day cell: one decimal (truncated) below 10 degrees
+					if orb < 10:
+						strop = '%.1f' % (math.floor(orb*10)/10.0)
+					else:
+						strop = '%d' % (int(orb))
+					out += '<rect x="%s" y="%s" width="20" height="16" style="fill: %s; fill-opacity:%s;" />'%(dx[d]-5,y-1,self.colors["aspect_%s" %(aspects[z]['degree'])],op)
 					#check for retrograde outer planet
 					if retrogrid[keys[m]][d]:
 						out += '<g transform="translate(%s,%s)"><g transform="scale(.3)">\
 							<use x="0" y="0" xlink:href="#retrograde" style="fill:%s; fill-opacity:.8;" /></g></g>\n'%(dx[d]+10,y+10,self.colors['paper_0'],)							
 					out += '<text x="%s" y="%s" style="fill: %s; font-size: 10">%s</text>\n'%(
-						dx[d],y+9,self.colors['paper_0'],strop[:3])
+						dx[d],y+9,self.colors['paper_0'],strop)
 				else:
 					out += ""
 		#template
@@ -4763,8 +5254,8 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			td['planets_color_%s'%(i)]=self.colors["planet_%s"%(i)]
 		for i in range(12):
 			td['zodiac_color_%s'%(i)]=self.colors["zodiac_icon_%s" %(i)]
-		for i in range(len(self.aspects)):
-			td['orb_color_%s'%(self.aspects[i]['degree'])]=self.colors["aspect_%s" %(self.aspects[i]['degree'])]
+		for deg in ASPECT_DEGREES:
+			td['orb_color_%s'%(deg)]=self.colors["aspect_%s" %(deg)]
 		td['stringTitle'] = "%s Timeline for %s"%(
 			startdate.strftime("%B %Y"),self.name)
 		self.pagesY = (1188 * self.pages)+10 #ten is buffer between self.pages
@@ -4801,6 +5292,8 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 
 	""" make graphic for cusp aspects """
 	def makeCuspAspectsSVG(self, printing):
+		#cusp aspects belong to the radix, app.aspects may hold the transit set
+		aspects = app.db.getSettingsAspect('radix')
 		#data
 		out='<g transform="scale(1.5)">'
 		xindent=50
@@ -4831,9 +5324,9 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 				end=app.houses_degree_ut[b]
 				diff=app.degreeDiff(start,end)
 				out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n'%(xindent,yorb,box,box,style)
-				for z in range(len(app.aspects)):
-					if	( float(app.aspects[z]['degree']) - float(app.aspects[z]['orb']) ) <= diff <= ( float(app.aspects[z]['degree']) + float(app.aspects[z]['orb']) ) and app.aspects[z]['visible_grid'] == 1:
-							out += '<use x="%s" y="%s" xlink:href="#orb%s" />\n'%(xindent,yorb+1,app.aspects[z]['degree'])
+				z = app.matchAspect(float(diff), aspects)
+				if z is not None and aspects[z]['visible_grid'] == 1:
+					out += '<use x="%s" y="%s" xlink:href="#orb%s" />\n'%(xindent,yorb+1,aspects[z]['degree'])
 				yorb=yorb-box
 			xindent += box
 		#add cusp to cusp
@@ -4856,9 +5349,9 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 				end=app.houses_degree_ut[b]
 				diff=app.degreeDiff(start,end)
 				out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n'%(xindent,yorb,box,box,style)
-				for z in range(len(app.aspects)):
-					if	( float(app.aspects[z]['degree']) - float(app.aspects[z]['orb']) ) <= diff <= ( float(app.aspects[z]['degree']) + float(app.aspects[z]['orb']) ) and app.aspects[z]['visible_grid'] == 1:
-							out += '<use x="%s" y="%s" xlink:href="#orb%s" />\n'%(xindent,yorb+1,app.aspects[z]['degree'])
+				z = app.matchAspect(float(diff), aspects)
+				if z is not None and aspects[z]['visible_grid'] == 1:
+					out += '<use x="%s" y="%s" xlink:href="#orb%s" />\n'%(xindent,yorb+1,aspects[z]['degree'])
 				yorb=yorb-box
 			xindent += box	
 		out += "</g>"
@@ -4870,8 +5363,8 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			td['planets_color_%s'%(i)]=app.colors["planet_%s"%(i)]
 		for i in range(12):
 			td['zodiac_color_%s'%(i)]=app.colors["zodiac_icon_%s" %(i)]
-		for i in range(len(app.aspects)):
-			td['orb_color_%s'%(app.aspects[i]['degree'])]=app.colors["aspect_%s" %(app.aspects[i]['degree'])]
+		for deg in ASPECT_DEGREES:
+			td['orb_color_%s'%(deg)]=app.colors["aspect_%s" %(deg)]
 		td['stringTitle'] = "Cusp Aspects for %s"%(app.name)
 		self.pages=1
 		#ten is buffer between self.pages
@@ -5571,6 +6064,25 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		# return out
 		return ''
 
+	def matchAspect( self , diff , aspects=None ):
+		"""
+		index of the aspect nearest to diff (separation 0..180) within its orb,
+		only aspects shown as line or in grid take part, None if no aspect matches;
+		one aspect per pair keeps line and grid consistent when orbs overlap
+		"""
+		if aspects is None:
+			aspects = self.aspects
+		best = None
+		best_dev = None
+		for z in range(len(aspects)):
+			if aspects[z]['visible'] != 1 and aspects[z]['visible_grid'] != 1:
+				continue
+			dev = abs(diff - aspects[z]['degree'])
+			if dev <= aspects[z]['orb'] and (best_dev is None or dev < best_dev):
+				best = z
+				best_dev = dev
+		return best
+
 	def makeAspects( self , r , ar ):
 		out=""
 		for i in range(len(self.planets)):
@@ -5578,13 +6090,12 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			for x in range(i):
 				end=self.planets_degree_ut[x]
 				diff=float(self.degreeDiff(start,end))
-				# loop orbs
+				# aspect with orb of the current aspect set
 				if (self.planets[i]['visible_aspect_line'] == 1) & (self.planets[x]['visible_aspect_line'] == 1):
-					for z in range(len(self.aspects)):
-						if	( float(self.aspects[z]['degree']) - float(self.aspects[z]['orb']) ) <= diff <= ( float(self.aspects[z]['degree']) + float(self.aspects[z]['orb']) ):
-							# check if we want to display this aspect
-							if self.aspects[z]['visible'] == 1:
-								out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])] )
+					z = self.matchAspect(diff)
+					# check if we want to display this aspect
+					if z is not None and self.aspects[z]['visible'] == 1:
+						out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])] )
 		return out
 
 	def makeAspectsTransit( self , r , ar ):
@@ -5592,46 +6103,54 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		self.atgrid=[]
 		for i in range(len(self.planets)):
 			start=self.planets_degree_ut[i]
-			for x in range(i+1):
+			# every radix planet against every transit (synastry) planet
+			for x in range(len(self.planets)):
 				end=self.t_planets_degree_ut[x]
 				diff=float(self.degreeDiff(start,end))
-				# loop orbs
+				# symmetric orb of the transit or synastry aspect set
 				if (self.planets[i]['visible'] == 1) & (self.planets[x]['visible'] == 1):
-					for z in range(len(self.aspects)):
-						# check for personal planets and determine orb
-						if 0 <= i <= 4 or 0 <= x <= 4:
-							orb_before = 1.0
-						else:
-							orb_before = 2.0
-						# check if we want to display this aspect
-						if	( float(self.aspects[z]['degree']) - orb_before ) <= diff <= ( float(self.aspects[z]['degree']) + 1.0 ):
-							if self.aspects[z]['visible'] == 1:
-								out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.t_planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])] )
-							# aspect grid dictionary
-							if self.aspects[z]['visible_grid'] == 1:
-								self.atgrid.append({})
-								self.atgrid[-1]['p1']=i
-								self.atgrid[-1]['p2']=x
-								self.atgrid[-1]['aid']=z
-								self.atgrid[-1]['diff']=diff
+					z = self.matchAspect(diff)
+					if z is None:
+						continue
+					# check if we want to display this aspect
+					if self.aspects[z]['visible'] == 1:
+						out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.t_planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])] )
+					# aspect grid dictionary
+					if self.aspects[z]['visible_grid'] == 1:
+						self.atgrid.append({})
+						self.atgrid[-1]['p1']=i
+						self.atgrid[-1]['p2']=x
+						self.atgrid[-1]['aid']=z
+						self.atgrid[-1]['diff']=diff
 		return out
 
 	def makeAspectTransitGrid( self , r ):
-		out = '<g transform="translate(500,310)">'
-		out += '<text y="-15" x="0" style="fill:%s; font-size: 12px;">%s</text>\n' % (self.colors['paper_0'],_("Planets in Transit"))
-		line = 0
-		nl = 0
-		for i in range(len(self.atgrid)):
-			if i == 12:
-				nl = 100
-				if len(self.atgrid) > 24:
-					line = -1 * ( len(self.atgrid) - 24) * 14
-				else:
-					line = 0
-			out += '<g transform="translate(%s,%s)">' % (nl,line)
+		# list fills the box below planet and houses grid down to the bottom,
+		# coordinates relative to group translate(50,50) of template
+		visible = [i for i in range(min(27, len(self.planets))) if self.planets[i]['visible'] == 1]
+		top = 14 * (max(12, len(visible)) - 1)
+		left = 502
+		width = 216.0
+		height = 490.0 - (top + 8)
+		colw = 105.0
+		rowh = 14.0
+		# number of columns allowing the largest scale (not above 1)
+		n = len(self.atgrid)
+		cols, scale = 1, 0.0
+		for c in range(1, max(1, n) + 1):
+			s = min(1.0, width / (c * colw - 10.0), height / (max(1, -(-n // c)) * rowh))
+			if s > scale + 0.001:
+				cols, scale = c, s
+		rows = max(1, -(-n // cols))
+		out = '<g transform="translate(%s,%s)">' % (left, top)
+		out += '<text y="0" x="0" style="fill:%s; font-size: 12px;">%s</text>\n' % (self.colors['paper_0'],_("Planets in Transit"))
+		out += '<g transform="translate(0,8) scale(%s)">' % (round(scale, 3))
+		for i in range(n):
+			col, row = divmod(i, rows)
+			out += '<g transform="translate(%s,%s)">' % (col * colw, row * rowh)
 			# first planet symbol
 			out += '<use transform="scale(0.4)" x="0" y="3" xlink:href="#%s" />\n' % (
-				self.planets[self.atgrid[i]['p2']]['name'])
+				self.svgSafeHref(self.planets[self.atgrid[i]['p2']]['name']))
 			# aspect symbol
 			out += '<use  x="15" y="0" xlink:href="#orb%s" />\n' % (
 				self.aspects[self.atgrid[i]['aid']]['degree'])
@@ -5646,8 +6165,7 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 				self.dec2deg(self.atgrid[i]['diff']) )
 			# line
 			out += '</g>'
-			line = line + 14
-		out += '</g>'
+		out += '</g></g>'
 		return out
 
 	def makeAspectGrid( self , r ):
@@ -5676,9 +6194,9 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 						diff=self.degreeDiff(start,end)
 						out = out + '<rect x="'+str(xorb)+'" y="'+str(yorb)+'" width="'+str(box)+'" height="'+str(box)+'" style="'+style+'"/>\n'
 						xorb=xorb+box
-						for z in range(len(self.aspects)):
-							if	( float(self.aspects[z]['degree']) - float(self.aspects[z]['orb']) ) <= diff <= ( float(self.aspects[z]['degree']) + float(self.aspects[z]['orb']) ) and self.aspects[z]['visible_grid'] == 1:
-									out = out + '<use  x="'+str(xorb-box+1)+'" y="'+str(yorb+1)+'" xlink:href="#orb'+str(self.aspects[z]['degree'])+'" />\n'
+						z = self.matchAspect(float(diff))
+						if z is not None and self.aspects[z]['visible_grid'] == 1:
+							out = out + '<use  x="'+str(xorb-box+1)+'" y="'+str(yorb+1)+'" xlink:href="#orb'+str(self.aspects[z]['degree'])+'" />\n'
 		return out
 
 	def makeElements( self , r ):
@@ -5751,6 +6269,28 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		out = out + '</g>\n'
 		return out
 
+	"""
+	 Font size for a line of text beside the chart circle, so that it keeps
+	 a distance 'keep' from the centre. x,y are page coordinates of anchor
+	 and baseline, text width is estimated with 0.45 em per character
+	"""
+	def fitFontSize( self, text, size, x, y, anchor, keep ):
+		# centre of chart circle on page, see template
+		cx = cy = 50 + RADIUS
+		# point of text nearest to the centre in vertical direction
+		dy = min(max(cy, y - 0.8 * size), y + 0.2 * size) - cy
+		if abs(dy) >= keep:
+			return size
+		dx = math.sqrt(keep * keep - dy * dy)
+		if anchor == "end":
+			room = x - (cx + dx)
+		else:
+			room = (cx - dx) - x
+		width = 0.45 * size * len(text)
+		if width <= room:
+			return size
+		return max(6.0, round(size * room / width, 1))
+
 	def makePlanetGrid( self ):
 		out = '<g transform="translate(510,-40)">'
 		# loop over all planets
@@ -5763,8 +6303,9 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			if self.planets[i]['visible'] == 1:
 				# start of line
 				out = out + '<g transform="translate(%s,%s)">' % (offset,li)
-				# planet text
-				out = out + '<text text-anchor="end" style="fill:%s; font-size: 10px;">%s</text>' % (self.colors['paper_0'],self.planets[i]['label'])
+				# planet text, long labels are scaled down to keep clear of chart circle
+				size = self.fitFontSize(self.planets[i]['label'], 10, 560+offset, 10+li, "end", RADIUS+4)
+				out = out + '<text text-anchor="end" style="fill:%s; font-size: %spx;">%s</text>' % (self.colors['paper_0'],size,self.planets[i]['label'])
 				# planet symbol
 				out = out + '<g transform="translate(5,-8)"><use transform="scale(0.4)" xlink:href="#'+self.svgSafeHref(self.planets[i]['name'])+'" /></g>'
 				# planet degree
