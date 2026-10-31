@@ -208,6 +208,18 @@ msgstr ""
 msgid "Osc. Lilith"
 msgstr ""
 
+#: ./astroChart.py:1059 ./astroChart.py:1313
+msgid "True Node"
+msgstr ""
+
+#: ./astroChart.py:1061 ./astroChart.py:1315
+msgid "Intp. Lilith"
+msgstr ""
+
+#: ./astroChart.py:1061 ./astroChart.py:1315
+msgid "Intp. Perigee"
+msgstr ""
+
 #: ./astroChart.py:974 ./astroChart.py:1197 ./openastro:629
 msgid "Earth"
 msgstr ""

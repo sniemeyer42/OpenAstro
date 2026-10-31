@@ -91,10 +91,18 @@ class ephData:
 						self.planets_degree[i] = res[0] - deg_low
 						self.planets_degree_ut[i] = res[0]
 						#if latitude speed is negative, there is retrograde
-						if res[3] < 0:						
+						if res[3] < 0:
 							self.planets_retrograde[i] = True
 						else:
 							self.planets_retrograde[i] = False
+		#list index 14 is earth: swiss ephemeris returns 0 for a geocentric earth,
+		#seen from the earth it is opposite the sun (heliocentric stays as computed)
+		if openastrocfg['postype'] != "helio":
+			earth = (self.planets_degree_ut[0] + 180.0) % 360.0
+			self.planets_sign[14] = int(earth // 30) % 12
+			self.planets_degree[14] = earth - self.planets_sign[14] * 30.0
+			self.planets_degree_ut[14] = earth
+			self.planets_retrograde[14] = False
 		#available house systems:
 		"""
 		hsys= 		‘P’     Placidus

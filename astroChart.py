@@ -381,9 +381,6 @@ PLANET_DEFAULT_VISIBLE = [
 #asc based points (day pars, night pars, marriage pars) move as fast as the
 #ascendant, transiting they are hidden by default
 PLANET_TRANSIT_HIDDEN = ( 27 , 28 , 30 )
-#bodies not offered in the planet settings (like the Gtk3 programs):
-#true node, osc. apogee, earth, intp. apogee, intp. perigee
-PLANET_SETTINGS_SKIP = ( 11 , 13 , 14 , 21 , 22 )
 #first id of the angles (Asc, Mc, Dsc, Ic) and of the sensitive points
 PLANET_FIRST_ANGLE = 23
 PLANET_FIRST_POINT = 27
@@ -1059,9 +1056,9 @@ class OpenAstroSqlite:
 			self.value_settings_planet['label'] = [
 				_('Sun'),_('Moon'), _('Mercury'),_('Venus'), _('Mars'),
 				_('Jupiter'), _('Saturn'), _('Uranus'), _('Neptune'),
-				_('Pluto'), _('North Node'),'?', _('Lilith'), _('Osc. Lilith'),
+				_('Pluto'), _('North Node'),_('True Node'), _('Lilith'), _('Osc. Lilith'),
 				_('Earth'), _('Chiron'), _('Pholus'), _('Ceres'), _('Pallas'),
-				_('Juno'),_('Vesta'), 'intp. apogee', 'intp. perigee',
+				_('Juno'),_('Vesta'), _('Intp. Lilith'), _('Intp. Perigee'),
 				_('Asc'), _('Mc'), _('Dsc'), _('Ic'), _('Day Pars'),
 				_('Night Pars'),_('South Node'),_('Marriage Pars'),
 				_('Black Sun'), _('Vulcanus'), _('Persephone'),_('True Lilith')
@@ -1313,9 +1310,9 @@ class OpenAstroSqlite:
 		planet_labels = [
 			_('Sun'),_('Moon'), _('Mercury'),_('Venus'), _('Mars'),
 			_('Jupiter'), _('Saturn'), _('Uranus'), _('Neptune'),
-			_('Pluto'), _('North Node'),'?', _('Lilith'), _('Osc. Lilith'),
+			_('Pluto'), _('North Node'),_('True Node'), _('Lilith'), _('Osc. Lilith'),
 			_('Earth'), _('Chiron'), _('Pholus'), _('Ceres'), _('Pallas'),
-			_('Juno'),_('Vesta'), 'intp. apogee', 'intp. perigee',
+			_('Juno'),_('Vesta'), _('Intp. Lilith'), _('Intp. Perigee'),
 			_('Asc'), _('Mc'), _('Dsc'), _('Ic'), _('Day Pars'),
 			_('Night Pars'),_('South Node'),_('Marriage Pars'),
 			_('Black Sun'), _('Vulcanus'), _('Persephone'),_('True Lilith')
@@ -3896,8 +3893,6 @@ class AstroWindow(Gtk.ApplicationWindow):
 			line = 0
 			for planet in app.db.getSettingsPlanet(ctype):
 				pid = planet['id']
-				if pid in PLANET_SETTINGS_SKIP:
-					continue
 				#header above planets, angles and sensitive points
 				if line == 0 or pid in (PLANET_FIRST_ANGLE, PLANET_FIRST_POINT):
 					if pid >= PLANET_FIRST_POINT:
@@ -6424,6 +6419,16 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		xindent=380
 		yindent=468
 		box=14
+		#the grid grows up and right from its lower left corner, more bodies than
+		#fit left of the zodiac legend (x=624) and below the planet list scale it down
+		left, bottom = xindent, yindent + box
+		n = len([p for p in self.planets if p['visible_aspect_grid'] == 1])
+		rows = len([i for i in range(min(27, len(self.planets))) if self.planets[i]['visible'] == 1])
+		width = 620.0 - left
+		height = bottom - (14 * rows - 34)
+		scale = 1.0
+		if n > 0:
+			scale = min(1.0, width / (n * box), height / (n * box))
 		revr=list(range(len(self.planets)))
 		revr.reverse()
 		for a in revr:
@@ -6447,6 +6452,9 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 						z = self.matchAspect(float(diff))
 						if z is not None and self.aspects[z]['visible_grid'] == 1:
 							out = out + '<use  x="'+str(xorb-box+1)+'" y="'+str(yorb+1)+'" xlink:href="#orb'+str(self.aspects[z]['degree'])+'" />\n'
+		if scale < 1.0:
+			out = '<g transform="translate(%s,%s) scale(%s) translate(%s,%s)">\n%s</g>\n' % (
+				left, bottom, round(scale, 3), -left, -bottom, out)
 		return out
 
 	def makeElements( self , r ):
