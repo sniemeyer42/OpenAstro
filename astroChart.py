@@ -60,6 +60,10 @@ MENU_XML = """
           <attribute name="label" translatable="yes">Aspects</attribute>
           <attribute name="action">win.settingsAspects</attribute>
         </item>
+        <item>
+          <attribute name="label" translatable="yes">Planets &amp; Angles</attribute>
+          <attribute name="action">win.settingsPlanets</attribute>
+        </item>
       </section>
     </submenu>
     <submenu>
@@ -365,6 +369,24 @@ ASPECT_DEFAULTS = {
 		'orb':          [ 6 , 1 , 1 , 4 , 1 , 5 , 5 , 1 , 1 , 2 , 6 ]
 		}
 	}
+#default visibility of the bodies (index = settings_planet id), used for
+#symbol, aspect line and aspect grid of radix charts and both sides of
+#transit and synastry charts
+PLANET_DEFAULT_VISIBLE = [
+	1,1,1,1,1,1,1,
+	1,1,1,1,0,1,0,
+	0,1,0,0,0,0,0,
+	0,0,1,1,0,0,1,
+	1,0,0,0,0,0,0]
+#asc based points (day pars, night pars, marriage pars) move as fast as the
+#ascendant, transiting they are hidden by default
+PLANET_TRANSIT_HIDDEN = ( 27 , 28 , 30 )
+#bodies not offered in the planet settings (like the Gtk3 programs):
+#true node, osc. apogee, earth, intp. apogee, intp. perigee
+PLANET_SETTINGS_SKIP = ( 11 , 13 , 14 , 21 , 22 )
+#first id of the angles (Asc, Mc, Dsc, Ic) and of the sensitive points
+PLANET_FIRST_ANGLE = 23
+PLANET_FIRST_POINT = 27
 #dimensions of chart
 CHARTX = 772.2 
 CHARTY = 546.0
@@ -1056,24 +1078,9 @@ class OpenAstroSqlite:
 			'#000000','#666f06','#000000','#000000','#000000','#000000','#000000',
 			'#000000','#000000','orange','#FF0000','#0000FF','#000000','#000000',
 			'#000000','#000000','#000000','#000000','#000000','#000000','#000000']
-			self.value_settings_planet['visible'] = [
-			1,1,1,1,1,1,1,
-			1,1,1,1,0,1,0,
-			0,1,0,0,0,0,0,
-			0,0,1,1,0,0,1,
-			1,0,0,0,0,0,0]
-			self.value_settings_planet['visible_aspect_line'] = [
-			1,1,1,1,1,1,1,
-			1,1,1,1,0,1,0,
-			0,1,0,0,0,0,0,
-			0,0,1,1,0,0,1,
-			1,0,0,0,0,0,0]
-			self.value_settings_planet['visible_aspect_grid'] = [
-			1,1,1,1,1,1,1,
-			1,1,1,1,0,1,0,
-			0,1,0,0,0,0,0,
-			0,0,1,1,0,0,1,
-			1,0,0,0,0,0,0]
+			self.value_settings_planet['visible'] = list(PLANET_DEFAULT_VISIBLE)
+			self.value_settings_planet['visible_aspect_line'] = list(PLANET_DEFAULT_VISIBLE)
+			self.value_settings_planet['visible_aspect_grid'] = list(PLANET_DEFAULT_VISIBLE)
 			self.value_settings_planet['element_points'] = [
 			40,40,15,15,15,10,10,
 			10,10,10,20,0,0,0,
@@ -1125,6 +1132,22 @@ class OpenAstroSqlite:
 						self.value_settings_planet['visible_aspect_grid'][i]
 				)
 				self.cursor.execute(sql,values)
+		#bodies of transit and synastry charts, radix side (visible) and transit or
+		#partner side (visible_transit); radix stays in settings_planet, which is
+		#shared with the Gtk3 programs; new rows take the radix visibility on every
+		#start, asc based points are hidden as transits
+		sql='CREATE TABLE IF NOT EXISTS settings_planet_chart (chart_type VARCHAR(16) NOT NULL\
+			 ,id INTEGER NOT NULL, visible INTEGER, visible_transit INTEGER\
+			 ,PRIMARY KEY (chart_type, id))'
+		self.cursor.execute(sql)
+		for ctype in ASPECT_CHART_TYPES:
+			if ctype == 'radix':
+				continue
+			hidden = PLANET_TRANSIT_HIDDEN if ctype == 'transit' else ()
+			sql='INSERT OR %s INTO settings_planet_chart (chart_type, id, visible, visible_transit)\
+				SELECT ?, id, visible, CASE WHEN id IN (%s) THEN 0 ELSE visible END FROM settings_planet' % (
+				self.dbpurge, ','.join(str(i) for i in hidden) or 'NULL')
+			self.cursor.execute(sql, (ctype,))
 		#commit initial changes
 		self.updateHistory()
 		self.link.commit()
@@ -1245,7 +1268,13 @@ class OpenAstroSqlite:
 		self.close()
 		return records
 
-	def getSettingsPlanet(self):
+	def getSettingsPlanet(self, chart_type='radix'):
+		"""
+		list of all bodies (dictionary per settings_planet row), chart_type is one
+		of ASPECT_CHART_TYPES: 'visible' shows the body of the chart (radix side of
+		transit and synastry charts), 'visible_transit' the transit or partner body;
+		transit and synastry take both from settings_planet_chart
+		"""
 		self.open()
 		sql = 'SELECT * FROM settings_planet ORDER BY id ASC'
 		self.cursor.execute(sql)
@@ -1256,7 +1285,31 @@ class OpenAstroSqlite:
 			for key, val in self.table_settings_planet.items():
 				s[key] = row[key]
 			planets.append(s)
+		chart_rows = {}
+		if chart_type in ASPECT_CHART_TYPES and chart_type != 'radix':
+			try:
+				sql = 'SELECT id, visible, visible_transit FROM settings_planet_chart WHERE chart_type=?'
+				self.cursor.execute(sql, (chart_type,))
+				for row in self.cursor:
+					chart_rows[row['id']] = row
+			except sqlite3.OperationalError:
+				dprint('getSettingsPlanet: no table settings_planet_chart, using radix')
 		self.close()
+		for planet in planets:
+			radix = aspectFlag(planet['visible'], 0)
+			if chart_type in ASPECT_CHART_TYPES and chart_type != 'radix':
+				transit = radix
+				if chart_type == 'transit' and planet['id'] in PLANET_TRANSIT_HIDDEN:
+					transit = 0
+				row = chart_rows.get(planet['id'])
+				if row is not None:
+					planet['visible'] = aspectFlag(row['visible'], radix)
+					planet['visible_transit'] = aspectFlag(row['visible_transit'], transit)
+				else:
+					planet['visible'] = radix
+					planet['visible_transit'] = transit
+			else:
+				planet['visible_transit'] = radix
 		planet_labels = [
 			_('Sun'),_('Moon'), _('Mercury'),_('Venus'), _('Mars'),
 			_('Jupiter'), _('Saturn'), _('Uranus'), _('Neptune'),
@@ -1271,6 +1324,26 @@ class OpenAstroSqlite:
 		for i, planet in enumerate(planets):
 			planet['label'] = planet_labels[i]
 		return planets
+
+	def setSettingsPlanet(self, chart_type, planets):
+		"""
+		save the visibility of bodies (list of dicts with id), radix into
+		settings_planet (visible, visible_aspect_line, visible_aspect_grid like the
+		Gtk3 planet settings), transit and synastry into settings_planet_chart
+		(visible, visible_transit)
+		"""
+		sql = []
+		values = []
+		for planet in planets:
+			if chart_type == 'radix':
+				sql.append('UPDATE settings_planet SET visible=?, visible_aspect_line=?, visible_aspect_grid=? WHERE id=?')
+				values.append((1 if planet['visible'] else 0, 1 if planet['visible_aspect_line'] else 0,
+					1 if planet['visible_aspect_grid'] else 0, planet['id']))
+			elif chart_type in ASPECT_CHART_TYPES:
+				sql.append('INSERT OR REPLACE INTO settings_planet_chart (chart_type, id, visible, visible_transit) VALUES(?,?,?,?)')
+				values.append((chart_type, planet['id'], 1 if planet['visible'] else 0, 1 if planet['visible_transit'] else 0))
+		if sql:
+			self.query(sql, values)
 
 	def getSettingsAspect(self, chart_type='radix'):
 		"""
@@ -1739,6 +1812,9 @@ class AstroWindow(Gtk.ApplicationWindow):
 		setAspects_action = Gio.SimpleAction.new("settingsAspects", None)
 		setAspects_action.connect("activate", self.setAspects_callback)
 		self.add_action(setAspects_action)
+		setPlanets_action = Gio.SimpleAction.new("settingsPlanets", None)
+		setPlanets_action.connect("activate", self.setPlanets_callback)
+		self.add_action(setPlanets_action)
 
 		# Menu 'Chart Types'
 		radix_action = Gio.SimpleAction.new("specialRadix", None)
@@ -3774,6 +3850,167 @@ class AstroWindow(Gtk.ApplicationWindow):
 		return False
 
 	"""
+	Menu item to set the shown bodies per chart type:
+		setPlanets_callback
+		settingsPlanetsDefault
+		settingsPlanetsSubmit
+		settingsPlanetsClose
+	"""
+	def setPlanets_callback(self, action, parameter):
+		#only one planet settings window
+		if getattr(self, 'win_SP', None) is not None:
+			self.win_SP.present()
+			return
+		self.win_SP = Gtk.Window(title=_("Planets & Angles Settings"), transient_for=self, modal=True)
+		self.win_SP.set_default_size(420,-1)
+		#window manager close button, cancel and ok all end in close-request
+		self.win_SP.connect('close-request', self.settingsPlanetsClose)
+		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True)
+		vbox.set_spacing(8)
+		vbox.props.margin_start = 16
+		vbox.props.margin_end = 16
+		vbox.props.margin_top = 16
+		vbox.props.margin_bottom = 16
+		#one notebook page per chart type, check boxes (planet setting, header):
+		#radix like the Gtk3 planet settings, transit and synastry per side
+		columns = {
+			'radix': [('visible', _('Symbol')), ('visible_aspect_line', _('Aspect Line')),
+				('visible_aspect_grid', _('Aspect Grid'))],
+			'transit': [('visible', _('Radix')), ('visible_transit', _('Transit'))],
+			'synastry': [('visible', _('Radix')), ('visible_transit', _('Partner'))]
+			}
+		titles = {'radix':_('Radix'), 'transit':_('Transit'), 'synastry':_('Synastry')}
+		self.planetsNotebook = Gtk.Notebook(vexpand=True)
+		self.planetsData = {}
+		self.planetsSaved = {}
+		for ctype in ASPECT_CHART_TYPES:
+			grid = Gtk.Grid()
+			grid.set_column_spacing(16)
+			grid.set_row_spacing(2)
+			grid.props.margin_start = 12
+			grid.props.margin_end = 12
+			grid.props.margin_top = 12
+			grid.props.margin_bottom = 12
+			rows = []
+			saved = []
+			line = 0
+			for planet in app.db.getSettingsPlanet(ctype):
+				pid = planet['id']
+				if pid in PLANET_SETTINGS_SKIP:
+					continue
+				#header above planets, angles and sensitive points
+				if line == 0 or pid in (PLANET_FIRST_ANGLE, PLANET_FIRST_POINT):
+					if pid >= PLANET_FIRST_POINT:
+						text = _('Point Label')
+					elif pid >= PLANET_FIRST_ANGLE:
+						text = _('Angle Label')
+					else:
+						text = _('Planet Label')
+					label = Gtk.Label(label=text, xalign=0)
+					label.add_css_class('heading')
+					if line > 0:
+						label.set_margin_top(10)
+					grid.attach(label, 0, line, 1, 1)
+					for col, (key, header) in enumerate(columns[ctype], start=1):
+						label = Gtk.Label(label=header, justify=Gtk.Justification.CENTER)
+						if line > 0:
+							label.set_margin_top(10)
+						grid.attach(label, col, line, 1, 1)
+					line += 1
+				grid.attach(Gtk.Label(label=planet['label'], xalign=0), 0, line, 1, 1)
+				widgets = {'id': pid}
+				values = {'id': pid}
+				for col, (key, header) in enumerate(columns[ctype], start=1):
+					values[key] = aspectFlag(planet[key], 0)
+					widgets[key] = Gtk.CheckButton(halign=Gtk.Align.CENTER)
+					widgets[key].set_active(values[key] == 1)
+					grid.attach(widgets[key], col, line, 1, 1)
+				rows.append(widgets)
+				saved.append(values)
+				line += 1
+			self.planetsData[ctype] = rows
+			self.planetsSaved[ctype] = saved
+			scrolled_window = Gtk.ScrolledWindow()
+			scrolled_window.set_vexpand(True)
+			scrolled_window.set_propagate_natural_height(True)
+			scrolled_window.set_max_content_height(560)
+			scrolled_window.set_child(grid)
+			self.planetsNotebook.append_page(scrolled_window, Gtk.Label(label=titles[ctype]))
+		vbox.append(self.planetsNotebook)
+		#open the page of the chart shown
+		if app.type == "Transit":
+			if app.synastry:
+				self.planetsNotebook.set_current_page(ASPECT_CHART_TYPES.index('synastry'))
+			else:
+				self.planetsNotebook.set_current_page(ASPECT_CHART_TYPES.index('transit'))
+		else:
+			self.planetsNotebook.set_current_page(ASPECT_CHART_TYPES.index('radix'))
+		#buttons
+		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+		button_box.set_homogeneous(True)
+		button_box.set_spacing(8)
+		button = Gtk.Button.new_with_mnemonic(label=_("Default"))
+		button.connect("clicked", self.settingsPlanetsDefault)
+		button_box.append(button)
+		button = Gtk.Button.new_with_mnemonic(label=_("Cancel"))
+		button.connect("clicked", lambda w: self.win_SP.close())
+		button_box.append(button)
+		button = Gtk.Button.new_with_mnemonic(label=_("Apply"))
+		button.connect("clicked", lambda w: self.settingsPlanetsSubmit(close=False))
+		button_box.append(button)
+		button = Gtk.Button.new_with_mnemonic(label=_("OK"))
+		button.connect("clicked", lambda w: self.settingsPlanetsSubmit(close=True))
+		button_box.append(button)
+		vbox.append(button_box)
+		self.win_SP.set_child(vbox)
+		self.win_SP.present()
+
+	def settingsPlanetsDefault(self, widget):
+		#reset the widgets of the current page only, saved with apply or ok
+		ctype = ASPECT_CHART_TYPES[self.planetsNotebook.get_current_page()]
+		for widgets in self.planetsData[ctype]:
+			pid = widgets['id']
+			for key, check in widgets.items():
+				if key == 'id':
+					continue
+				value = PLANET_DEFAULT_VISIBLE[pid] if pid < len(PLANET_DEFAULT_VISIBLE) else 0
+				if key == 'visible_transit' and ctype == 'transit' and pid in PLANET_TRANSIT_HIDDEN:
+					value = 0
+				check.set_active(value == 1)
+
+	def settingsPlanetsSubmit(self, close=True):
+		changed = []
+		for ctype in ASPECT_CHART_TYPES:
+			new = []
+			for widgets in self.planetsData[ctype]:
+				values = {'id': widgets['id']}
+				for key, check in widgets.items():
+					if key != 'id':
+						values[key] = int(check.get_active())
+				new.append(values)
+			if new != self.planetsSaved[ctype]:
+				dprint('settingsPlanetsSubmit: saving %s planets' % (ctype))
+				app.db.setSettingsPlanet(ctype, new)
+				self.planetsSaved[ctype] = new
+				changed.append(ctype)
+		if changed:
+			#keep zoom level
+			scale = self.image.scale
+			self.updateChart()
+			self.image.scale = scale
+			#open timeline uses the transit planet settings
+			self.settingsAspectsTables(changed)
+		if close:
+			self.win_SP.close()
+
+	def settingsPlanetsClose(self, window):
+		#forget the window, gtk destroys it after this handler
+		self.win_SP = None
+		self.planetsData = {}
+		self.planetsSaved = {}
+		return False
+
+	"""
 	Menu item to set home location:
 		settingsLocation
 		settingsLocationSubmit
@@ -4638,7 +4875,7 @@ class AstroApplication(Gtk.Application):
 	def do_activate(self):
 		#translate menu items
 		menu_items = [ _('Application'),_('Maximize'),_('About'),_('Quit'),_('Settings'),
-			_('Set Location'),_('Configuration'),_('Aspects'),_('Chart Types'),_('Radix Chart'),
+			_('Set Location'),_('Configuration'),_('Aspects'),_('Planets & Angles'),_('Chart Types'),_('Radix Chart'),
 			_('Transit Chart'),_('Synastry Chart'),_('Composite Chart'),_('Combine Chart'),
 			_('Solar Return'),_('Solar Progression'),_('Tables'),_('Monthly Timeline'),
 			_('Cusp Aspects'),_('Zoom'),_('Out'),_('80%'),_('100%'),_('150%'),
@@ -4788,9 +5025,7 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		self.earth=0.0
 		self.air=0.0
 		self.water=0.0
-		#get database planet settings	
-		self.planets = self.db.getSettingsPlanet()
-		#get database aspect settings of the chart type (synastry is drawn as transit)
+		#get database aspect and planet settings of the chart type (synastry is drawn as transit)
 		if self.type == "Transit":
 			if self.synastry:
 				self.aspectset = 'synastry'
@@ -4799,6 +5034,7 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		else:
 			#Radix, Composite, Combine, Solar, SecondaryProgression
 			self.aspectset = 'radix'
+		self.planets = self.db.getSettingsPlanet(self.aspectset)
 		self.aspects = self.db.getSettingsAspect(self.aspectset)
 		#update the labels
 		self.label = self.db.getLabel()
@@ -5123,8 +5359,9 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 
 	""" make graphic for monthly timeline """
 	def makeTimelineSVG(self,printing,y,m):
-		#transits of the month use the aspect settings of transit charts
+		#transits of the month use the aspect and planet settings of transit charts
 		aspects = self.db.getSettingsAspect('transit')
+		bodies = self.db.getSettingsPlanet('transit')
 		tz = datetime.timedelta(seconds=float(self.timezone)*float(3600))
 		startdate = datetime.datetime(y,m,1,12) - tz
 		q,r = divmod(startdate.month, 12)
@@ -5150,7 +5387,7 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 					end=tmoddata.planets_degree_ut[x]
 					diff=float(self.degreeDiff(start,end))
 					#aspect with orb of the transit aspect set
-					if (self.planets[i]['visible'] == 1) & (self.planets[x]['visible'] == 1):
+					if (bodies[i]['visible'] == 1) & (bodies[x]['visible_transit'] == 1):
 						z = self.matchAspect(diff, aspects)
 						if z is not None and aspects[z]['visible_grid'] == 1:
 							orb = abs(diff - aspects[z]['degree'])
@@ -5824,7 +6061,8 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			t_planets_degut={}
 			for i in range(len(self.planets)):
 				group_offset[i]=0
-				if self.planets[i]['visible'] == 1:
+				#transit or partner side of the planet settings
+				if self.planets[i]['visible_transit'] == 1:
 					t_planets_degut[self.t_planets_degree_ut[i]]=i
 			t_keys = list(t_planets_degut.keys())
 			t_keys.sort()
@@ -6114,8 +6352,9 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			for x in range(len(self.planets)):
 				end=self.t_planets_degree_ut[x]
 				diff=float(self.degreeDiff(start,end))
-				# symmetric orb of the transit or synastry aspect set
-				if (self.planets[i]['visible'] == 1) & (self.planets[x]['visible'] == 1):
+				# symmetric orb of the transit or synastry aspect set,
+				# radix side and transit (partner) side of the planet settings
+				if (self.planets[i]['visible'] == 1) & (self.planets[x]['visible_transit'] == 1):
 					z = self.matchAspect(diff)
 					if z is None:
 						continue
