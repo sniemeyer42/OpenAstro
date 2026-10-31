@@ -3779,6 +3779,7 @@ class AstroWindow(Gtk.ApplicationWindow):
 		settingsLocationSubmit
 		settingsLocationApply
 		settingsLocationDestroy
+		settingsLocationClose
 	"""
 	def setLocation_callback(self, action, parameter):
 		self.settingsLocationMode = True
@@ -3788,7 +3789,9 @@ class AstroWindow(Gtk.ApplicationWindow):
 		self.win_SL = Gtk.Window(title=_("Please Set Your Home Location"), modal=True)
 		""" >>> set_icon changed in GTK4 """
 
-		self.win_SL.connect('destroy', self.settingsLocationDestroy)
+		#window manager close button, cancel and ok all end in close-request
+		#("destroy" is not emitted while python still references the window)
+		self.win_SL.connect('close-request', self.settingsLocationClose)
 		self.win_SL.set_default_size(-1,144)
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
 		vbox.props.margin_start = 16
@@ -3807,11 +3810,11 @@ class AstroWindow(Gtk.ApplicationWindow):
 		grid.attach_next_to(child=self.LLoc, sibling=location, side=Gtk.PositionType.RIGHT, width=1, height=1)
 		latitude = Gtk.Label(label=_('Latitude')+':')
 		grid.attach(latitude, 0, 2, 1, 1)
-		self.LLat = Gtk.Label(label=app.home_geolat)
+		self.LLat = Gtk.Label(label=str(app.home_geolat))
 		grid.attach_next_to(child=self.LLat, sibling=latitude, side=Gtk.PositionType.RIGHT, width=1, height=1)
 		longitude = Gtk.Label(label=_('Longitude')+':')
 		grid.attach(longitude, 0, 3, 1, 1)
-		self.LLon = Gtk.Label(label=app.home_geolon)
+		self.LLon = Gtk.Label(label=str(app.home_geolon))
 		grid.attach_next_to(child=self.LLon, sibling=longitude, side=Gtk.PositionType.RIGHT, width=1, height=1)
 		#use geocoders if we have an internet connection else geonames database
 		if self.iconn:
@@ -3971,9 +3974,14 @@ class AstroWindow(Gtk.ApplicationWindow):
 		return
 
 	def settingsLocationDestroy(self, widget):
-		self.settingsLocationMode = False
 		self.win_SL.close()
 		return
+
+	def settingsLocationClose(self, window):
+		#forget the window, gtk destroys it after this handler
+		self.settingsLocationMode = False
+		self.win_SL = None
+		return False
 
 	"""
 	 'Chart Types' Menu Items Callbacks
@@ -4250,7 +4258,6 @@ class AstroWindow(Gtk.ApplicationWindow):
 	def tableMonthlyTimeline_callback(self, action, parameter):
 		self.dialog = Gtk.Window(title=_("Select Month in Year"))
 		self.dialog.set_destroy_with_parent(True)
-		self.dialog.connect("destroy", lambda w: dialog.destroy())
 		self.dialog.set_default_size(272, 128)
 		#dialog.move(64,128)
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -4282,8 +4289,8 @@ class AstroWindow(Gtk.ApplicationWindow):
 		button_box.set_homogeneous(True)
 		#buttons
 		button = Gtk.Button.new_with_mnemonic(label=_('Cancel'))
-		button.connect("clicked", lambda w: dialog.destroy())
-		button_box.append(button)	
+		button.connect("clicked", lambda w: self.dialog.close())
+		button_box.append(button)
 		button = Gtk.Button.new_with_mnemonic(label=_('OK'))
 		button.connect("clicked", lambda w: self.tableMonthlyTimelineShow(spinner=self.tMTspinner))
 		button_box.prepend(button)		
@@ -4413,7 +4420,6 @@ class AstroWindow(Gtk.ApplicationWindow):
 		app.makeCuspAspectsSVG(printing=None)
 		#generate window
 		self.win_TCA = Gtk.Window()
-		self.win_TCA.connect("destroy", lambda w: self.win_TCA.destroy())
 		self.win_TCA.set_title("OpenAstro.org Cusp Aspects")
 		""" >>> set_icon """
 		#self.win_TCA.set_icon_from_file(app.cfg.iconWindow)
@@ -5134,15 +5140,15 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			#houses_sign,houses_degree_ut
 			for i in range(len(self.planets)):
 				start=self.planets_degree_ut[i]
-				for x in range(i+1):
+				#every radix planet against every transit planet (not symmetric)
+				for x in range(len(self.planets)):
+					#skip transit points too fast for one sample per day: moon (1),
+					#asc/mc/dsc/ic (23-26) and the asc based day/night pars (27, 28)
+					#and marriage pars (30)
+					if x == 1 or 23 <= x <= 28 or x == 30:
+						continue
 					end=tmoddata.planets_degree_ut[x]
 					diff=float(self.degreeDiff(start,end))
-					#skip asc/dsc/mc/ic on tmoddata
-					if 23 <= x <= 26:
-						continue
-					#skip moon on tmoddate
-					if x == 1:
-						continue
 					#aspect with orb of the transit aspect set
 					if (self.planets[i]['visible'] == 1) & (self.planets[x]['visible'] == 1):
 						z = self.matchAspect(diff, aspects)
@@ -5212,15 +5218,16 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 				else:
 					out += '<line x1="%s" y1="%s" x2="%s" y2="%s" style="stroke: %s; stroke-width: .5; stroke-opacity:1;"/>\n'%(
 						dx[skipdays[s]+1]-5,y-1,dx[skipdays[s+1]]+15,y-1,self.colors['paper_0'])
-			#outer planet
+			#outer planet (symbol ids of the shared table template are the
+			#database names with spaces, as in makeCuspAspectsSVG)
 			out += '<g transform="translate(0,%s)"><g transform="scale(.5)"><use x="0" y="0" xlink:href="#%s" /></g></g>\n'%(
-				y,self.svgSafeHref(self.planets[x]['name']))
+				y,self.planets[x]['name'])
 			#aspect
 			out += '<g><use x="20" y="%s" xlink:href="#orb%s" /></g>\n'%(
 				y,aspects[z]['degree'])
 			#inner planet
 			out += '<g transform="translate(40,%s)"><g transform="scale(.5)"><use x="0" y="0" xlink:href="#%s" /></g></g>\n'%(y,
-				self.svgSafeHref(self.planets[i]['name']))		
+				self.planets[i]['name'])
 			for d in range(delta.days):					
 				if d in atgrid[keys[m]]:
 					orb = atgrid[keys[m]][d]
@@ -6142,8 +6149,12 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 			if s > scale + 0.001:
 				cols, scale = c, s
 		rows = max(1, -(-n // cols))
+		if self.synastry:
+			heading = "%s %s" % (_("Synastry"), _("Aspects"))
+		else:
+			heading = _("Planets in Transit")
 		out = '<g transform="translate(%s,%s)">' % (left, top)
-		out += '<text y="0" x="0" style="fill:%s; font-size: 12px;">%s</text>\n' % (self.colors['paper_0'],_("Planets in Transit"))
+		out += '<text y="0" x="0" style="fill:%s; font-size: 12px;">%s</text>\n' % (self.colors['paper_0'],heading)
 		out += '<g transform="translate(0,8) scale(%s)">' % (round(scale, 3))
 		for i in range(n):
 			col, row = divmod(i, rows)
