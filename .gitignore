@@ -1,6 +1,49 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build / packaging (setup.py, rpmbuild)
 build/
 dist/
-COPYING
+MANIFEST
+*.egg-info/
+*.egg
+.eggs/
+*.whl
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Translations: only compiled .mo files are tracked
 *.po
-*.po~
-*.egg-info/*
+
+# License duplicate (LICENSE is authoritative)
+COPYING
+
+# Test / lint / type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.#*
+\#*\#
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings
+.claude/settings.local.json
