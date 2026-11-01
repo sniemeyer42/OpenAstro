@@ -1180,3 +1180,27 @@ msgstr ""
 #: ./astrochart/ui/panels.py ./astrochart/chart/svg_print.py
 msgid "Positions"
 msgstr ""
+
+#: ./astrochart/ui/panels.py
+msgid "All aspects"
+msgstr ""
+
+#: ./astrochart/ui/panels.py ./astrochart/ui/chart_view.py
+msgid "House"
+msgstr ""
+
+#: ./astrochart/ui/city_chooser.py
+msgid "Continent"
+msgstr ""
+
+#: ./astrochart/ui/city_chooser.py
+msgid "Country"
+msgstr ""
+
+#: ./astrochart/ui/city_chooser.py
+msgid "Province"
+msgstr ""
+
+#: ./astrochart/ui/event_dialog.py
+msgid "Sec"
+msgstr ""
