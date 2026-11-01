@@ -64,10 +64,14 @@ class PrintSVGMixin:
 		#wheel on the left, below the header
 		bottom = PAGE_HEIGHT - MARGIN
 		top = TOP + (bottom - TOP - WHEEL) / 2.0
+		#content of the wheel document placed by a transformed group (Qt draws
+		#no nested svg elements), clipped to the wheel as the document is
 		inner = wheel[wheel.index('>', wheel.index('<svg')) + 1:wheel.rindex('</svg>')]
 		extent = 2 * (RADIUS + WHEEL_MARGIN)
-		out.append('<svg x="%s" y="%.1f" width="%s" height="%s" viewBox="%s %s %s %s">%s</svg>\n' % (
-			MARGIN, top, WHEEL, WHEEL, -WHEEL_MARGIN, -WHEEL_MARGIN, extent, extent, inner))
+		out.append('<defs><clipPath id="wheel-clip"><rect x="%s" y="%s" width="%s" height="%s"/></clipPath></defs>\n'
+			'<g transform="translate(%s,%.1f) scale(%.6f) translate(%s,%s)" clip-path="url(#wheel-clip)">%s</g>\n' % (
+			-WHEEL_MARGIN, -WHEEL_MARGIN, extent, extent,
+			MARGIN, top, WHEEL / float(extent), WHEEL_MARGIN, WHEEL_MARGIN, inner))
 		#two columns of tables on the right
 		x1 = MARGIN + WHEEL + GAP
 		x2 = x1 + COLUMN + 20

@@ -445,7 +445,7 @@ class ChartSVGMixin:
 					t_linecolor = self.colors['houses_transit_line']
 				xtext = self.sliceToX( 0 , (r-8) , t_text_offset ) + 8
 				ytext = self.sliceToY( 0 , (r-8) , t_text_offset ) + 8
-				path = path + '<text style="fill: #00f; fill-opacity: .4; font-size: 14px"><tspan x="'+str(xtext-3)+'" y="'+str(ytext+3)+'">'+str(i+1)+'</tspan></text>\n'
+				path = path + '<text x="'+str(xtext-3)+'" y="'+str(ytext+3)+'" style="fill: #00f; fill-opacity: .4; font-size: 14px">'+str(i+1)+'</text>\n'
 				path = path + '<line x1="'+str(t_x1)+'" y1="'+str(t_y1)+'" x2="'+str(t_x2)+'" y2="'+str(t_y2)+'" style="stroke: '+t_linecolor+'; stroke-width: 2px; stroke-opacity:.3;"/>\n'
 			# if transit
 			if self.type == "Transit":
@@ -457,7 +457,7 @@ class ChartSVGMixin:
 			xtext = self.sliceToX( 0 , (r-dropin) , text_offset ) + dropin #was 132
 			ytext = self.sliceToY( 0 , (r-dropin) , text_offset ) + dropin #was 132
 			path = path + '<line x1="'+str(x1)+'" y1="'+str(y1)+'" x2="'+str(x2)+'" y2="'+str(y2)+'" style="stroke: '+linecolor+'; stroke-width: 2px; stroke-dasharray:3,2; stroke-opacity:.4;"/>\n'
-			path = path + '<text style="fill: #f00; fill-opacity: .6; font-size: 14px"><tspan x="'+str(xtext-3)+'" y="'+str(ytext+3)+'">'+str(i+1)+'</tspan></text>\n'
+			path = path + '<text x="'+str(xtext-3)+'" y="'+str(ytext+3)+'" style="fill: #f00; fill-opacity: .6; font-size: 14px">'+str(i+1)+'</text>\n'
 		return path
 
 	def svgSafeHref(self, name):

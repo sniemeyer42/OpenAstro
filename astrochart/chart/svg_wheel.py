@@ -155,11 +155,15 @@ class ModernWheelMixin:
 		a = math.radians(lon - self.planets_degree_ut[23] - 180.0)
 		return (RADIUS + r * math.cos(a), RADIUS - r * math.sin(a))
 
-	def modernColorData(self):
-		"""colours of the symbol definitions: bodies in the colour of the text, signs by element"""
-		td = {'paper_color_0': 'currentColor', 'paper_color_1': '#ffffff'}
+	def modernColorData(self, ink='currentColor'):
+		"""
+		colours of the symbol definitions: bodies in the colour ink (default:
+		of the text), signs by element; the wheel gives its ink colour, Qt
+		takes currentColor of symbols from where they are defined, not used
+		"""
+		td = {'paper_color_0': ink, 'paper_color_1': '#ffffff'}
 		for i in range(len(self.planets)):
-			td['planets_color_%s' % (i)] = 'currentColor'
+			td['planets_color_%s' % (i)] = ink
 		for i in range(12):
 			td['zodiac_color_%s' % (i)] = ELEMENT_COLORS[self.zodiac_element[i]]
 		for degree, kind in ASPECT_KIND.items():
@@ -326,5 +330,5 @@ class ModernWheelMixin:
 			'<title>OpenAstro chart</title>\n%s\n<style type="text/css">\n%s\n</style>\n'
 			'<g class="w-chart" style="font-family: %s;">\n%s%s%s%s%s%s</g>\n</svg>\n') % (
 			extent, extent, -WHEEL_MARGIN, -WHEEL_MARGIN, extent, extent,
-			self.symbolDefinitions(self.modernColorData()), css(dark), FONT,
+			self.symbolDefinitions(self.modernColorData(PALETTES[bool(dark)]['ink'])), css(dark), FONT,
 			td['zodiac'], td['houses'], td['aspects'], td['axes'], td['bodies'], td['highlight'])
