@@ -1224,3 +1224,35 @@ msgstr ""
 #: ./astrochart/qt/settings_configuration.py
 msgid "Font Size of the Lists"
 msgstr ""
+
+#: ./astrochart/qt/here_and_now.py
+msgid "Week"
+msgstr ""
+
+#: ./astrochart/qt/here_and_now.py
+msgid "Now"
+msgstr ""
+
+#: ./astrochart/qt/here_and_now.py
+msgid "Step"
+msgstr ""
+
+#: ./astrochart/qt/here_and_now.py
+msgid "Earlier"
+msgstr ""
+
+#: ./astrochart/qt/here_and_now.py
+msgid "Later"
+msgstr ""
+
+#: ./astrochart/qt/here_and_now.py
+msgid "Follow the clock"
+msgstr ""
+
+#: ./astrochart/qt/here_and_now.py
+msgid "Mouse wheel over the chart: one step earlier or later"
+msgstr ""
+
+#: ./astrochart/qt/here_and_now.py ./astrochart/qt/settings_location.py
+msgid "Place of the chart 'Here and Now' and of new events"
+msgstr ""
