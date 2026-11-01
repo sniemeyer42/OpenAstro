@@ -26,9 +26,11 @@ The former Gtk3 programs 'openastro' and 'astroChartBuilder.py' have been remove
 
 ### User interface
 The main window (GTK 4 with libadwaita) shows the chart wheel beside a side bar with the positions of the bodies (radix and transit or partner), the house cusps, the aspects sorted by orb and the data of the chart. The wheel is drawn sharp at any size and follows the window; zoom with Ctrl+plus/minus, Ctrl+0 or Ctrl+mouse wheel. In narrow windows the side bar folds away and is shown with the button in the header bar. Transit charts get a date bar above the wheel, the chart follows every change of date and time.<br/>
-Printing (Ctrl+P) and the export to PDF, PNG, JPG and SVG use an A4 landscape page: the wheel with tables of positions, house cusps, elements and aspects.
+The wheel is interactive: hovering a body shows its sign, degree, house and aspects; clicking a body (or its row in the side bar) highlights it and its aspects, the others fade, and the side bar lists only its aspects. Click it again, click the empty wheel or press Escape to show all aspects again.<br/>
+Settings, event data, home location and the chart type dialogs are built from libadwaita rows, Cancel and OK sit in the header bar. Aspect and planet settings have a page per chart type (radix, transit, synastry).<br/>
+Printing (Ctrl+P) and the export to PDF, PNG, JPG and SVG use an A4 landscape page: the wheel with tables of positions, house cusps, elements and aspects. The monthly timeline (transits per day, the closer the more opaque, weekends shaded, today framed) and the cusp aspects are A4 portrait pages, printed or saved as PDF from their windows.
 
-Requirements: Python 3, PyGObject, GTK 4, libadwaita 1.5 or newer, librsvg, pyswisseph and pytz (see requirements.txt).
+Requirements: Python 3, PyGObject, GTK 4, libadwaita 1.7 or newer, librsvg, pyswisseph and pytz (see requirements.txt).
 
 ### Discussion
 This program is written in python with use of PyGObject for the Gtk4 environment of Linux. Start a standalone version with:

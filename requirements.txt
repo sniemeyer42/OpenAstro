@@ -21,7 +21,7 @@ pycairo>=1.20
 # NOT installable via pip, provide them through the system package manager:
 #
 #   GTK 4 typelib        - astroChart.py, astroChartShow.py
-#   libadwaita typelib   - Adw 1 (version 1.5 or newer)
+#   libadwaita typelib   - Adw 1 (version 1.7 or newer)
 #   librsvg typelib      - Rsvg 2.0
 #   GdkPixbuf typelib
 #
