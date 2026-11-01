@@ -27,6 +27,7 @@ from astrochart.ui.database_dialogs import DatabaseDialog, FamousDialog, SelectE
 from astrochart.ui.event_dialog import EventDialog
 from astrochart.ui.files import ChartFiles
 from astrochart.ui.menus import BEGIN_XML, CHART_XML, END_XML, EVENT_XML, E_ITEM, M_ITEM
+from astrochart.ui.chart_view import ChartView
 from astrochart.ui.panels import ChartPanels
 from astrochart.ui.settings_aspects import AspectSettingsDialog
 from astrochart.ui.settings_configuration import ConfigurationDialog
@@ -34,7 +35,6 @@ from astrochart.ui.settings_location import LocationDialog
 from astrochart.ui.settings_planets import PlanetSettingsDialog
 from astrochart.ui.table_windows import CuspAspectsWindow, MonthDialog
 from astrochart.ui.symbols import Symbols
-from astrochart.ui.widgets import ViewSVG
 
 """ Application Window """
 class AstroWindow(Adw.ApplicationWindow):
@@ -156,6 +156,12 @@ class AstroWindow(Adw.ApplicationWindow):
 		cuspaspects_action.connect("activate", self.tableCuspAspects_callback)
 		self.add_action(cuspaspects_action)
 
+		# Escape: no selected body
+		clear_action = Gio.SimpleAction.new("clearSelection", None)
+		clear_action.connect("activate", self.clearSelection_callback)
+		self.add_action(clear_action)
+		self.app.set_accels_for_action(detailed_action_name="win.clearSelection", accels=["Escape"])
+
 		# Menu 'Zoom'
 		zoom_action = Gio.SimpleAction.new_stateful("zoom", GLib.VariantType.new('s'), GLib.Variant.new_string('zIn'))
 		zoom_action.connect("activate", self.zoom_callback)
@@ -216,8 +222,8 @@ class AstroWindow(Adw.ApplicationWindow):
 		self.transitBar = TransitBar(self)
 		box.append(self.transitBar)
 		scrolled_window = Gtk.ScrolledWindow()
-		#chart wheel fitted into the window, zoom makes it scroll
-		self.image = ViewSVG(self.chartSVGs(), fit='page')
+		#interactive chart wheel fitted into the window, zoom makes it scroll
+		self.image = ChartView(self.chartSVGs(), self.chart, self.selectBody)
 		self.image.set_vexpand(True)
 		self.image.set_hexpand(True)
 		scrolled_window.set_child(self.image)
@@ -495,10 +501,26 @@ class AstroWindow(Adw.ApplicationWindow):
 		"""calculate the chart: wheel for the window (returned) and the printed
 		page for export and scripts (self.chartSVG), symbols of the lists"""
 		td = self.chart.templateData()
+		#template data of the wheel shown, redrawn when the selection changes
+		self.wheelData = td
 		wheel = self.chart.makeWheelSVG(td)
 		self.saveChartSVG(self.chart.makePrintSVG(td))
 		self.symbols.update(wheel)
 		return wheel
+
+	def selectBody(self, side, ident):
+		"""select a body (or none): its aspects are highlighted in wheel and lists"""
+		selection = None if side is None else (side, ident)
+		if selection == self.chart.highlight:
+			selection = None
+		self.chart.highlight = selection
+		self.wheelData = self.chart.redrawAspects(self.wheelData)
+		self.image.replaceSVG(self.chart.makeWheelSVG(self.wheelData))
+		self.panels.updateSelection()
+
+	def clearSelection_callback(self, action, parameter):
+		if self.chart.highlight is not None:
+			self.selectBody(None, None)
 
 	def updateChart(self):
 		self.image.setupSVG(self.chartSVGs())

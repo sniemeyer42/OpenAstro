@@ -178,6 +178,12 @@ class ChartSVGMixin:
 	def templateData(self):
 		"""calculate the chart and fill the template dictionary of the wheel"""
 		self.calculate()
+		#the selected body must still be shown
+		if self.highlight is not None:
+			side, ident = self.highlight
+			key = 'visible_transit' if side == 'transit' else 'visible'
+			if (side == 'transit' and self.type != "Transit") or self.planets[ident][key] != 1:
+				self.highlight = None
 		#template dictionary		
 		td=dict()
 		r=RADIUS
@@ -228,6 +234,9 @@ class ChartSVGMixin:
 		td['makeZodiac'] = self.makeZodiac( r )
 		td['makeHouses'] = self.makeHouses( r )
 		td['makePlanets'] = self.makePlanets( r )
+		#ring around the selected body, on top of the planets
+		if self.highlight is not None:
+			td['makeAspects'] += self.makeHighlight()
 		return td
 
 	""" Draw transit ring """
@@ -269,15 +278,48 @@ class ChartSVGMixin:
 		return out
 
 	""" draw svg aspects: ring, aspect ring, degreeA degreeB """
-	def drawAspect( self, r, ar, degA, degB, color ):
+	def drawAspect( self, r, ar, degA, degB, color, emphasis=None ):
+		"""aspect line; emphasis: None (normal), True (selected body), False (other bodies)"""
 		offset = (int(self.houses_degree_ut[6]) / -1) + int(degA)
 		x1 = self.sliceToX( 0 , ar , offset ) + (r-ar)
 		y1 = self.sliceToY( 0 , ar , offset ) + (r-ar)
 		offset = (int(self.houses_degree_ut[6]) / -1) + int(degB)
 		x2 = self.sliceToX( 0 , ar , offset ) + (r-ar)
 		y2 = self.sliceToY( 0 , ar , offset ) + (r-ar)
-		out = '			<line x1="'+str(x1)+'" y1="'+str(y1)+'" x2="'+str(x2)+'" y2="'+str(y2)+'" style="stroke: '+color+'; stroke-width: 1; stroke-opacity: .9;"/>\n'
+		if emphasis is None:
+			style = 'stroke: '+color+'; stroke-width: 1; stroke-opacity: .9;'
+		elif emphasis:
+			style = 'stroke: '+color+'; stroke-width: 2.5; stroke-opacity: 1;'
+		else:
+			style = 'stroke: '+color+'; stroke-width: 1; stroke-opacity: .12;'
+		out = '			<line x1="'+str(x1)+'" y1="'+str(y1)+'" x2="'+str(x2)+'" y2="'+str(y2)+'" style="'+style+'"/>\n'
 		return out
+
+	def emphasis(self, side_a, id_a, side_b, id_b):
+		"""emphasis of an aspect line between two bodies for the selected body (self.highlight)"""
+		if self.highlight is None:
+			return None
+		return self.highlight in ((side_a, id_a), (side_b, id_b))
+
+	def makeHighlight(self):
+		"""ring around the symbol of the selected body"""
+		for glyph in getattr(self, 'glyphs', []):
+			if (glyph['side'], glyph['id']) == self.highlight:
+				return '<circle cx="%s" cy="%s" r="%s" style="fill: none; stroke: #3584e4; stroke-width: 2.5;"/>\n' % (
+					glyph['x'], glyph['y'], glyph['r'] + 4)
+		return ''
+
+	def redrawAspects(self, td):
+		"""template data with the aspect lines drawn again (after a change of self.highlight)"""
+		td = dict(td)
+		r = RADIUS
+		if self.type == "Transit":
+			td['makeAspects'] = self.makeAspectsTransit( r , (r-160))
+		else:
+			td['makeAspects'] = self.makeAspects( r , (r-self.c3))
+		if self.highlight is not None:
+			td['makeAspects'] += self.makeHighlight()
+		return td
 
 	def sliceToX(self, slice, r, offset ):
 		plus = (math.pi * offset) / 180

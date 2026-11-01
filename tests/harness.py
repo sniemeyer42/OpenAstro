@@ -39,7 +39,8 @@ def start_application(steps_after_ms=1500):
 	from astrochart.application import AstroApplication
 	from openastromod import swiss
 	# the swiss ephemeris drops too long paths silently, use the repository files
-	swiss.ephe_path = os.path.join(REPO, 'swisseph')
+	#(OPENASTRO_EPHE: ephemeris files of another directory, e.g. for copies in long paths)
+	swiss.ephe_path = os.environ.get('OPENASTRO_EPHE', os.path.join(REPO, 'swisseph'))
 	app = AstroApplication()
 	app.set_flags(app.get_flags() | Gio.ApplicationFlags.NON_UNIQUE)
 

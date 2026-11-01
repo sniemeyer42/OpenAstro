@@ -35,6 +35,8 @@ class Chart(TimeCalcMixin, ChartSVGMixin, PlanetsSVGMixin, AspectsSVGMixin, Tabl
 	def __init__(self, cfg, db):
 		self.cfg = cfg
 		self.db = db
+		#selected body of the interactive wheel: (side, id), side 'radix' or 'transit'
+		self.highlight = None
 		#get color configuration
 		self.colors = self.db.getColors()
 		#get label configuration

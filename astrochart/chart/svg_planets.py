@@ -20,6 +20,8 @@ class PlanetsSVGMixin:
 	"""SVG of the planets of radix and transit ring"""
 
 	def makePlanets( self , r ):
+		#positions of the drawn symbols (wheel coordinates) for the interactive wheel
+		self.glyphs = []
 		planets_degut={}
 		diff=range(len(self.planets))
 		for i in range(len(self.planets)):
@@ -194,6 +196,7 @@ class PlanetsSVGMixin:
 			else:
 				scale=1
 			# output planet
+			self.glyphs.append({'side': 'radix', 'id': i, 'x': planet_x, 'y': planet_y, 'r': 12*scale})
 			output = output + '<g transform="translate(-'+str(12*scale)+',-'+str(12*scale)+')"><g transform="scale('+str(scale)+')"><use x="' + str(planet_x*(1/scale)) + '" y="' + str(planet_y*(1/scale)) + '" xlink:href="#' + self.svgSafeHref(self.planets[i]['name']) + '" /></g></g>\n'
 		#make transit degut and display planets
 		if self.type == "Transit":
@@ -258,6 +261,7 @@ class PlanetsSVGMixin:
 					t_offset = t_offset - 360
 				planet_x = self.sliceToX( 0 , (r-rplanet) , t_offset ) + rplanet
 				planet_y = self.sliceToY( 0 , (r-rplanet) , t_offset ) + rplanet
+				self.glyphs.append({'side': 'transit', 'id': i, 'x': planet_x, 'y': planet_y, 'r': 6})
 				output = output + '<g transform="translate(-6,-6)"><g transform="scale(0.5)"><use x="' + str(planet_x*2) + '" y="' + str(planet_y*2) + '" xlink:href="#' + self.svgSafeHref(self.planets[i]['name']) + '" /></g></g>\n'
 				#transit planet line
 				x1 = self.sliceToX( 0 , r+3 , t_offset ) - 3

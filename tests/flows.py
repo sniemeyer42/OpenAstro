@@ -137,6 +137,23 @@ def main():
 		check('lists: aspects sorted by orb within orb', aspects and all(a['orb'] <= orbs[a['degree']] + 1e-9 for a in aspects)
 			and [a['orb'] for a in aspects] == sorted(a['orb'] for a in aspects), len(aspects))
 		check('lists: side bar filled', win.panels.boxes['aspects'].get_first_child() is not None)
+		# ---- interactive wheel: select a body by its symbol, in the list, clear
+		from astrochart.constants import RADIUS, WHEEL_MARGIN
+		view = win.image
+		sun = [g for g in chart.glyphs if g['side'] == 'radix' and g['id'] == 0][0]
+		width, height = view.drawingSize()
+		x0 = max(0.0, (view.get_width() - width) / 2.0)
+		y0 = max(0.0, (view.get_height() - height) / 2.0)
+		extent = 2.0 * (RADIUS + WHEEL_MARGIN)
+		view.onClick(None, 1, x0 + (sun['x'] + WHEEL_MARGIN) * width / extent, y0 + (sun['y'] + WHEEL_MARGIN) * height / extent)
+		check('wheel: click selects the sun', chart.highlight == ('radix', 0))
+		check('wheel: sun row marked, aspects filtered', win.panels.positionRows[('radix', 0)].is_selected()
+			and all(view.involves(r, 'radix', 0) for r in [r for r in chart.aspectRows() if view.involves(r, 'radix', 0)]))
+		check('wheel: tooltip', view.tooltipMarkup('radix', 0).startswith('<b>'))
+		win.panels.positionLists[0].emit('row-activated', win.panels.positionRows[('radix', 1)])
+		check('wheel: list selects the moon', chart.highlight == ('radix', 1))
+		win.activate_action('win.clearSelection', None)
+		check('wheel: escape clears', chart.highlight is None)
 		# ---- add to database
 		win.activate_action('win.eventData', None)
 		d = find(T('Edit Event Details'))

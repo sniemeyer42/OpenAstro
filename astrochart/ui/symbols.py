@@ -24,7 +24,7 @@ from astrochart.ui.widgets import renderSVG
 SIGNS = ('aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces')
 
 CSS = b"""
-picture.astro-symbol {
+image.astro-symbol {
 	background-color: white;
 	border-radius: 6px;
 	padding: 2px;
@@ -83,11 +83,10 @@ class Symbols:
 		return self.cache[key]
 
 	def picture(self, name, size=20, scale=1):
-		"""Gtk.Picture of a symbol on a light chip"""
+		"""image of a symbol on a light chip, size x size pixels"""
 		loadCss()
-		picture = Gtk.Picture.new_for_paintable(self.texture(name, size, scale))
-		picture.set_can_shrink(False)
-		picture.set_size_request(size + 4, size + 4)
-		picture.add_css_class('astro-symbol')
-		picture.set_valign(Gtk.Align.CENTER)
-		return picture
+		image = Gtk.Image.new_from_paintable(self.texture(name, size, scale))
+		image.set_pixel_size(size)
+		image.add_css_class('astro-symbol')
+		image.set_valign(Gtk.Align.CENTER)
+		return image

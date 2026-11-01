@@ -19,6 +19,7 @@ chart as native lists
 
 from gi.repository import Adw, GLib, Gtk, Pango
 from astrochart.chart.data import formatDegree
+from astrochart.ui.chart_view import ChartView
 from astrochart.constants import HOUSE_SYSTEMS
 
 def label(text, xalign=0.0, css=None, ellipsize=False):
@@ -99,21 +100,40 @@ class ChartPanels(Gtk.Box):
 	def updatePositions(self):
 		box = self.clear('positions')
 		chart = self.chart
-		sides = [(_('Radix'), chart.bodyRows())]
+		sides = [('radix', _('Radix'), chart.bodyRows())]
 		if chart.type == "Transit":
-			sides.append((_('Partner') if chart.synastry else _('Transit'), chart.bodyRows(transit=True)))
-		for title, rows in sides:
+			sides.append(('transit', _('Partner') if chart.synastry else _('Transit'), chart.bodyRows(transit=True)))
+		#rows select the body in the wheel
+		self.positionRows = {}
+		self.positionLists = []
+		for side, title, rows in sides:
 			if len(sides) > 1:
 				box.append(heading(title))
-			grid = table()
-			for line, row in enumerate(rows):
-				grid.attach(self.picture(row['symbol']), 0, line, 1, 1)
-				grid.attach(label(row['label'], ellipsize=True), 1, line, 1, 1)
-				grid.attach(self.picture(row['sign'], 16), 2, line, 1, 1)
-				grid.attach(label(row['degree'], xalign=1.0, css='numeric'), 3, line, 1, 1)
-				grid.attach(label('℞' if row['retrograde'] else '', css='dim-label'), 4, line, 1, 1)
-				grid.attach(label('%s' % row['house'], xalign=1.0, css='dim-label numeric'), 5, line, 1, 1)
-			box.append(grid)
+			listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
+			listbox.add_css_class('navigation-sidebar')
+			listbox.connect('row-activated', self.onPositionActivated)
+			for row in rows:
+				line = Gtk.Box(spacing=8)
+				line.append(self.picture(row['symbol']))
+				line.append(label(row['label'], ellipsize=True))
+				line.append(self.picture(row['sign'], 16))
+				degree = label(row['degree'], xalign=1.0, css='numeric')
+				degree.set_width_chars(10)
+				line.append(degree)
+				retrograde = label('℞' if row['retrograde'] else '', css='dim-label')
+				retrograde.set_width_chars(1)
+				line.append(retrograde)
+				house = label('%s' % row['house'], xalign=1.0, css='dim-label numeric')
+				house.set_width_chars(2)
+				line.append(house)
+				item = Gtk.ListBoxRow(child=line)
+				item.body = (side, row['id'])
+				item.set_tooltip_text('%s %s' % (_('House'), row['house']))
+				listbox.append(item)
+				self.positionRows[item.body] = item
+			box.append(listbox)
+			self.positionLists.append(listbox)
+		self.showSelection()
 		#elements of the radix
 		box.append(heading(_('Elements')))
 		grid = table()
@@ -123,6 +143,22 @@ class ChartPanels(Gtk.Box):
 			grid.attach(bar, 1, line, 1, 1)
 			grid.attach(label('%d%%' % percent, xalign=1.0, css='numeric'), 2, line, 1, 1)
 		box.append(grid)
+
+	def onPositionActivated(self, listbox, item):
+		self.window.selectBody(*item.body)
+
+	def showSelection(self):
+		#mark the row of the selected body
+		for listbox in self.positionLists:
+			listbox.unselect_all()
+		item = self.positionRows.get(self.chart.highlight)
+		if item is not None:
+			item.get_parent().select_row(item)
+
+	def updateSelection(self):
+		"""selected body changed: mark it, show its aspects"""
+		self.showSelection()
+		self.updateAspects()
 
 	def updateHouses(self):
 		box = self.clear('houses')
@@ -137,7 +173,20 @@ class ChartPanels(Gtk.Box):
 	def updateAspects(self):
 		box = self.clear('aspects')
 		rows = self.chart.aspectRows()
-		box.append(heading('%s (%d)' % (_('Aspects'), len(rows))))
+		selected = self.chart.highlight
+		header = Gtk.Box(spacing=6)
+		if selected is None:
+			header.append(heading('%s (%d)' % (_('Aspects'), len(rows))))
+		else:
+			#aspects of the selected body only
+			rows = [row for row in rows if ChartView.involves(row, *selected)]
+			name = self.chart.planets[selected[1]]['label']
+			header.append(heading('%s · %s (%d)' % (_('Aspects'), name, len(rows))))
+			button = Gtk.Button(icon_name='edit-clear-symbolic', tooltip_text=_('All aspects'), valign=Gtk.Align.END)
+			button.add_css_class('flat')
+			button.connect('clicked', lambda w: self.window.selectBody(None, None))
+			header.append(button)
+		box.append(header)
 		grid = table()
 		for line, row in enumerate(rows):
 			first, second = row['first'], row['second']

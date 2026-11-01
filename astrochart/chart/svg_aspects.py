@@ -50,7 +50,8 @@ class AspectsSVGMixin:
 					z = self.matchAspect(diff)
 					# check if we want to display this aspect
 					if z is not None and self.aspects[z]['visible'] == 1:
-						out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])] )
+						out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])],
+							self.emphasis('radix', i, 'radix', x) )
 		return out
 
 	def makeAspectsTransit( self , r , ar ):
@@ -70,7 +71,8 @@ class AspectsSVGMixin:
 						continue
 					# check if we want to display this aspect
 					if self.aspects[z]['visible'] == 1:
-						out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.t_planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])] )
+						out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.t_planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])],
+							self.emphasis('radix', i, 'transit', x) )
 					# aspect grid dictionary
 					if self.aspects[z]['visible_grid'] == 1:
 						self.atgrid.append({})
