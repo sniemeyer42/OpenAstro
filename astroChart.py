@@ -582,7 +582,6 @@ class OpenAstroCfg:
 		self.tempfilenameprint = os.path.join(self.tmpdir,"openAstroChartPrint.svg")
 		self.tempfilenametable = os.path.join(self.tmpdir,"openAstroChartTable.svg")
 		self.tempfilenametableprint = os.path.join(self.tmpdir,"openAstroChartTablePrint.svg")
-		self.xml_ui = os.path.join(DATADIR, 'openastro-ui.xml')
 		self.xml_svg = os.path.join(DATADIR, 'openastro-svg.xml')
 		self.xml_svg_table = os.path.join(DATADIR, 'openastro-svg-table.xml')
 		#sqlite databases		

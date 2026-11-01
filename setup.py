@@ -16,8 +16,8 @@ for a in range(len(f)):
 ['%s/LC_MESSAGES/openastro.mo'%(f[a])]) )
 
 pre_data_files += [
-	('share/applications', ['openastro.desktop']),
-	('share/openastro.org', ['data/famous.sql','data/geonames.sql','about.xpm', 'openastro-svg.xml','openastro-svg-table.xml','openastro-ui.xml', 'COMMENTS', 'LICENSE', 'VERSION']),
+	('share/applications', ['astrochart.desktop']),
+	('share/openastro.org', ['data/famous.sql','data/geonames.sql','about.xpm', 'openastro-svg.xml','openastro-svg-table.xml', 'COMMENTS', 'LICENSE', 'VERSION']),
 	('share/openastro.org/icons', ['icons/openastro.svg']),
 	('share/openastro.org/icons/aspects', glob.glob('icons/aspects/*.svg')),
 	('share/swisseph', glob.glob('swisseph/*.*'))
@@ -30,7 +30,7 @@ setup(name='openastro',
       author_email='devel@openastro.org',
       url='http://www.openastro.org',
       license='GPL',
-      scripts=['openastro', 'astroChart.py'],
+      scripts=['astroChart.py'],
       packages=['openastromod'],
       data_files=pre_data_files
      )

@@ -22,9 +22,9 @@ The open source astrology program openastro.org by Pelle van der Scheer in enhan
 # applies patch automatically
 %autosetup -n %{name}-%{version}
 # change desktop file
-rm -fv %{alias}.desktop
+rm -fv astrochart.desktop
 # write desktop file
-cat > ./%{alias}.desktop <<EOF
+cat > ./astrochart.desktop <<EOF
 [Desktop Entry]
 Encoding=UTF-8
 Version=1.0
@@ -49,11 +49,7 @@ EOF
 cp -a locale $RPM_BUILD_ROOT%{_datadir}/
 rm -fr $RPM_BUILD_ROOT%{_datadir}/%{alias}/locale
 cp -a data/*.* $RPM_BUILD_ROOT%{_datadir}/%{alias}.org/
-#rm -fv openastro.desktop
-cp -a openastro.desktop $RPM_BUILD_ROOT%{_datadir}/applications/astrochart.desktop
 cp -a 'about.xpm' COMMENTS LICENSE $RPM_BUILD_ROOT%{_datadir}/%{alias}.org/
-rm -f $RPM_BUILD_ROOT%{_datadir}/applications/openastro.desktop
-rm -f $RPM_BUILD_ROOT%{_bindir}/%{alias}
 mkdir -p $RPM_BUILD_ROOT%{_datadir}/pixmaps/
 install -m 644 icons/openastro.svg $RPM_BUILD_ROOT%{_datadir}/pixmaps/
 mkdir -p $RPM_BUILD_ROOT%{_datadir}/swisseph/
