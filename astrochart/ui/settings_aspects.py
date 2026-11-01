@@ -17,11 +17,10 @@ Dialog 'Settings > Aspects': aspects (line, grid, orb) per chart type
 """
 
 import math
-import os
 import locale
-from gi.repository import Gtk
+from gi.repository import Adw, Gtk
 from astrochart.constants import ASPECT_CHART_TYPES, ASPECT_DEFAULTS, ASPECT_DEGREES, ASPECT_ORB_MAX
-from astrochart.ui.dialog import AstroDialog
+from astrochart.ui.dialog import AstroDialog, page
 from astrochart.util import dprint
 
 def aspectOrbText(orb):
@@ -45,82 +44,72 @@ def aspectOrbParse(text, saved):
 	return round(orb, 2)
 
 class AspectSettingsDialog(AstroDialog):
-	"""one notebook page per aspect set (radix, transit, synastry)"""
+	"""one page per aspect set (radix, transit, synastry), a row per aspect"""
 
 	def __init__(self, window):
 		super().__init__(window, title=_("Aspect Settings"), transient_for=window, modal=True)
-		self.set_default_size(560,-1)
-		#create a VBox
-		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True)
-		vbox.set_spacing(8)
-		vbox.props.margin_start = 16
-		vbox.props.margin_end = 16
-		vbox.props.margin_top = 16
-		vbox.props.margin_bottom = 16
-		#one notebook page per aspect set
-		self.notebook = Gtk.Notebook(vexpand=True)
+		self.set_default_size(560, 720)
+		self.stack = Adw.ViewStack()
 		self.data = {}
 		self.saved = {}
 		titles = {'radix':_('Radix'), 'transit':_('Transit'), 'synastry':_('Synastry')}
+		scale = window.get_scale_factor()
 		for ctype in ASPECT_CHART_TYPES:
-			grid = Gtk.Grid()
-			grid.set_column_spacing(12)
-			grid.set_row_spacing(4)
-			grid.props.margin_start = 12
-			grid.props.margin_end = 12
-			grid.props.margin_top = 12
-			grid.props.margin_bottom = 12
-			header = ['', _('Deg'), _('Aspect Name'), _('Visible\nin Circle'), _('Visible\nin Grid'), _('Orb')]
-			for col, text in enumerate(header):
-				grid.attach(Gtk.Label(label=text, justify=Gtk.Justification.CENTER), col, 0, 1, 1)
+			#column headings above the check boxes and orbs
+			columns = [Gtk.SizeGroup(mode=Gtk.SizeGroupMode.HORIZONTAL) for k in range(3)]
+			header = Gtk.Box(spacing=12)
+			for k, text in enumerate((_('Visible\nin Circle'), _('Visible\nin Grid'), _('Orb'))):
+				heading = Gtk.Label(label=text, justify=Gtk.Justification.CENTER)
+				heading.add_css_class('caption')
+				columns[k].add_widget(heading)
+				header.append(heading)
+			header.set_margin_end(12)
+			group = Adw.PreferencesGroup()
+			group.set_header_suffix(header)
 			rows = []
 			saved = []
-			for row, aspect in enumerate(self.db.getSettingsAspect(ctype), start=1):
-				icon = Gtk.Image.new_from_file(os.path.join(self.cfg.iconAspects, '%s.svg' % (aspect['degree'])))
-				icon.set_pixel_size(16)
+			for aspect in self.db.getSettingsAspect(ctype):
 				widgets = {'degree': aspect['degree']}
-				widgets['visible'] = Gtk.CheckButton(halign=Gtk.Align.CENTER)
+				widgets['visible'] = Gtk.CheckButton(halign=Gtk.Align.CENTER, tooltip_text=_('Visible\nin Circle').replace('\n', ' '))
 				widgets['visible'].set_active(aspect['visible'] == 1)
-				widgets['visible_grid'] = Gtk.CheckButton(halign=Gtk.Align.CENTER)
+				widgets['visible_grid'] = Gtk.CheckButton(halign=Gtk.Align.CENTER, tooltip_text=_('Visible\nin Grid').replace('\n', ' '))
 				widgets['visible_grid'].set_active(aspect['visible_grid'] == 1)
 				#orb as text: accepts decimal point and comma,
 				#invalid input is marked instead of silently saved as 0
 				orb = aspect['orb']
-				widgets['orb'] = Gtk.Entry()
-				widgets['orb'].set_width_chars(6)
+				widgets['orb'] = Gtk.Entry(valign=Gtk.Align.CENTER)
+				widgets['orb'].set_width_chars(5)
 				widgets['orb'].set_max_length(6)
 				widgets['orb'].set_alignment(1.0)
 				widgets['orb'].set_input_purpose(Gtk.InputPurpose.NUMBER)
 				widgets['orb'].set_text(aspectOrbText(orb))
-				line = [icon, Gtk.Label(label='%s°' % (aspect['degree']), xalign=1),
-					Gtk.Label(label=aspect['name'], xalign=0), widgets['visible'], widgets['visible_grid'], widgets['orb']]
-				for col, widget in enumerate(line):
-					grid.attach(widget, col, row, 1, 1)
+				row = Adw.ActionRow(title=aspect['name'], subtitle='%s°' % (aspect['degree']))
+				row.add_prefix(window.symbols.picture('orb%s' % (aspect['degree']), 16, scale))
+				suffix = Gtk.Box(spacing=12)
+				for k, key in enumerate(('visible', 'visible_grid', 'orb')):
+					columns[k].add_widget(widgets[key])
+					suffix.append(widgets[key])
+				row.add_suffix(suffix)
+				group.add(row)
 				rows.append(widgets)
 				saved.append({'degree':aspect['degree'], 'visible':aspect['visible'],
 					'visible_grid':aspect['visible_grid'], 'orb':orb})
 			self.data[ctype] = rows
 			self.saved[ctype] = saved
-			scrolled_window = Gtk.ScrolledWindow()
-			scrolled_window.set_vexpand(True)
-			#show all aspects without scrolling if the screen allows
-			scrolled_window.set_propagate_natural_height(True)
-			scrolled_window.set_child(grid)
-			self.notebook.append_page(scrolled_window, Gtk.Label(label=titles[ctype]))
-		vbox.append(self.notebook)
-		#open the page of the chart shown
-		self.notebook.set_current_page(self.chartTypePage(self.chart))
-		#buttons, window manager close button, cancel and ok all end in close-request
-		vbox.append(self.buttonRow([
-			(_("Default"), self.default),
-			(_("Cancel"), self.close),
-			(_("Apply"), lambda: self.submit(close=False)),
-			(_("OK"), lambda: self.submit(close=True))]))
-		self.set_child(vbox)
+			self.stack.add_titled(page(group), ctype, titles[ctype])
+		#page of the chart shown
+		self.stack.set_visible_child_name(ASPECT_CHART_TYPES[self.chartTypePage(self.chart)])
+		switcher = Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE)
+		switcher.set_halign(Gtk.Align.CENTER)
+		self.toolbarView.add_top_bar(switcher)
+		self.set_child(self.stack)
+		#window manager close button, cancel and ok all end in close-request
+		self.headerButtons(cancel=self.close, ok=lambda: self.submit(close=True),
+			extra=[(_("Default"), self.default), (_("Apply"), lambda: self.submit(close=False))])
 
 	def default(self):
 		#reset the widgets of the current page only, saved with apply or ok
-		ctype = ASPECT_CHART_TYPES[self.notebook.get_current_page()]
+		ctype = self.stack.get_visible_child_name()
 		default = ASPECT_DEFAULTS[ctype]
 		for widgets in self.data[ctype]:
 			i = ASPECT_DEGREES.index(widgets['degree'])
@@ -150,7 +139,7 @@ class AspectSettingsDialog(AstroDialog):
 		if invalid:
 			#nothing is saved, show the first page with an invalid orb
 			dprint('AspectSettingsDialog.submit: invalid orb in %s' % (invalid))
-			self.notebook.set_current_page(ASPECT_CHART_TYPES.index(invalid[0]))
+			self.stack.set_visible_child_name(invalid[0])
 			return
 		changed = []
 		for ctype in ASPECT_CHART_TYPES:

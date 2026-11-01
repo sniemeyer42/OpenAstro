@@ -19,66 +19,29 @@ zodiac and language
 
 import sys
 import os
-from gi.repository import Gtk
+from gi.repository import Adw, Gtk
 from astrochart.constants import HOUSE_SYSTEMS
 from astrochart.i18n import LANGUAGES, LANGUAGES_LABEL
-from astrochart.ui.dialog import AstroDialog
+from astrochart.ui.dialog import AstroDialog, comboRow, page
 from astrochart.util import dprint
 
 class ConfigurationDialog(AstroDialog):
 	"""general configuration and language"""
 
 	def __init__(self, window):
-		super().__init__(window, title=_("General Configuration"))
-		self.set_default_size(364,512)
+		super().__init__(window, title=_("General Configuration"), transient_for=window, modal=True)
+		self.set_default_size(460, 600)
+		cfg = self.db.astrocfg
 		#widgets of the settings
 		data = self.data = {}
-		#create a VBox
-		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True)
-		vbox.props.margin_start = 32
-		vbox.props.margin_end = 16
-		vbox.props.margin_top = 16
-		vbox.props.margin_bottom = 16
-		#create a grid with 8 rows and 1 column
-		grid = Gtk.Grid()
-		grid.set_column_spacing(8)
-		grid.set_row_spacing(8)
-		#grid.set_border_width(10)
-		grid.set_column_homogeneous(True)
-		# options
-		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		hbox.set_spacing(8)
-		geobase = Gtk.Label(label=_("Use Online Geocoding (ws.geonames.org)"))
-		hbox.prepend(geobase)
-		data['use_geonames.org'] = Gtk.CheckButton()
-		hbox.append(data['use_geonames.org'])
-		grid.attach(hbox, 0, 0, 1, 1)
-		if self.db.getAstrocfg('use_geonames.org') == "1":
-			data['use_geonames.org'].set_active(True)
-		"""
-		 replace ComboBox by DrowDown
-		 https://pygobject.gnome.org/tutorials/gtk4/controls/dropdownhtml
-		"""
+		# online geocoding
+		data['use_geonames.org'] = Adw.SwitchRow(title=_("Use Online Geocoding (ws.geonames.org)"))
+		data['use_geonames.org'].set_active(self.db.getAstrocfg('use_geonames.org') == "1")
 		# house system
-		data['houses_system'] = Gtk.DropDown.new()
-		grid.attach(Gtk.Label(label=_('Houses System')), 0, 1, 1, 1)
-		grid.attach(data['houses_system'], 0, 2, 1, 1)
-		house_systems = HOUSE_SYSTEMS
-		active = 0
-		self.houses_list = []
-		systems = Gtk.StringList()
-		for i, key in enumerate(house_systems.keys()):
-			self.houses_list.append(key)
-			systems.append(house_systems[key])
-			if self.db.astrocfg['houses_system'] == key:
-				active = i
-		data['houses_system'].set_model(model=systems)
-		data['houses_system'].set_selected(active)
-
+		self.houses_list = list(HOUSE_SYSTEMS.keys())
+		data['houses_system'] = comboRow(_('Houses System'), HOUSE_SYSTEMS.values(),
+			self.houses_list.index(cfg['houses_system']) if cfg['houses_system'] in self.houses_list else 0)
 		#position calculation (geo,truegeo,topo,helio)
-		data['postype'] = Gtk.DropDown.new()
-		grid.attach(Gtk.Label(label=_('Position Calculation')), 0, 3, 1, 1)
-		grid.attach(data['postype'], 0, 4, 1, 1)
 		postype={
 			"geo":self.chart.label["apparent_geocentric"]+" "+_("(default)"),
 			"truegeo":self.chart.label["true_geocentric"],
@@ -86,66 +49,22 @@ class ConfigurationDialog(AstroDialog):
 			"helio":self.chart.label["heliocentric"]
 		}
 		self.postype_list=["geo","truegeo","topo","helio"]
-		postypes = Gtk.StringList()
-		active = 0
-		for i, key in enumerate(postype.keys()):
-			postypes.append(postype[key])
-			if self.db.astrocfg['postype'] == key:
-				active = i
-		data['postype'].set_model(model=postypes)
-		data['postype'].set_selected(active)
-
+		data['postype'] = comboRow(_('Position Calculation'), postype.values(),
+			self.postype_list.index(cfg['postype']) if cfg['postype'] in self.postype_list else 0)
 		#chart view (traditional,european)
-		data['chartview'] = Gtk.DropDown.new()
-		grid.attach(Gtk.Label(label=_('Chart View')), 0, 5, 1, 1)
-		grid.attach(data['chartview'], 0, 6, 1, 1)
 		chartview={
 			"traditional":_("Planets in Zodiac"),
 			"european":_("Planets around Zodiac")
 		}
 		self.chartview_list = ["traditional","european"]
-		chartviews = Gtk.StringList()
-		active = 0
-		for i, key in enumerate(chartview.keys()):
-			chartviews.append(chartview[key])
-			if self.db.astrocfg['chartview'] == key:
-				active = i
-		data['chartview'].set_model(model=chartviews)
-		data['chartview'].set_selected(active)
-
+		data['chartview'] = comboRow(_('Chart View'), chartview.values(),
+			self.chartview_list.index(cfg['chartview']) if cfg['chartview'] in self.chartview_list else 0)
 		#zodiac type (tropical, sidereal)
-		data['zodiactype'] = Gtk.DropDown.new()
-		grid.attach(Gtk.Label(label=_('Zodiac Type')), 0, 7, 1, 1)
-		grid.attach(data['zodiactype'], 0, 8, 1, 1)
 		zodiactype = {"tropical":_("Tropical"), "sidereal":_("Sidereal")}
 		self.zodiactype_list=["tropical","sidereal"]
-		zodiactypes = Gtk.StringList()
-		active = 0
-		for i, key in enumerate(zodiactype.keys()):
-			zodiactypes.append(zodiactype[key])
-			if self.db.astrocfg['zodiactype'] == key:
-				active = i
-		data['zodiactype'].set_model(model=zodiactypes)
-		data['zodiactype'].set_selected(active)
-
-		#sidereal mode
-		data['siderealmode'] = Gtk.DropDown.new()
-		if self.db.astrocfg['zodiactype'] != 'sidereal':
-			data['siderealmode'].set_sensitive(False)
-
-		def zodiactype_changed(dropdown, _pspec):
-			# Selected Gtk.StringObject
-			selected = dropdown.get_selected()
-			if selected is not None:
-				type_string = self.zodiactype_list[selected]
-				if type_string != 'sidereal':
-					data['siderealmode'].set_sensitive(False)
-				else:
-					data['siderealmode'].set_sensitive(True)
-
-		data['zodiactype'].connect("notify::selected-item", zodiactype_changed)
-		grid.attach(Gtk.Label(label=_('Sidereal Mode')), 0, 9, 1, 1)
-		grid.attach(data['siderealmode'], 0, 10, 1, 1)
+		data['zodiactype'] = comboRow(_('Zodiac Type'), zodiactype.values(),
+			self.zodiactype_list.index(cfg['zodiactype']) if cfg['zodiactype'] in self.zodiactype_list else 0)
+		#sidereal mode, only for the sidereal zodiac
 		self.siderealmode_chartview={
 				"FAGAN_BRADLEY":_("Fagan Bradley"),
 				"LAHIRI":_("Lahiri"),
@@ -168,66 +87,25 @@ class ConfigurationDialog(AstroDialog):
 				"J1900":_("J1900"),
 				"B1950":_("B1950")
 		}
-		self.siderealmode_list = [
-				"FAGAN_BRADLEY",
-				"LAHIRI",
-				"DELUCE",
-				"RAMAN",
-				"USHASHASHI",
-				"KRISHNAMURTI",
-				"DJWHAL_KHUL",
-				"YUKTESHWAR",
-				"JN_BHASIN",
-				"BABYL_KUGLER1",
-				"BABYL_KUGLER2",
-				"BABYL_KUGLER3",
-				"BABYL_HUBER",
-				"BABYL_ETPSC",
-				"ALDEBARAN_15TAU",
-				"HIPPARCHOS",
-				"SASSANIAN",
-				"J2000",
-				"J1900",
-				"B1950"
-		]
-		sideralmodes = Gtk.StringList()
-		active = 0
-		for i, key in enumerate(self.siderealmode_chartview.keys()):
-			sideralmodes.append(self.siderealmode_chartview[key])
-			if self.db.astrocfg['siderealmode'] == key:
-				active = i
-		data['siderealmode'].set_model(model=sideralmodes)
-		data['siderealmode'].set_selected(active)
-		#language
-		grid.attach(Gtk.Label(label=_('Language')), 0, 11, 1, 1)
-		data['language'] = Gtk.DropDown.new()
-		grid.attach(data['language'], 0, 12, 1, 1)
-		languages = Gtk.StringList()
-		languages.append(_("Default"))
-		active = 0
-		for i, language in enumerate(LANGUAGES):
-			languages.append(self.db.lang_label[language])
-			if self.db.astrocfg['language'] == language:
-				active = i+1
-		data['language'].set_model(model=languages)
-		data['language'].set_selected(active)
-		#make the ui layout with ok button
-		scrolled_window = Gtk.ScrolledWindow()
-		scrolled_window.set_vexpand(True)
-		scrolled_window.set_child(grid)
-		vbox.append(scrolled_window)
-		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		button_box.set_homogeneous(True)
-		# ok button
-		button = Gtk.Button.new_with_mnemonic(label=_("OK"))
-		button.connect("clicked", lambda w: self.submit())
-		button_box.prepend(button)
-		# cancel button
-		button = Gtk.Button.new_with_mnemonic(label=_("Cancel"))
-		button.connect("clicked", lambda w: self.close())
-		button_box.prepend(button)
-		vbox.append(button_box)
-		self.set_child(vbox)
+		self.siderealmode_list = list(self.siderealmode_chartview.keys())
+		data['siderealmode'] = comboRow(_('Sidereal Mode'), self.siderealmode_chartview.values(),
+			self.siderealmode_list.index(cfg['siderealmode']) if cfg['siderealmode'] in self.siderealmode_list else 0)
+		data['siderealmode'].set_sensitive(cfg['zodiactype'] == 'sidereal')
+		data['zodiactype'].connect("notify::selected", lambda row, _pspec:
+			data['siderealmode'].set_sensitive(self.zodiactype_list[row.get_selected()] == 'sidereal'))
+		#language, default first
+		languages = [_("Default")] + [self.db.lang_label[language] for language in LANGUAGES]
+		active = LANGUAGES.index(cfg['language']) + 1 if cfg['language'] in LANGUAGES else 0
+		data['language'] = comboRow(_('Language'), languages, active)
+		#groups: geocoding, calculation, view and language
+		groups = []
+		for keys in (('use_geonames.org',), ('houses_system', 'postype', 'zodiactype', 'siderealmode'), ('chartview', 'language')):
+			group = Adw.PreferencesGroup()
+			for key in keys:
+				group.add(data[key])
+			groups.append(group)
+		self.set_child(page(*groups))
+		self.headerButtons(cancel=self.close, ok=self.submit)
 
 	def submit(self):
 		data = self.data

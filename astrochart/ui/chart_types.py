@@ -20,10 +20,10 @@ secondary progression
 import datetime
 import calendar
 import pytz
-from gi.repository import GLib, Gtk
+from gi.repository import Adw, GLib, Gtk
 from openastromod import zonetab
 from astrochart.constants import TRANSIT_YEAR_MAX, TRANSIT_YEAR_MIN
-from astrochart.ui.dialog import AstroDialog
+from astrochart.ui.dialog import AstroDialog, page, spinRow, spinValue
 
 class TransitBar(Gtk.Box):
 	"""date bar for transit charts, the chart is updated on the fly"""
@@ -143,40 +143,16 @@ class SolarReturnDialog(AstroDialog):
 	"""year of the solar return"""
 
 	def __init__(self, window):
-		super().__init__(window, title=_("Select year for Solar Return"))
-		self.set_size_request(300,100)
-		#create a grid
-		grid = Gtk.Grid()
-		grid.set_column_spacing(8)
-		grid.set_row_spacing(8)
-		#grid.set_border_width(10)
-		# options
-		header = Gtk.Label(label=_("Select year for Solar Return")+":")
-		grid.attach(header, 0, 0, 2, 1)
-		label_year = Gtk.Label(label=_('Year')+": ")
-		#hbox.pack_start(label_year, True, False, 8)
-		grid.attach(label_year, 0, 1, 1, 1)
-		spinner = {}
-		adjustment = Gtk.Adjustment(lower=1, upper=2600, step_increment=1, page_increment=10)
-		spinner['Y'] = Gtk.SpinButton()
-		spinner['Y'].props.adjustment = adjustment
-		spinner['Y'].set_numeric(True)
-		spinner['Y'].set_value(datetime.datetime.now().year)
-		grid.attach(spinner['Y'], 1, 1, 1, 1)
-		#ok button
-		button = Gtk.Button.new_with_mnemonic(label = _("OK"))
-		button.connect("clicked", lambda w: self.submit(spinner))
-		#button.set_can_default(True)
-		grid.attach(button, 0, 2, 1, 1)
-		#cancel button
-		button = Gtk.Button.new_with_mnemonic(label = _("Cancel"))
-		button.connect("clicked", lambda w: self.close())
-		grid.attach(button, 1, 2, 1, 1)
-		self.set_child(grid)
+		super().__init__(window, title=_("Select year for Solar Return"), modal=True, transient_for=window)
+		self.set_default_size(420, -1)
+		self.year = spinRow(_('Year'), 1, 2600, datetime.datetime.now().year)
+		group = Adw.PreferencesGroup(description=_("Select year for Solar Return"))
+		group.add(self.year)
+		self.set_child(page(group))
+		self.headerButtons(cancel=self.close, ok=self.submit)
 
-	def submit(self, spinner):
-		y = spinner['Y'].get_value_as_int()
-		self.chart.localToSolar(y)
+	def submit(self):
+		self.chart.localToSolar(spinValue(self.year))
 		self.close()
 		self.window.updateChart()
 
@@ -184,78 +160,25 @@ class ProgressionDialog(AstroDialog):
 	"""date of the secondary progression"""
 
 	def __init__(self, window):
-		super().__init__(window, title=_("Enter Date"))
-		self.set_size_request(320,180)
-		#create a grid
-		grid = Gtk.Grid()
-		grid.set_column_spacing(8)
-		grid.set_row_spacing(8)
-		grid.set_vexpand(True)
-		# options
-		header = Gtk.Label(label=_("Select date for Secondary Progression")+":")
-		grid.attach(header, 0, 0, 6, 1)
-		label_year = Gtk.Label(label=_('Year')+": ")
-		grid.attach(label_year, 0, 1, 1, 1)
-		spinner = {}
-		adjustment = Gtk.Adjustment(lower=1, upper=2400, step_increment=1, page_increment=10)
-		spinner['Y'] = Gtk.SpinButton()
-		spinner['Y'].props.adjustment = adjustment
-		spinner['Y'].set_numeric(True)
-		spinner['Y'].set_value(datetime.datetime.now().year)
-		grid.attach(spinner['Y'], 1, 1, 1, 1)
-		label_month = Gtk.Label(label=_('Month')+": ")
-		grid.attach(label_month, 2, 1, 1, 1)
-		adjustment = Gtk.Adjustment(lower=1, upper=12, step_increment=1)
-		spinner['M'] = Gtk.SpinButton()
-		spinner['M'].props.adjustment = adjustment
-		spinner['M'].set_numeric(True)
-		spinner['M'].set_value(datetime.datetime.now().month)
-		grid.attach(spinner['M'], 3, 1, 1, 1)
-		label_day = Gtk.Label(label=_('Day')+": ")
-		grid.attach(label_day, 4, 1, 1, 1)
-		adjustment = Gtk.Adjustment(lower=1, upper=31, step_increment=1)
-		spinner['D'] = Gtk.SpinButton()
-		spinner['D'].props.adjustment = adjustment
-		spinner['D'].set_numeric(True)
-		spinner['D'].set_value(datetime.datetime.now().day)
-		grid.attach(spinner['D'], 5, 1, 1, 1)
-		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		hbox.append(Gtk.Label(label=_('Hour')+": "))
-		adjustment = Gtk.Adjustment(lower=0, upper=23, step_increment=1)
-		spinner['h'] = Gtk.SpinButton()
-		spinner['h'].props.adjustment = adjustment
-		spinner['h'].set_numeric(True)
-		spinner['h'].set_value(datetime.datetime.now().hour)
-		hbox.append(spinner['h'])
-		hbox.append(Gtk.Label(label=_('Minute')+": "))
-		adjustment = Gtk.Adjustment(lower=0, upper=59, step_increment=1)
-		spinner['m'] = Gtk.SpinButton()
-		spinner['m'].props.adjustment = adjustment
-		spinner['m'].set_numeric(True)
-		spinner['m'].set_value(datetime.datetime.now().minute)
-		hbox.append(spinner['m'])
-		grid.attach(hbox, 1, 2, 5, 1)
-		#make the ui layout with ok button
-		#ok button
-		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		button_box.set_homogeneous(True)
-		button_box.set_vexpand(False)
-		button = Gtk.Button.new_with_mnemonic(label = _("OK"))
-		button.connect("clicked", lambda w: self.submit(spinner))
-		button_box.prepend(button)
-		#cancel button
-		button = Gtk.Button.new_with_mnemonic(label = _("Cancel"))
-		button.connect("clicked", lambda w: self.close())
-		button_box.append(button)
-		grid.attach(button_box, 0, 3, 5, 1)
-		self.set_child(grid)
+		super().__init__(window, title=_("Enter Date"), modal=True, transient_for=window)
+		self.set_default_size(420, -1)
+		now = datetime.datetime.now()
+		self.spinner = {
+			'Y': spinRow(_('Year'), 1, 2400, now.year),
+			'M': spinRow(_('Month'), 1, 12, now.month, 3),
+			'D': spinRow(_('Day'), 1, 31, now.day, 7),
+			'h': spinRow(_('Hour'), 0, 23, now.hour, 6),
+			'm': spinRow(_('Minute'), 0, 59, now.minute, 15)}
+		group = Adw.PreferencesGroup(description=_("Select date for Secondary Progression"))
+		for key in ('Y', 'M', 'D', 'h', 'm'):
+			group.add(self.spinner[key])
+		self.set_child(page(group))
+		self.headerButtons(cancel=self.close, ok=self.submit)
 
-	def submit(self, spinner):
-		y = spinner['Y'].get_value_as_int()
-		mon = spinner['M'].get_value_as_int()
-		d = spinner['D'].get_value_as_int()
-		h = spinner['h'].get_value_as_int()
-		m = spinner['m'].get_value_as_int()
+	def submit(self):
+		y, mon, d, h, m = (spinValue(self.spinner[key]) for key in ('Y', 'M', 'D', 'h', 'm'))
+		#day within the month
+		d = min(d, calendar.monthrange(y, mon)[1])
 		dt = datetime.datetime(y, mon, d, h, m)
 		self.chart.localToSecondaryProgression(dt)
 		self.close()

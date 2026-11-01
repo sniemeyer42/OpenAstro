@@ -16,24 +16,18 @@
 Dialog 'Settings > Planets & Angles': shown bodies per chart type
 """
 
-from gi.repository import Gtk
+from gi.repository import Adw, GLib, Gtk
 from astrochart.constants import ASPECT_CHART_TYPES, PLANET_DEFAULT_VISIBLE, PLANET_FIRST_ANGLE, PLANET_FIRST_POINT, PLANET_TRANSIT_HIDDEN
 from astrochart.ui.dialog import AstroDialog
 from astrochart.util import aspectFlag, dprint
 
 class PlanetSettingsDialog(AstroDialog):
-	"""one notebook page per chart type, check boxes per body"""
+	"""one page per chart type, a row with check boxes per body"""
 
 	def __init__(self, window):
 		super().__init__(window, title=_("Planets & Angles Settings"), transient_for=window, modal=True)
-		self.set_default_size(420,-1)
-		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True)
-		vbox.set_spacing(8)
-		vbox.props.margin_start = 16
-		vbox.props.margin_end = 16
-		vbox.props.margin_top = 16
-		vbox.props.margin_bottom = 16
-		#check boxes (planet setting, header): radix with symbol, aspect line and
+		self.set_default_size(520, 720)
+		#check boxes (planet setting, heading): radix with symbol, aspect line and
 		#aspect grid, transit and synastry per side
 		columns = {
 			'radix': [('visible', _('Symbol')), ('visible_aspect_line', _('Aspect Line')),
@@ -42,74 +36,64 @@ class PlanetSettingsDialog(AstroDialog):
 			'synastry': [('visible', _('Radix')), ('visible_transit', _('Partner'))]
 			}
 		titles = {'radix':_('Radix'), 'transit':_('Transit'), 'synastry':_('Synastry')}
-		self.notebook = Gtk.Notebook(vexpand=True)
+		groups = ((0, _('Planet Label')), (PLANET_FIRST_ANGLE, _('Angle Label')), (PLANET_FIRST_POINT, _('Point Label')))
+		scale = window.get_scale_factor()
+		self.stack = Adw.ViewStack()
 		self.data = {}
 		self.saved = {}
 		for ctype in ASPECT_CHART_TYPES:
-			grid = Gtk.Grid()
-			grid.set_column_spacing(16)
-			grid.set_row_spacing(2)
-			grid.props.margin_start = 12
-			grid.props.margin_end = 12
-			grid.props.margin_top = 12
-			grid.props.margin_bottom = 12
+			sizes = [Gtk.SizeGroup(mode=Gtk.SizeGroupMode.HORIZONTAL) for k in columns[ctype]]
+			preferences = Adw.PreferencesPage()
 			rows = []
 			saved = []
-			line = 0
+			group = None
 			for planet in self.db.getSettingsPlanet(ctype):
 				pid = planet['id']
-				#header above planets, angles and sensitive points
-				if line == 0 or pid in (PLANET_FIRST_ANGLE, PLANET_FIRST_POINT):
-					if pid >= PLANET_FIRST_POINT:
-						text = _('Point Label')
-					elif pid >= PLANET_FIRST_ANGLE:
-						text = _('Angle Label')
-					else:
-						text = _('Planet Label')
-					label = Gtk.Label(label=text, xalign=0)
-					label.add_css_class('heading')
-					if line > 0:
-						label.set_margin_top(10)
-					grid.attach(label, 0, line, 1, 1)
-					for col, (key, header) in enumerate(columns[ctype], start=1):
-						label = Gtk.Label(label=header, justify=Gtk.Justification.CENTER)
-						if line > 0:
-							label.set_margin_top(10)
-						grid.attach(label, col, line, 1, 1)
-					line += 1
-				grid.attach(Gtk.Label(label=planet['label'], xalign=0), 0, line, 1, 1)
+				#group of planets, angles and sensitive points with column headings
+				for first, title in groups:
+					if pid == first:
+						group = Adw.PreferencesGroup(title=title)
+						header = Gtk.Box(spacing=12, margin_end=12)
+						for k, (key, text) in enumerate(columns[ctype]):
+							heading = Gtk.Label(label=text, justify=Gtk.Justification.CENTER)
+							heading.add_css_class('caption')
+							sizes[k].add_widget(heading)
+							header.append(heading)
+						group.set_header_suffix(header)
+						preferences.add(group)
+				row = Adw.ActionRow(title=GLib.markup_escape_text(planet['label']))
+				symbol = window.symbols.picture(self.chart.svgSafeHref(planet['name']), 18, scale)
+				if symbol.get_paintable() is not None:
+					row.add_prefix(symbol)
+				suffix = Gtk.Box(spacing=12)
 				widgets = {'id': pid}
 				values = {'id': pid}
-				for col, (key, header) in enumerate(columns[ctype], start=1):
+				for k, (key, text) in enumerate(columns[ctype]):
 					values[key] = aspectFlag(planet[key], 0)
-					widgets[key] = Gtk.CheckButton(halign=Gtk.Align.CENTER)
+					widgets[key] = Gtk.CheckButton(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER, tooltip_text=text)
 					widgets[key].set_active(values[key] == 1)
-					grid.attach(widgets[key], col, line, 1, 1)
+					sizes[k].add_widget(widgets[key])
+					suffix.append(widgets[key])
+				row.add_suffix(suffix)
+				group.add(row)
 				rows.append(widgets)
 				saved.append(values)
-				line += 1
 			self.data[ctype] = rows
 			self.saved[ctype] = saved
-			scrolled_window = Gtk.ScrolledWindow()
-			scrolled_window.set_vexpand(True)
-			scrolled_window.set_propagate_natural_height(True)
-			scrolled_window.set_max_content_height(560)
-			scrolled_window.set_child(grid)
-			self.notebook.append_page(scrolled_window, Gtk.Label(label=titles[ctype]))
-		vbox.append(self.notebook)
-		#open the page of the chart shown
-		self.notebook.set_current_page(self.chartTypePage(self.chart))
-		#buttons, window manager close button, cancel and ok all end in close-request
-		vbox.append(self.buttonRow([
-			(_("Default"), self.default),
-			(_("Cancel"), self.close),
-			(_("Apply"), lambda: self.submit(close=False)),
-			(_("OK"), lambda: self.submit(close=True))]))
-		self.set_child(vbox)
+			self.stack.add_titled(preferences, ctype, titles[ctype])
+		#page of the chart shown
+		self.stack.set_visible_child_name(ASPECT_CHART_TYPES[self.chartTypePage(self.chart)])
+		switcher = Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE)
+		switcher.set_halign(Gtk.Align.CENTER)
+		self.toolbarView.add_top_bar(switcher)
+		self.set_child(self.stack)
+		#window manager close button, cancel and ok all end in close-request
+		self.headerButtons(cancel=self.close, ok=lambda: self.submit(close=True),
+			extra=[(_("Default"), self.default), (_("Apply"), lambda: self.submit(close=False))])
 
 	def default(self):
 		#reset the widgets of the current page only, saved with apply or ok
-		ctype = ASPECT_CHART_TYPES[self.notebook.get_current_page()]
+		ctype = self.stack.get_visible_child_name()
 		for widgets in self.data[ctype]:
 			pid = widgets['id']
 			for key, check in widgets.items():

@@ -97,6 +97,27 @@ class CityChooser:
 		# CAVEAT: changedContinent relies on the other drop downs
 		self.continents.connect('notify::selected-item', self.changedContinent)
 
+	def rows(self, search=True):
+		"""Adw rows of the drop downs and of the city search (self.searchRow)"""
+		from gi.repository import Adw
+		rows = []
+		for title, dropdown in ((_('Continent'), self.continents), (_('Country'), self.countries),
+			(_('Province'), self.provinces), (_('City'), self.cities)):
+			row = Adw.ActionRow(title=title)
+			dropdown.set_valign(Gtk.Align.CENTER)
+			row.add_suffix(dropdown)
+			rows.append(row)
+		if search:
+			#search 'city[, country]' in the database
+			self.searchRow = Adw.EntryRow(title=_("Search City"))
+			button = Gtk.Button.new_with_mnemonic(label=_("Search"))
+			button.set_valign(Gtk.Align.CENTER)
+			button.connect("clicked", lambda w: self.search(self.searchRow.get_text()))
+			self.searchRow.add_suffix(button)
+			self.searchRow.connect("entry-activated", lambda w: self.search(self.searchRow.get_text()))
+			rows.append(self.searchRow)
+		return rows
+
 	def start(self):
 		"""select the nearest place, fills the drop downs one after the other"""
 		self.continents.set_selected(self.activecont)

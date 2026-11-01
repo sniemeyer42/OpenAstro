@@ -17,8 +17,8 @@ Menu 'Tables': monthly timeline and cusp aspects windows
 """
 
 import datetime
-from gi.repository import Gio, Gtk, Rsvg
-from astrochart.ui.dialog import AstroDialog
+from gi.repository import Adw, Gio, Gtk, Rsvg
+from astrochart.ui.dialog import AstroDialog, page, spinRow, spinValue
 from astrochart.ui.filters import FILTER_ALL_FILES, FILTER_PDF_FILES
 from astrochart.ui.widgets import ViewSVG
 
@@ -26,39 +26,19 @@ class MonthDialog(AstroDialog):
 	"""month and year of the monthly timeline"""
 
 	def __init__(self, window):
-		super().__init__(window, title=_("Select Month in Year"))
-		self.set_default_size(272, 128)
-		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-		vbox.set_vexpand(True)
-		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		hbox.set_homogeneous(True)
-		label_year = Gtk.Label(label=_('Year')+": ")
-		hbox.append(label_year)
-		self.spinner = {}
-		adjustment = Gtk.Adjustment(lower=1, upper=2400, step_increment=1, page_increment=10)
-		self.spinner['Y'] = Gtk.SpinButton()
-		self.spinner['Y'].props.adjustment = adjustment
-		self.spinner['Y'].set_numeric(True)
-		self.spinner['Y'].set_value(datetime.datetime.now().year)
-		hbox.append(self.spinner['Y'])
-		vbox.append(hbox)
-		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		hbox.set_homogeneous(True)
-		label_month = Gtk.Label(label=_('Month')+": ")
-		hbox.append(label_month)
-		adjustment = Gtk.Adjustment(lower=1, upper=12, step_increment=1)
-		self.spinner['M'] = Gtk.SpinButton()
-		self.spinner['M'].props.adjustment = adjustment
-		self.spinner['M'].set_numeric(True)
-		self.spinner['M'].set_value(datetime.datetime.now().month)
-		hbox.append(self.spinner['M'])
-		vbox.append(hbox)
-		vbox.append(self.buttonRow([(_('OK'), self.submit), (_('Cancel'), self.close)]))
-		self.set_child(vbox)
+		super().__init__(window, title=_("Select Month in Year"), modal=True, transient_for=window)
+		self.set_default_size(380, -1)
+		now = datetime.datetime.now()
+		self.spinner = {'Y': spinRow(_('Year'), 1, 2400, now.year), 'M': spinRow(_('Month'), 1, 12, now.month, 3)}
+		group = Adw.PreferencesGroup()
+		group.add(self.spinner['Y'])
+		group.add(self.spinner['M'])
+		self.set_child(page(group))
+		self.headerButtons(cancel=self.close, ok=self.submit)
 
 	def submit(self):
 		self.close()
-		TimelineWindow(self.window, self.spinner['Y'].get_value_as_int(), self.spinner['M'].get_value_as_int()).present()
+		TimelineWindow(self.window, spinValue(self.spinner['Y']), spinValue(self.spinner['M'])).present()
 
 class TableWindow(AstroDialog):
 	"""

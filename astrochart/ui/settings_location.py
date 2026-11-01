@@ -18,94 +18,51 @@ Dialog 'Settings > Set Location': home location
 
 import datetime
 import pytz
-from gi.repository import Gtk
+from gi.repository import Adw, GLib
 from openastromod import geoname
 from astrochart.ui.city_chooser import CityChooser, geocodingAvailable
-from astrochart.ui.dialog import AstroDialog
+from astrochart.ui.dialog import AstroDialog, page
 from astrochart.util import dprint
 
 class LocationDialog(AstroDialog):
 	"""home location by online geocoding or from the geonames database"""
 
 	def __init__(self, window):
-		super().__init__(window, title=_("Please Set Your Home Location"), modal=True)
+		super().__init__(window, title=_("Please Set Your Home Location"), modal=True, transient_for=window)
+		self.set_default_size(520, 560)
 		# check connection to the internet
 		self.iconn = geocodingAvailable(self.db)
 		self.geoLocFound = True
-		self.set_default_size(-1,144)
-		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
-		vbox.props.margin_start = 16
-		vbox.props.margin_end = 16
-		vbox.props.margin_top = 16
-		vbox.props.margin_bottom = 16
-		# create a grid, method 'attach', left, top, width, height
-		grid = Gtk.Grid()
-		grid.set_column_spacing(16)
-		grid.set_row_spacing(16)
-		# display of location (non editable)
-		location = Gtk.Label(label=_('Location')+':')
-		grid.attach(location, 0, 1, 1, 1)
-		self.LLoc = Gtk.Label(label=self.chart.home_location)
-		grid.attach_next_to(child=self.LLoc, sibling=location, side=Gtk.PositionType.RIGHT, width=1, height=1)
-		latitude = Gtk.Label(label=_('Latitude')+':')
-		grid.attach(latitude, 0, 2, 1, 1)
-		self.LLat = Gtk.Label(label=str(self.chart.home_geolat))
-		grid.attach_next_to(child=self.LLat, sibling=latitude, side=Gtk.PositionType.RIGHT, width=1, height=1)
-		longitude = Gtk.Label(label=_('Longitude')+':')
-		grid.attach(longitude, 0, 3, 1, 1)
-		self.LLon = Gtk.Label(label=str(self.chart.home_geolon))
-		grid.attach_next_to(child=self.LLon, sibling=longitude, side=Gtk.PositionType.RIGHT, width=1, height=1)
+		#home location as it is now
+		self.homeRow = Adw.ActionRow()
+		self.homeRow.add_css_class('property')
+		home = Adw.PreferencesGroup()
+		home.add(self.homeRow)
+		self.showHome(self.chart.home_location, self.chart.home_geolat, self.chart.home_geolon)
 		#use geocoders if we have an internet connection else geonames database
+		place = Adw.PreferencesGroup(title=_("Location"))
 		if self.iconn:
-			# entry for location (edigrid)
-			hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=16)
-			label = Gtk.Label(label=_("City")+": ")
-			hbox.append(label)
-			self.geoLoc = Gtk.Entry()
-			self.geoLoc.set_max_length(100)
-			self.geoLoc.set_width_chars(30)
-			self.geoLoc.set_text(self.chart.home_location.partition(',')[0])
-			hbox.append(self.geoLoc)
-			label = Gtk.Label(label=" "+_("Country-code")+": ")
-			hbox.append(label)
-			self.geoCC = Gtk.Entry()
-			self.geoCC.set_max_length(2)
-			self.geoCC.set_width_chars(2)
-			self.geoCC.set_text(self.chart.home_countrycode)
-			hbox.append(self.geoCC)
-			grid.attach(hbox, 0, 0, 2, 1)
+			self.geoLoc = Adw.EntryRow(title=_("City"), text=self.chart.home_location.partition(',')[0])
+			self.geoCC = Adw.EntryRow(title=_("Country-code"), text=self.chart.home_countrycode)
+			place.add(self.geoLoc)
+			place.add(self.geoCC)
 		else:
 			# geonames database, preselect the place nearest to the chart
 			self.chooser = CityChooser(self.db, self.chart.geolat, self.chart.geolon, self.cityChanged)
-			grid.attach(self.chooser.continents, 0, 0, 1, 1)
-			grid.attach(self.chooser.countries, 1, 0, 1, 1)
-			grid.attach(self.chooser.provinces, 2, 0, 1, 1)
-			grid.attach(self.chooser.cities, 3, 0, 1, 1)
+			for row in self.chooser.rows():
+				place.add(row)
 			self.chooser.start()
-		# buttonbox
-		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		button_box.set_homogeneous(True)
-   		# ok button
-		button = Gtk.Button.new_with_mnemonic(label="OK")
-		button.connect("clicked", lambda w: self.submit())
-		button_box.append(button)
-		# Apply button
-		button = Gtk.Button.new_with_mnemonic(label=_('Apply'))
-		button.connect("clicked", lambda w: self.apply())
-		button_box.append(button)
-		# Cancel button, window manager close button and ok end in close-request
-		button = Gtk.Button.new_with_mnemonic(label=_("Cancel"))
-		button.connect("clicked", lambda w: self.close())
-		button_box.append(button)
-		grid.attach(button_box, 0, 4, 4, 1)
-		vbox.append(grid)
-		self.set_child(vbox)
+		self.set_child(page(home, place))
+		#window manager close button, cancel and ok end in close-request
+		self.headerButtons(cancel=self.close, ok=self.submit, extra=[(_('Apply'), self.apply)])
+
+	def showHome(self, location, lat, lon):
+		self.homeRow.set_title(GLib.markup_escape_text(str(location)))
+		self.homeRow.set_subtitle('%s: %s  ·  %s: %s' % (_('Latitude'), lat, _('Longitude'), lon))
 
 	def cityChanged(self, city):
 		#show the city chosen in the geonames database
-		self.LLoc.set_text('{}: '.format(city['loc']))
-		self.LLat.set_text('{}: '.format(city['lat']))
-		self.LLon.set_text('{}: '.format(city['lon']))
+		self.showHome(city['loc'], city['lat'], city['lon'])
 
 	def submit(self):
 		self.apply()
@@ -152,9 +109,7 @@ class LocationDialog(AstroDialog):
 		self.chart.transit = False
 		self.chart.name = _("Here and Now")
 		self.chart.type = "Radix"
-		self.LLat.set_text(str(lat))
-		self.LLon.set_text(str(lon))
-		self.LLoc.set_text(str(loc))
+		self.showHome(loc, lat, lon)
 		# set defaults for chart creation
 		now = datetime.datetime.now()
 		dt_input = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second)

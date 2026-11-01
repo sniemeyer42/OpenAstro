@@ -19,8 +19,8 @@ dialog for the timezone of imported charts with daylight saving time
 
 import pytz
 from shutil import copyfile
-from gi.repository import GLib, Gio, Gtk, GdkPixbuf, Rsvg
-from astrochart.ui.dialog import AstroDialog
+from gi.repository import Adw, GLib, Gio, Gtk, GdkPixbuf, Rsvg
+from astrochart.ui.dialog import AstroDialog, page
 from astrochart.ui.event_dialog import EventDialog
 from astrochart.ui.filters import FILTER_ALL_FILES, FILTER_DAT_FILES, FILTER_JPG_FILES, FILTER_OAC_FILES, FILTER_PDF_FILES, FILTER_PNG_FILES, FILTER_SKIF_FILES, FILTER_SQL_FILES, FILTER_SVG_FILES, FILTER_TXT_FILES, FILTER_XML_FILES, FILTER_ZBS_FILES
 from astrochart.ui.widgets import renderSVG, viewBoxSize
@@ -281,42 +281,20 @@ class TimezoneDialog(AstroDialog):
 
 	def __init__(self, window, timezone_str, on_timezone):
 		super().__init__(window, title=_("Daylight Saving Time Detected"), modal=True, transient_for=window)
+		self.set_default_size(440, -1)
 		self.timezone_str = timezone_str
 		self.on_timezone = on_timezone
-		self.set_default_size(300,100)
-		tz_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-		tz_box.set_spacing(12)
-		tz_box.props.margin_start = 16
-		tz_box.props.margin_end = 16
-		tz_box.props.margin_top = 16
-		tz_box.props.margin_bottom = 16
-		header = Gtk.Label(label=_("Change Timezone ?"))
-		tz_box.append(header)
-		entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		_label = Gtk.Label(label=_("Actual Timezone:"))
-		entry_box.append(_label)
-		tz_split = timezone_str.split('/')
-		_entry = Gtk.Entry()
-		_entry.set_max_length(16)
-		_entry.set_width_chars(12)
-		_entry.set_alignment(xalign=1)
-		_entry.set_editable(False)
-		_entry.set_text(tz_split[0])
-		entry_box.append(_entry)
-		_label = Gtk.Label(label=_(" / "))
-		entry_box.append(_label)
-		self.tz_entry = Gtk.Entry()
-		self.tz_entry.set_max_length(32)
-		self.tz_entry.set_width_chars(24)
-		self.tz_entry.set_text(timezone_str[timezone_str.find('/')+1:])
-		self.tz_entry.connect("activate", lambda w: self.submit())
-		entry_box.append(self.tz_entry)
-		tz_box.append(entry_box)
-		hints = Gtk.Label(label=_("Change Timezone and press <Enter>"))
-		tz_box.append(hints)
+		group = Adw.PreferencesGroup(title=_("Change Timezone ?"), description=_("Change Timezone and press <Enter>"))
+		continent = Adw.ActionRow(title=_("Actual Timezone:"), subtitle=timezone_str)
+		continent.add_css_class('property')
+		group.add(continent)
+		#the city part of the timezone (continent/city) can be changed
+		self.tz_entry = Adw.EntryRow(title=timezone_str[:timezone_str.find('/')+1], text=timezone_str[timezone_str.find('/')+1:])
+		self.tz_entry.connect("entry-activated", lambda w: self.submit())
+		group.add(self.tz_entry)
+		self.set_child(page(group))
 		#cancel keeps the proposed timezone
-		tz_box.append(self.buttonRow([(_("OK"), self.submit), (_("Cancel"), lambda: self.done(self.timezone_str))]))
-		self.set_child(tz_box)
+		self.headerButtons(cancel=lambda: self.done(self.timezone_str), ok=self.submit)
 		self.tz_entry.grab_focus()
 
 	def submit(self):
