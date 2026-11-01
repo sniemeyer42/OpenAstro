@@ -78,6 +78,10 @@ class AstroWindow(Adw.ApplicationWindow):
 		openChart_action = Gio.SimpleAction.new("openChart", None)
 		openChart_action.connect("activate", self.files.openChart_callback)
 		self.add_action(openChart_action)
+		printChart_action = Gio.SimpleAction.new("printChart", None)
+		printChart_action.connect("activate", self.files.printChart_callback)
+		self.add_action(printChart_action)
+		self.app.set_accels_for_action(detailed_action_name="win.printChart", accels=["<Ctrl>p"])
 		saveChart_action = Gio.SimpleAction.new("saveChart", None)
 		saveChart_action.connect("activate", self.files.saveChart_callback)
 		self.add_action(saveChart_action)
@@ -183,6 +187,7 @@ class AstroWindow(Adw.ApplicationWindow):
 		menu_button = Gtk.MenuButton(icon_name='open-menu-symbolic', menu_model=self.app.mainMenu, tooltip_text=_('Menu'))
 		menu_button.set_primary(True)
 		header.pack_end(menu_button)
+		header.pack_end(Gtk.Button(icon_name='document-print-symbolic', action_name='win.printChart', tooltip_text=_('Print')))
 		sidebar_button = Gtk.ToggleButton(icon_name='sidebar-show-right-symbolic', tooltip_text=_('Lists'))
 		header.pack_end(sidebar_button)
 		header.pack_end(Gtk.MenuButton(label=_('Chart Types'), menu_model=self.chartTypesMenu()))
@@ -487,11 +492,11 @@ class AstroWindow(Adw.ApplicationWindow):
 		self.updateChart()
 
 	def chartSVGs(self):
-		"""calculate the chart: wheel for the window (returned) and the page
-		for export and scripts (self.chartSVG), symbols of the lists"""
-		td = self.chart.templateData(None)
+		"""calculate the chart: wheel for the window (returned) and the printed
+		page for export and scripts (self.chartSVG), symbols of the lists"""
+		td = self.chart.templateData()
 		wheel = self.chart.makeWheelSVG(td)
-		self.saveChartSVG(self.chart.makeSVG(td=td))
+		self.saveChartSVG(self.chart.makePrintSVG(td))
 		self.symbols.update(wheel)
 		return wheel
 

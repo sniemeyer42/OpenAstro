@@ -83,7 +83,10 @@ def main(result_file):
 		return [model.get_item(i) for i in range(model.get_n_items())]
 
 	def new_windows():
-		return [w for w in toplevels() if id(w) not in state['before'] and w.get_visible()]
+		windows = [w for w in toplevels() if id(w) not in state['before'] and w.get_visible()]
+		#libadwaita dialogs (Adw.Dialog) are shown inside the main window
+		dialog = main_window().get_visible_dialog() if hasattr(main_window(), 'get_visible_dialog') else None
+		return windows + ([dialog] if dialog is not None else [])
 
 	def main_window():
 		return [w for w in toplevels() if isinstance(w, Gtk.ApplicationWindow)][0]
@@ -130,13 +133,19 @@ def main(result_file):
 
 	def close_step():
 		for w in new_windows():
-			w.close()
+			if hasattr(w, 'force_close'):
+				w.force_close()
+			else:
+				w.close()
 		GLib.timeout_add(400, end_step)
 		return False
 
 	def end_step():
 		for w in new_windows():
-			w.close()
+			if hasattr(w, 'force_close'):
+				w.force_close()
+			else:
+				w.close()
 		r = results[-1]
 		r['exceptions'] = [e.strip().split('\n')[-1] for e in exceptions[state['exc']:]]
 		print('%-18s new=%s clicked=%s exceptions=%s' % (r['step'], r['new'], r['clicked'], r['exceptions']), flush=True)

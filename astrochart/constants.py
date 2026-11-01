@@ -82,11 +82,6 @@ PLANET_TRANSIT_HIDDEN = ( 27 , 28 , 30 )
 #first id of the angles (Asc, Mc, Dsc, Ic) and of the sensitive points
 PLANET_FIRST_ANGLE = 23
 PLANET_FIRST_POINT = 27
-#dimensions of chart
-CHARTX = 772.2 
-CHARTY = 546.0
-#radius of zodiac
-RADIUS = 240
 #house systems of the swiss ephemeris (code: name)
 HOUSE_SYSTEMS = {
 	"P":"Placidus",

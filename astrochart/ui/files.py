@@ -196,6 +196,17 @@ class ChartFiles:
 			print_op.cancel()
 		return
 
+	def printChart_callback(self, action, parameter):
+		#print dialog for the printed page of the chart
+		print_op = Gtk.PrintOperation()
+		print_op.set_unit(Gtk.Unit.MM)
+		print_op.connect("begin_print", self.doPrintBegin)
+		print_op.connect("draw_page", self.doPrintDraw)
+		if print_op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self.window) == Gtk.PrintOperationResult.ERROR:
+			alert_dialog = Gtk.AlertDialog()
+			alert_dialog.set_message(_("Error printing"))
+			alert_dialog.show(self.window)
+
 	""" Export chart in different formats """
 	def export_callback(self, action, parameter):
 		# mark choosed menu item
@@ -230,28 +241,16 @@ class ChartFiles:
 		ps.set_paper_size(Gtk.PaperSize(Gtk.PAPER_NAME_A4))
 		operation.set_default_page_setup(ps)
 
-	""" Render SVG into cairo context """
+	""" Render the printed page into the cairo context """
 	def doPrintDraw(self, operation, context, page_nr):
+		svg = Rsvg.Handle.new_from_data(self.window.chartSVG.encode('utf-8'))
 		cr = context.get_cairo_context()
-		#draw svg
-		printing={}
-		printing['pagenum']=page_nr
-		printing['width']=context.get_width()
-		printing['height']=context.get_height()
-		printing['dpi_x']=context.get_dpi_x()
-		printing['dpi_y']=context.get_dpi_y()
-		#make printing svg
-		svg = Rsvg.Handle.new_from_data(self.chart.makeSVG(printing=printing).encode('utf-8'))
-		#render SVG into cairo context
-		if svg is not None:
-			cr = Gtk.PrintContext.get_cairo_context(context)
-			svg.set_dpi(300)
-			viewport = Rsvg.Rectangle()
-			viewport.x=0
-			viewport.y=0
-			viewport.width = Gtk.PrintContext.get_width(context)
-			viewport.height = Gtk.PrintContext.get_height(context)
-			svg.render_document(cr, viewport)
+		viewport = Rsvg.Rectangle()
+		viewport.x=0
+		viewport.y=0
+		viewport.width = context.get_width()
+		viewport.height = context.get_height()
+		svg.render_document(cr, viewport)
 
 	"""
 	'Extra' Menu Items Functions

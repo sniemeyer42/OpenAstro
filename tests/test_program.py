@@ -48,7 +48,7 @@ class ProgramTest(unittest.TestCase):
 		result = run_tool([os.path.join(HERE, 'golden.py'), out], self.home)
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 		files = sorted(os.listdir(out))
-		self.assertEqual(len(files), 12, files)
+		self.assertEqual(len(files), 20, files)
 		for name in files:
 			with open(os.path.join(out, name)) as f:
 				svg = f.read()

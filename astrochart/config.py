@@ -58,7 +58,6 @@ class OpenAstroCfg:
 		self.comments = os.path.join(DATADIR, 'COMMENTS')
 		self.license = os.path.join(DATADIR, 'LICENSE')
 		self.tempfilename = os.path.join(self.tmpdir,"openAstroChart.svg")
-		self.xml_svg = os.path.join(DATADIR, 'openastro-svg.xml')
 		self.xml_svg_wheel = os.path.join(DATADIR, 'openastro-svg-wheel.xml')
 		self.xml_svg_symbols = os.path.join(DATADIR, 'openastro-svg-symbols.xml')
 		self.xml_svg_table = os.path.join(DATADIR, 'openastro-svg-table.xml')

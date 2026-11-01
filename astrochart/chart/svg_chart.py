@@ -19,30 +19,15 @@ SVG of a chart: calculation, template, zodiac, houses and rings
 import math
 from string import Template
 from openastromod import swiss as ephemeris
-from astrochart.constants import CHARTX, CHARTY, OFFSET, RADIUS, RATIO, WHEEL_MARGIN
-from astrochart.util import dprint
+from astrochart.constants import RADIUS, WHEEL_MARGIN
 
 class ChartSVGMixin:
 	"""SVG of a chart: calculation, template, zodiac, houses and rings"""
 
-	""" make horoscope with zodiac ring """
-	def makeSVG( self , printing=None, td=None ):
-		"""chart page (header, wheel, lists, aspect grid) as SVG document,
-		td: template data of templateData(printing) if already calculated"""
-		if td is None:
-			td = self.templateData(printing)
-		template = Template(self.loadTemplate(self.cfg.xml_svg)).substitute(td)
-		if printing is None:
-			dprint("Creating SVG: lat="+str(self.geolat)+' lon='+str(self.geolon)+' loc='+self.location)
-		else:
-			dprint("Printing SVG: lat="+str(self.geolat)+' lon='+str(self.geolon)+'loc='+self.location)
-		#svg document as text
-		return template
-
 	def makeWheelSVG(self, td=None):
 		"""chart wheel alone as SVG document (calculates the chart unless the
 		template data td of templateData() is given)"""
-		td = dict(td) if td is not None else self.templateData(None)
+		td = dict(td) if td is not None else self.templateData()
 		td['viewbox'] = '%s %s %s %s' % (-WHEEL_MARGIN, -WHEEL_MARGIN, 2*(RADIUS+WHEEL_MARGIN), 2*(RADIUS+WHEEL_MARGIN))
 		td['svgWidth'] = td['svgHeight'] = str(2*(RADIUS+WHEEL_MARGIN))
 		td['wheelCenter'] = str(RADIUS)
@@ -58,8 +43,8 @@ class ChartSVGMixin:
 				text = text.replace('<!--#symbols#-->', f.read().rstrip('\n'))
 		return text
 
-	def templateData( self , printing=None ):
-		"""calculate the chart and fill the template dictionary"""
+	def calculate(self):
+		"""positions of the chart: settings of the chart type, ephemeris, composite averages"""
 		#empty element points
 		self.fire=0.0
 		self.earth=0.0
@@ -189,32 +174,10 @@ class ChartSVGMixin:
 							self.planets_sign[i]=x
 							self.planets_degree[i] = self.planets_degree_ut[i] - deg_low
 							self.planets_retrograde[i] = False
-		#width and height from screen
-		ratio = float(self.screen_width) / float(self.screen_height)
-		if ratio < 1.3: #1280x1024
-			wm_off = 96
-		else: # 1024x768, 800x600, 1280x800, 1680x1050
-			wm_off = 64
-		#correct dimensions
-		self.height = self.screen_height-wm_off
-		self.width = self.height * RATIO
-		chartX = CHARTX
-		chartY = CHARTY
-		chartY += OFFSET
-		#check for printer
-		if printing == None:
-			svgWidth = self.width
-			svgHeight = self.height
-			rotate = "0"
-			translate = "0"
-			viewbox = '0 0 {} {}'.format(chartX,chartY)
-		else:
-			svgWidth = printing['width']
-			svgHeight = printing['height']
-			rotate = "0"
-			translate = "0"
-			#set viewbox with 297mm * 2.6 + 210mm * 2.6
-			viewbox = '0 0 {} {}'.format(chartX,chartY)
+
+	def templateData(self):
+		"""calculate the chart and fill the template dictionary of the wheel"""
+		self.calculate()
 		#template dictionary		
 		td=dict()
 		r=RADIUS
@@ -238,10 +201,6 @@ class ChartSVGMixin:
 			td['c3'] = 'cx="' + str(r) + '" cy="' + str(r) + '" r="' + str(r-160) + '"'
 			td['c3style'] = 'fill: %s; fill-opacity:.8; stroke: %s; stroke-width: 1px'%(self.colors['paper_1'],self.colors['zodiac_transit_ring_0'])
 			td['makeAspects'] = self.makeAspectsTransit( r , (r-160))
-			td['makeAspectGrid'] = self.makeAspectTransitGrid( r )
-			td['makePatterns'] = ''
-			#list of transit aspects takes the place of zodiac legend
-			td['makeLegend'] = ''
 		else:
 			td['transitRing'] = ""
 			td['degreeRing'] = self.degreeRing( r )
@@ -253,108 +212,6 @@ class ChartSVGMixin:
 			td['c3'] = 'cx="' + str(r) + '" cy="' + str(r) + '" r="' + str(r-self.c3) + '"'
 			td['c3style'] = 'fill: %s; fill-opacity:.8; stroke: %s; stroke-width: 1px'%(self.colors['paper_1'],self.colors['zodiac_radix_ring_0'])
 			td['makeAspects'] = self.makeAspects( r , (r-self.c3))
-			td['makeAspectGrid'] = self.makeAspectGrid( r )
-			td['makePatterns'] = self.makePatterns()
-			td['makeLegend'] = self.makeLegend()
-		td['circleX']=str(0)
-		td['circleY']=str(0)
-		td['svgWidth']=str(svgWidth)
-		td['svgHeight']=str(svgHeight)
-		td['viewbox']=viewbox
-		td['stringTitle']=self.name
-		td['stringName']=self.charttype
-		#bottom left
-		siderealmode_chartview={
-				"FAGAN_BRADLEY":_("Fagan Bradley"),
-				"LAHIRI":_("Lahiri"),
-				"DELUCE":_("Deluce"),
-				"RAMAN":_("Ramanb"),
-				"USHASHASHI":_("Ushashashi"),
-				"KRISHNAMURTI":_("Krishnamurti"),
-				"DJWHAL_KHUL":_("Djwhal Khul"),
-				"YUKTESHWAR":_("Yukteshwar"),
-				"JN_BHASIN":_("Jn Bhasin"),
-				"BABYL_KUGLER1":_("Babyl Kugler 1"),
-				"BABYL_KUGLER2":_("Babyl Kugler 2"),
-				"BABYL_KUGLER3":_("Babyl Kugler 3"),
-				"BABYL_HUBER":_("Babyl Huber"),
-				"BABYL_ETPSC":_("Babyl Etpsc"),
-				"ALDEBARAN_15TAU":_("Aldebaran 15Tau"),
-				"HIPPARCHOS":_("Hipparchos"),
-				"SASSANIAN":_("Sassanian"),
-				"J2000":_("J2000"),
-				"J1900":_("J1900"),
-				"B1950":_("B1950")
-				}
-		if self.db.astrocfg['zodiactype'] == 'sidereal':
-			td['bottomLeft1']=_("Sidereal")
-			td['bottomLeft2'] = siderealmode_chartview[self.db.astrocfg['siderealmode']]
-		else:
-			td['bottomLeft1'] = _("Tropical")
-			td['bottomLeft2'] = '%s: %s (%s) %s (%s)' % (_("Lunar Phase"),self.lunar_phase['sun_phase'],_("Sun"),self.lunar_phase['moon_phase'],_("Moon"))
-		td['bottomLeft3'] = '%s: %s' % (_("Lunar Phase"),self.dec2deg(self.lunar_phase['degrees']))
-		td['bottomLeft4'] = ''
-		#lunar phase
-		deg=self.lunar_phase['degrees']
-		if(deg<90.0):
-			maxr=deg
-			if(deg>80.0): maxr=maxr*maxr
-			lfcx=20.0+(deg/90.0)*(maxr+10.0)
-			lfr=10.0+(deg/90.0)*maxr
-			lffg,lfbg=self.colors["lunar_phase_0"],self.colors["lunar_phase_1"]
-		elif(deg<180.0):
-			maxr=180.0-deg
-			if(deg<100.0): maxr=maxr*maxr
-			lfcx=20.0+((deg-90.0)/90.0*(maxr+10.0))-(maxr+10.0)
-			lfr=10.0+maxr-((deg-90.0)/90.0*maxr)
-			lffg,lfbg=self.colors["lunar_phase_1"],self.colors["lunar_phase_0"]
-		elif(deg<270.0):
-			maxr=deg-180.0
-			if(deg>260.0): maxr=maxr*maxr
-			lfcx=20.0+((deg-180.0)/90.0*(maxr+10.0))
-			lfr=10.0+((deg-180.0)/90.0*maxr)
-			lffg,lfbg=self.colors["lunar_phase_1"],self.colors["lunar_phase_0"]
-		elif(deg<361):
-			maxr=360.0-deg
-			if(deg<280.0): maxr=maxr*maxr
-			lfcx=20.0+((deg-270.0)/90.0*(maxr+10.0))-(maxr+10.0)
-			lfr=10.0+maxr-((deg-270.0)/90.0*maxr)
-			lffg,lfbg=self.colors["lunar_phase_0"],self.colors["lunar_phase_1"]
-		td['lunar_phase_fg'] = lffg		
-		td['lunar_phase_bg'] = lfbg
-		td['lunar_phase_cx'] = '%s' %(lfcx)
-		td['lunar_phase_r'] = '%s' %(lfr)
-		td['lunar_phase_outline'] = self.colors["lunar_phase_2"]
-		#rotation based on latitude
-		td['lunar_phase_rotate'] = "%s" % (-90.0-self.geolat)
-		#stringlocation
-		if len(self.location) > 35:
-			split=self.location.split(",")
-			if len(split) > 1:
-				td['stringLocation']=split[0]+", "+split[-1]
-				if len(td['stringLocation']) > 35:
-					td['stringLocation'] = td['stringLocation'][:35]+"..."
-			else:
-				td['stringLocation']=self.location[:35]+"..."
-		else:
-			td['stringLocation']=self.location
-		td['stringDateTime']=str(self.year_loc)+'-%(#1)02d-%(#2)02d %(#3)02d:%(#4)02d:%(#5)02d' % {'#1':self.month_loc,'#2':self.day_loc,'#3':self.hour_loc,'#4':self.minute_loc,'#5':self.second_loc} + self.decTzStr(self.timezone)
-		td['stringLat']="%s: %s" %(self.label['latitude'],self.lat2str(self.geolat))
-		td['stringLon']="%s: %s" %(self.label['longitude'],self.lon2str(self.geolon))
-		postype={"geo":self.label["apparent_geocentric"],"truegeo":self.label["true_geocentric"],
-				"topo":self.label["topocentric"],"helio":self.label["heliocentric"]}
-		td['stringPosition']=postype[self.db.astrocfg['postype']]
-		#header lines (x,y and font size as in template) keep clear of the
-		#chart circle, in transit charts also of the transit degrees outside
-		keep = r + 4
-		if self.type == "Transit":
-			keep = r + 16
-		header = [('stringTitle',30,24), ('stringName',50,12), ('stringLocation',62,10),
-			('stringDateTime',74,10), ('stringLat',86,10), ('stringLon',98,10), ('stringPosition',110,10)]
-		for key, y, size in header:
-			fit = self.fitFontSize(td[key], size, 20, y, "start", keep)
-			if fit < size:
-				td[key] = '<tspan style="font-size: %spx;">%s</tspan>' % (fit, td[key])
 		#paper_color_X
 		td['paper_color_0']=self.colors["paper_0"]
 		td['paper_color_1']=self.colors["paper_1"]
@@ -367,20 +224,10 @@ class ChartSVGMixin:
 		#orb_color_X
 		for i in range(len(self.aspects)):
 			td['orb_color_%s'%(self.aspects[i]['degree'])]=self.colors["aspect_%s" %(self.aspects[i]['degree'])]
-		#config zoom from versions v1.1.68 on
-		td['cfgZoom']="1.0"
-		#zoom in earlier versions below 1.1.68
-		#td['cfgZoom']=str(self.zoom)
-		#other configs
-		td['cfgRotate']=rotate
-		td['cfgTranslate']=translate
 		#functions
 		td['makeZodiac'] = self.makeZodiac( r )
 		td['makeHouses'] = self.makeHouses( r )
 		td['makePlanets'] = self.makePlanets( r )
-		td['makeElements'] = self.makeElements( r )
-		td['makePlanetGrid'] = self.makePlanetGrid()
-		td['makeHousesGrid'] = self.makeHousesGrid()
 		return td
 
 	""" Draw transit ring """

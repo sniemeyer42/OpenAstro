@@ -25,19 +25,16 @@ from astrochart.chart.data import ChartDataMixin
 from astrochart.chart.importexport import ImportExportMixin
 from astrochart.chart.svg_aspects import AspectsSVGMixin
 from astrochart.chart.svg_chart import ChartSVGMixin
-from astrochart.chart.svg_lists import ListsSVGMixin
 from astrochart.chart.svg_planets import PlanetsSVGMixin
+from astrochart.chart.svg_print import PrintSVGMixin
 from astrochart.chart.svg_tables import TablesSVGMixin
 from astrochart.chart.timecalc import TimeCalcMixin
 from astrochart.util import dprint
 
-class Chart(TimeCalcMixin, ChartSVGMixin, PlanetsSVGMixin, AspectsSVGMixin, ListsSVGMixin, TablesSVGMixin, ImportExportMixin, ChartDataMixin):
-	def __init__(self, cfg, db, screen_width, screen_height):
+class Chart(TimeCalcMixin, ChartSVGMixin, PlanetsSVGMixin, AspectsSVGMixin, TablesSVGMixin, ImportExportMixin, ChartDataMixin, PrintSVGMixin):
+	def __init__(self, cfg, db):
 		self.cfg = cfg
 		self.db = db
-		#the SVG size follows the screen size
-		self.screen_width = screen_width
-		self.screen_height = screen_height
 		#get color configuration
 		self.colors = self.db.getColors()
 		#get label configuration

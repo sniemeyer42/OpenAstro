@@ -51,31 +51,36 @@ def scenarios(app):
 	partner = {'name': 'Partner', 'year': 1985, 'month': 3, 'day': 20, 'hour': 8.0,
 		'geolon': 9.99, 'geolat': 53.55, 'altitude': 25, 'location': 'Hamburg, Germany', 'timezone': 1.0}
 
-	def chart(printing=None):
-		return app.makeSVG(printing=printing)
+	def both(name, documents):
+		yield name + '_wheel', documents[0]
+		yield name + '_print', documents[1]
 
-	natal(); app.makeSVG()
-	yield 'radix', chart()
-	yield 'radix_print', chart(printing={'width': 1200, 'height': 850})
-	natal(); app.makeSVG()
+	def chart():
+		#wheel of the window and the printed page, one calculation
+		td = app.templateData()
+		return app.makeWheelSVG(td), app.makePrintSVG(td)
+
+	natal(); app.calculate()
+	yield from both('radix', chart())
+	natal(); app.calculate()
 	app.type = 'Transit'; app.transit = True; app.synastry = False
 	app.t_year, app.t_month, app.t_day, app.t_hour = 2026, 10, 15, 12.0
 	app.t_geolon, app.t_geolat, app.t_altitude, app.t_timezone = 13.4, 52.52, 25, 1.0
 	app.charttype = 'Transit (2026-10-15 13:00)'
-	yield 'transit', chart()
+	yield from both('transit', chart())
 	natal(); app.setSynastry(partner)
-	yield 'synastry', chart()
+	yield from both('synastry', chart())
 	natal(); app.setComposite(partner)
 	app.charttype = 'Composite (Partner)'
-	yield 'composite', chart()
+	yield from both('composite', chart())
 	# combine: midpoint in time and space
 	natal(); app.setCombine(partner)
-	yield 'combine', chart()
-	natal(); app.makeSVG(); app.localToSolar(2026)
-	yield 'solar', chart()
-	natal(); app.makeSVG(); app.localToSecondaryProgression(datetime.datetime(2026, 10, 15, 12, 0))
-	yield 'progression', chart()
-	natal(); app.makeSVG()
+	yield from both('combine', chart())
+	natal(); app.calculate(); app.localToSolar(2026)
+	yield from both('solar', chart())
+	natal(); app.calculate(); app.localToSecondaryProgression(datetime.datetime(2026, 10, 15, 12, 0))
+	yield from both('progression', chart())
+	natal(); app.calculate()
 	yield 'timeline', app.makeTimelineSVG(None, 2026, 10)
 	yield 'cuspaspects', app.makeCuspAspectsSVG(None)
 	# every body visible
@@ -83,10 +88,10 @@ def scenarios(app):
 	app.db.setSettingsPlanet('radix', [{'id': i, 'visible': 1, 'visible_aspect_line': 1, 'visible_aspect_grid': 1} for i in range(n)])
 	for ctype in ('transit', 'synastry'):
 		app.db.setSettingsPlanet(ctype, [{'id': i, 'visible': 1, 'visible_transit': 1} for i in range(n)])
-	natal(); app.makeSVG()
-	yield 'radix_all', chart()
+	natal(); app.calculate()
+	yield from both('radix_all', chart())
 	natal(); app.setSynastry(partner)
-	yield 'synastry_all', chart()
+	yield from both('synastry_all', chart())
 
 def main(outdir):
 	os.makedirs(outdir, exist_ok=True)

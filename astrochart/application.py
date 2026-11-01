@@ -81,7 +81,7 @@ class AstroApplication(Adw.Application):
 		# handle data bases
 		self.db = OpenAstroSqlite(self.cfg)
 		#chart shown in the window: event data, chart type, settings, positions
-		self.chart = Chart(self.cfg, self.db, self.screen_width, self.screen_height)
+		self.chart = Chart(self.cfg, self.db)
 
 	def translate_menu_items(self, text, items):
 		interface = ET.fromstring(text)

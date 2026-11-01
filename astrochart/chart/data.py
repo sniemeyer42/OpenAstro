@@ -14,8 +14,9 @@
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
 Data of a calculated chart for lists and tables: positions of the bodies,
-house cusps, aspects and elements (call after makeSVG, makeWheelSVG or
-templateData, which calculate the chart)
+house cusps, aspects and elements (call after templateData or makeWheelSVG,
+which calculate the chart and draw the wheel: element points and transit
+aspects are collected while drawing)
 """
 
 def formatDegree(value, seconds=True):
