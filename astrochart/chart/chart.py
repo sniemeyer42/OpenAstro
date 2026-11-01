@@ -21,6 +21,7 @@ Calculation and SVG drawing come from the mixins of astrochart.chart.
 import datetime
 import pytz
 from openastromod import zonetab
+from astrochart.chart.data import ChartDataMixin
 from astrochart.chart.importexport import ImportExportMixin
 from astrochart.chart.svg_aspects import AspectsSVGMixin
 from astrochart.chart.svg_chart import ChartSVGMixin
@@ -30,7 +31,7 @@ from astrochart.chart.svg_tables import TablesSVGMixin
 from astrochart.chart.timecalc import TimeCalcMixin
 from astrochart.util import dprint
 
-class Chart(TimeCalcMixin, ChartSVGMixin, PlanetsSVGMixin, AspectsSVGMixin, ListsSVGMixin, TablesSVGMixin, ImportExportMixin):
+class Chart(TimeCalcMixin, ChartSVGMixin, PlanetsSVGMixin, AspectsSVGMixin, ListsSVGMixin, TablesSVGMixin, ImportExportMixin, ChartDataMixin):
 	def __init__(self, cfg, db, screen_width, screen_height):
 		self.cfg = cfg
 		self.db = db

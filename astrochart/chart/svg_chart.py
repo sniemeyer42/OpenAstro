@@ -19,14 +19,47 @@ SVG of a chart: calculation, template, zodiac, houses and rings
 import math
 from string import Template
 from openastromod import swiss as ephemeris
-from astrochart.constants import CHARTX, CHARTY, OFFSET, RADIUS, RATIO
+from astrochart.constants import CHARTX, CHARTY, OFFSET, RADIUS, RATIO, WHEEL_MARGIN
 from astrochart.util import dprint
 
 class ChartSVGMixin:
 	"""SVG of a chart: calculation, template, zodiac, houses and rings"""
 
 	""" make horoscope with zodiac ring """
-	def makeSVG( self , printing=None ):
+	def makeSVG( self , printing=None, td=None ):
+		"""chart page (header, wheel, lists, aspect grid) as SVG document,
+		td: template data of templateData(printing) if already calculated"""
+		if td is None:
+			td = self.templateData(printing)
+		template = Template(self.loadTemplate(self.cfg.xml_svg)).substitute(td)
+		if printing is None:
+			dprint("Creating SVG: lat="+str(self.geolat)+' lon='+str(self.geolon)+' loc='+self.location)
+		else:
+			dprint("Printing SVG: lat="+str(self.geolat)+' lon='+str(self.geolon)+'loc='+self.location)
+		#svg document as text
+		return template
+
+	def makeWheelSVG(self, td=None):
+		"""chart wheel alone as SVG document (calculates the chart unless the
+		template data td of templateData() is given)"""
+		td = dict(td) if td is not None else self.templateData(None)
+		td['viewbox'] = '%s %s %s %s' % (-WHEEL_MARGIN, -WHEEL_MARGIN, 2*(RADIUS+WHEEL_MARGIN), 2*(RADIUS+WHEEL_MARGIN))
+		td['svgWidth'] = td['svgHeight'] = str(2*(RADIUS+WHEEL_MARGIN))
+		td['wheelCenter'] = str(RADIUS)
+		td['wheelRadius'] = str(RADIUS+WHEEL_MARGIN)
+		return Template(self.loadTemplate(self.cfg.xml_svg_wheel)).substitute(td)
+
+	def loadTemplate(self, path):
+		"""template text with the shared symbol definitions inserted"""
+		with open(path) as f:
+			text = f.read()
+		if '<!--#symbols#-->' in text:
+			with open(self.cfg.xml_svg_symbols) as f:
+				text = text.replace('<!--#symbols#-->', f.read().rstrip('\n'))
+		return text
+
+	def templateData( self , printing=None ):
+		"""calculate the chart and fill the template dictionary"""
 		#empty element points
 		self.fire=0.0
 		self.earth=0.0
@@ -348,16 +381,7 @@ class ChartSVGMixin:
 		td['makeElements'] = self.makeElements( r )
 		td['makePlanetGrid'] = self.makePlanetGrid()
 		td['makeHousesGrid'] = self.makeHousesGrid()
-		#read template
-		f=open(self.cfg.xml_svg)
-		template=Template(f.read()).substitute(td)
-		f.close()
-		if printing is None:
-			dprint("Creating SVG: lat="+str(self.geolat)+' lon='+str(self.geolon)+' loc='+self.location)
-		else:
-			dprint("Printing SVG: lat="+str(self.geolat)+' lon='+str(self.geolon)+'loc='+self.location)
-		#svg document as text
-		return template
+		return td
 
 	""" Draw transit ring """
 	def transitRing( self , r ):

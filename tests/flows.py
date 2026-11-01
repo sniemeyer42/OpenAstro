@@ -125,6 +125,18 @@ def main():
 		check('event OK: local date', (chart.year_loc, chart.month_loc, chart.day_loc, chart.hour_loc) == (1985, 3, 20, 9), (chart.year_loc, chart.month_loc, chart.day_loc, chart.hour_loc))
 		check('event OK: closed', not d.get_visible())
 		check('event OK: history entry', len(app.db.history) >= min(history_before + 1, 10), (history_before, len(app.db.history)))
+		# ---- lists of the side bar (data of the calculated chart)
+		from astrochart.chart.data import houseOf
+		rows = chart.bodyRows()
+		check('lists: shown bodies', len(rows) == len([p for p in chart.planets if p['visible'] == 1]) > 10, len(rows))
+		houses = chart.houseRows()
+		check('lists: 12 house cusps', [h['house'] for h in houses] == list(range(1, 13)))
+		check('lists: houses of the bodies', all(houseOf(chart.houses_degree_ut[r['house'] - 1], chart.houses_degree_ut) == r['house'] for r in rows))
+		aspects = chart.aspectRows()
+		orbs = {a['degree']: a['orb'] for a in chart.aspects}
+		check('lists: aspects sorted by orb within orb', aspects and all(a['orb'] <= orbs[a['degree']] + 1e-9 for a in aspects)
+			and [a['orb'] for a in aspects] == sorted(a['orb'] for a in aspects), len(aspects))
+		check('lists: side bar filled', win.panels.boxes['aspects'].get_first_child() is not None)
 		# ---- add to database
 		win.activate_action('win.eventData', None)
 		d = find(T('Edit Event Details'))
@@ -181,6 +193,7 @@ def main():
 		sel.set_selected(ids.index(entry_id))
 		click(sd, 'Select for Synastry')
 		check('synastry chart', chart.type == 'Transit' and chart.synastry and chart.t_name == 'Flow Test', (chart.type, chart.synastry, getattr(chart, 't_name', None)))
+		check('synastry lists: partner side', chart.bodyRows(transit=True) and all(a['second']['transit'] for a in chart.aspectRows()))
 		# ---- delete
 		win.activate_action('win.openDatabase', None)
 		od = find(T('Open Database Entry'))

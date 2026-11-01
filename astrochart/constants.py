@@ -26,6 +26,8 @@ if "--local" in sys.argv:
 	LOCAL = True
 #radius of zodiac
 RADIUS = 240
+#space around the wheel for the degrees of transits
+WHEEL_MARGIN = 26
 OFFSET = 64
 RATIO = math.sqrt(2)
 VERSION = "1.1.111"
@@ -85,3 +87,20 @@ CHARTX = 772.2
 CHARTY = 546.0
 #radius of zodiac
 RADIUS = 240
+#house systems of the swiss ephemeris (code: name)
+HOUSE_SYSTEMS = {
+	"P":"Placidus",
+	"K":"Koch",
+	"O":"Porphyrius",
+	"R":"Regiomontanus",
+	"C":"Campanus",
+	"A":"Equal (Cusp 1 = Asc)",
+	"V":"Vehlow Equal (Asc = 1/2 House 1)",
+	"W":"Whole",
+	"X":"Axial Rotation",
+	"H":"Azimuthal or Horizontal System",
+	"T":"Polich/Page ('topocentric system')",
+	"B":"Alcabitus",
+	"G":"Gauquelin sectors",
+	"M":"Morinus"
+	}

@@ -20,6 +20,7 @@ zodiac and language
 import sys
 import os
 from gi.repository import Gtk
+from astrochart.constants import HOUSE_SYSTEMS
 from astrochart.i18n import LANGUAGES, LANGUAGES_LABEL
 from astrochart.ui.dialog import AstroDialog
 from astrochart.util import dprint
@@ -62,22 +63,7 @@ class ConfigurationDialog(AstroDialog):
 		data['houses_system'] = Gtk.DropDown.new()
 		grid.attach(Gtk.Label(label=_('Houses System')), 0, 1, 1, 1)
 		grid.attach(data['houses_system'], 0, 2, 1, 1)
-		house_systems = {
-			"P":"Placidus",
-			"K":"Koch",
-			"O":"Porphyrius",
-			"R":"Regiomontanus",
-			"C":"Campanus",
-			"A":"Equal (Cusp 1 = Asc)",
-			"V":"Vehlow Equal (Asc = 1/2 House 1)",
-			"W":"Whole",
-			"X":"Axial Rotation",
-			"H":"Azimuthal or Horizontal System",
-			"T":"Polich/Page ('topocentric system')",
-			"B":"Alcabitus",
-			"G":"Gauquelin sectors",
-			"M":"Morinus"
-		}
+		house_systems = HOUSE_SYSTEMS
 		active = 0
 		self.houses_list = []
 		systems = Gtk.StringList()

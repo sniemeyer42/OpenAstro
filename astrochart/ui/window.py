@@ -19,7 +19,7 @@ Main window
 import datetime
 import pytz
 from string import Template
-from gi.repository import Adw, GLib, Gio, Gtk
+from gi.repository import Adw, GLib, Gio, GObject, Gtk
 from openastromod import zonetab
 from astrochart.constants import LIMIT, VERSION
 from astrochart.ui.chart_types import ProgressionDialog, SolarReturnDialog, TransitBar
@@ -27,11 +27,13 @@ from astrochart.ui.database_dialogs import DatabaseDialog, FamousDialog, SelectE
 from astrochart.ui.event_dialog import EventDialog
 from astrochart.ui.files import ChartFiles
 from astrochart.ui.menus import BEGIN_XML, CHART_XML, END_XML, EVENT_XML, E_ITEM, M_ITEM
+from astrochart.ui.panels import ChartPanels
 from astrochart.ui.settings_aspects import AspectSettingsDialog
 from astrochart.ui.settings_configuration import ConfigurationDialog
 from astrochart.ui.settings_location import LocationDialog
 from astrochart.ui.settings_planets import PlanetSettingsDialog
 from astrochart.ui.table_windows import CuspAspectsWindow, MonthDialog
+from astrochart.ui.symbols import Symbols
 from astrochart.ui.widgets import ViewSVG
 
 """ Application Window """
@@ -181,28 +183,42 @@ class AstroWindow(Adw.ApplicationWindow):
 		menu_button = Gtk.MenuButton(icon_name='open-menu-symbolic', menu_model=self.app.mainMenu, tooltip_text=_('Menu'))
 		menu_button.set_primary(True)
 		header.pack_end(menu_button)
+		sidebar_button = Gtk.ToggleButton(icon_name='sidebar-show-right-symbolic', tooltip_text=_('Lists'))
+		header.pack_end(sidebar_button)
 		header.pack_end(Gtk.MenuButton(label=_('Chart Types'), menu_model=self.chartTypesMenu()))
 		toolbar_view = Adw.ToolbarView()
 		toolbar_view.add_top_bar(header)
+		# chart wheel beside the lists of positions, houses, aspects and data;
+		# in narrow windows the lists are shown over the wheel on demand
+		self.symbols = Symbols()
+		self.panels = ChartPanels(self, self.symbols)
+		self.splitView = Adw.OverlaySplitView(sidebar_position=Gtk.PackType.END, show_sidebar=True)
+		self.splitView.set_min_sidebar_width(300)
+		self.splitView.set_max_sidebar_width(420)
+		self.splitView.set_sidebar_width_fraction(0.32)
+		self.splitView.set_sidebar(self.panels)
+		self.splitView.bind_property('show-sidebar', sidebar_button, 'active',
+			GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE)
+		breakpoint = Adw.Breakpoint.new(Adw.BreakpointCondition.parse('max-width: 860sp'))
+		breakpoint.add_setter(self.splitView, 'collapsed', True)
+		self.add_breakpoint(breakpoint)
+		toolbar_view.set_content(self.splitView)
+		self.set_content(toolbar_view)
 		# display astrological chart
 		box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-		toolbar_view.set_content(box)
-		self.set_content(toolbar_view)
+		self.splitView.set_content(box)
 		# date bar above chart, visible for transit charts only
 		self.transitBar = TransitBar(self)
 		box.append(self.transitBar)
 		scrolled_window = Gtk.ScrolledWindow()
-		# Draw svg pixbuf
-		svg = self.chart.makeSVG()
-		self.saveChartSVG(svg)
-		#drawing_area to render SVG
-		#chart fitted into the window, zoom makes it scroll
-		self.image = ViewSVG(svg, fit='page')
+		#chart wheel fitted into the window, zoom makes it scroll
+		self.image = ViewSVG(self.chartSVGs(), fit='page')
 		self.image.set_vexpand(True)
 		self.image.set_hexpand(True)
 		scrolled_window.set_child(self.image)
 		box.append(scrolled_window)
 		self.updateTitle()
+		self.panels.update()
 
 	def chartTypesMenu(self):
 		#chart types for the menu button of the header bar
@@ -470,12 +486,20 @@ class AstroWindow(Adw.ApplicationWindow):
 		self.chart.setEvent(record)
 		self.updateChart()
 
+	def chartSVGs(self):
+		"""calculate the chart: wheel for the window (returned) and the page
+		for export and scripts (self.chartSVG), symbols of the lists"""
+		td = self.chart.templateData(None)
+		wheel = self.chart.makeWheelSVG(td)
+		self.saveChartSVG(self.chart.makeSVG(td=td))
+		self.symbols.update(wheel)
+		return wheel
+
 	def updateChart(self):
-		svg = self.chart.makeSVG()
-		self.saveChartSVG(svg)
-		self.image.setupSVG(svg)
+		self.image.setupSVG(self.chartSVGs())
 		self.image.queue_resize()
 		self.updateTitle()
+		self.panels.update()
 		# date bar belongs to transit charts only
 		if self.chart.type != "Transit":
 			self.transitBar.set_visible(False)
