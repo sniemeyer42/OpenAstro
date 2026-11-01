@@ -237,6 +237,20 @@ def main():
 		check('entry deleted', entry_id not in [p[0] for p in people()])
 		for w in [w for w in toplevels() if w.get_visible() and w.get_title() == T('Open Database Entry')]:
 			w.close()
+		# ---- chart view: modern wheel by default, classic one selectable
+		check('modern wheel by default', win.wheelData.get('style') == 'modern' and 'w-chart' in win.chart.makeWheelSVG(win.wheelData))
+		win.activate_action('win.settingsConfiguration', None)
+		d = find(T('General Configuration'))
+		d.data['chartview'].set_selected(1)
+		click(d, 'OK')
+		check('classic wheel chosen', app.db.astrocfg['chartstyle'] == 'classic' and app.db.astrocfg['chartview'] == 'traditional'
+			and win.wheelData.get('style') != 'modern', (app.db.astrocfg.get('chartstyle'), app.db.astrocfg.get('chartview')))
+		win.activate_action('win.settingsConfiguration', None)
+		d = find(T('General Configuration'))
+		check('configuration shows the classic view', d.data['chartview'].get_selected() == 1)
+		d.data['chartview'].set_selected(0)
+		click(d, 'OK')
+		check('modern wheel again', app.db.astrocfg['chartstyle'] == 'modern' and win.wheelData.get('style') == 'modern')
 		# ---- aspect settings: invalid orb is refused, valid orb saved
 		win.activate_action('win.specialRadix', None)
 		win.activate_action('win.settingsAspects', None)

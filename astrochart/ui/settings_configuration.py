@@ -51,14 +51,15 @@ class ConfigurationDialog(AstroDialog):
 		self.postype_list=["geo","truegeo","topo","helio"]
 		data['postype'] = comboRow(_('Position Calculation'), postype.values(),
 			self.postype_list.index(cfg['postype']) if cfg['postype'] in self.postype_list else 0)
-		#chart view (traditional,european)
+		#chart view: modern wheel or the classic one (traditional, european)
 		chartview={
-			"traditional":_("Planets in Zodiac"),
-			"european":_("Planets around Zodiac")
+			"modern":_("Modern"),
+			"traditional":'%s · %s' % (_("Classic"), _("Planets in Zodiac")),
+			"european":'%s · %s' % (_("Classic"), _("Planets around Zodiac"))
 		}
-		self.chartview_list = ["traditional","european"]
+		self.chartview_list = ["modern","traditional","european"]
 		data['chartview'] = comboRow(_('Chart View'), chartview.values(),
-			self.chartview_list.index(cfg['chartview']) if cfg['chartview'] in self.chartview_list else 0)
+			self.chartview_list.index(self.chartView()) if self.chartView() in self.chartview_list else 0)
 		#zodiac type (tropical, sidereal)
 		zodiactype = {"tropical":_("Tropical"), "sidereal":_("Sidereal")}
 		self.zodiactype_list=["tropical","sidereal"]
@@ -107,6 +108,12 @@ class ConfigurationDialog(AstroDialog):
 		self.set_child(page(*groups))
 		self.headerButtons(cancel=self.close, ok=self.submit)
 
+	def chartView(self):
+		"""'modern' or the view of the classic wheel"""
+		if self.db.astrocfg.get('chartstyle', 'modern') == 'modern':
+			return 'modern'
+		return self.db.astrocfg['chartview']
+
 	def submit(self):
 		data = self.data
 		update = False
@@ -128,13 +135,17 @@ class ConfigurationDialog(AstroDialog):
 		if self.postype_list[active] != self.db.astrocfg['postype']:
 			update = True
 			self.db.setAstrocfg("postype",self.postype_list[active])
-		#chart view
+		#chart view: style modern or classic, the view of the classic wheel
 		model = data['chartview'].get_model()
 		active = data['chartview'].get_selected()
 		dprint('Chart View choosen: '+model.get_string(active))
-		if self.chartview_list[active] != self.db.astrocfg['chartview']:
+		if self.chartview_list[active] != self.chartView():
 			update = True
-			self.db.setAstrocfg("chartview",self.chartview_list[active])
+			if self.chartview_list[active] == "modern":
+				self.db.setAstrocfg("chartstyle", "modern")
+			else:
+				self.db.setAstrocfg("chartstyle", "classic")
+				self.db.setAstrocfg("chartview",self.chartview_list[active])
 		#zodiac type
 		model = data['zodiactype'].get_model()
 		active = data['zodiactype'].get_selected()

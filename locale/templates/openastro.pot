@@ -1204,3 +1204,11 @@ msgstr ""
 #: ./astrochart/ui/event_dialog.py
 msgid "Sec"
 msgstr ""
+
+#: ./astrochart/ui/settings_configuration.py
+msgid "Modern"
+msgstr ""
+
+#: ./astrochart/ui/settings_configuration.py
+msgid "Classic"
+msgstr ""

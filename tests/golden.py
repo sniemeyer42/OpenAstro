@@ -60,16 +60,31 @@ def scenarios(app):
 		td = app.templateData()
 		return app.makeWheelSVG(td), app.makePrintSVG(td)
 
+	def transit():
+		natal(); app.calculate()
+		app.type = 'Transit'; app.transit = True; app.synastry = False
+		app.t_year, app.t_month, app.t_day, app.t_hour = 2026, 10, 15, 12.0
+		app.t_geolon, app.t_geolat, app.t_altitude, app.t_timezone = 13.4, 52.52, 25, 1.0
+		app.charttype = 'Transit (2026-10-15 13:00)'
+
 	natal(); app.calculate()
 	yield from both('radix', chart())
-	natal(); app.calculate()
-	app.type = 'Transit'; app.transit = True; app.synastry = False
-	app.t_year, app.t_month, app.t_day, app.t_hour = 2026, 10, 15, 12.0
-	app.t_geolon, app.t_geolat, app.t_altitude, app.t_timezone = 13.4, 52.52, 25, 1.0
-	app.charttype = 'Transit (2026-10-15 13:00)'
+	transit()
 	yield from both('transit', chart())
 	natal(); app.setSynastry(partner)
 	yield from both('synastry', chart())
+	# classic wheel (the modern one is the default)
+	app.db.astrocfg['chartstyle'] = 'classic'
+	natal(); app.calculate()
+	yield from both('classic_radix', chart())
+	transit()
+	yield from both('classic_transit', chart())
+	natal(); app.setSynastry(partner)
+	yield from both('classic_synastry', chart())
+	app.db.astrocfg['chartstyle'] = 'modern'
+	# modern wheel for a dark background
+	natal(); app.calculate()
+	yield 'radix_dark_wheel', app.makeWheelSVG(app.templateData(), dark=True)
 	natal(); app.setComposite(partner)
 	app.charttype = 'Composite (Partner)'
 	yield from both('composite', chart())

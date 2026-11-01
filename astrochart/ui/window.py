@@ -203,6 +203,10 @@ class AstroWindow(Adw.ApplicationWindow):
 		# chart wheel beside the lists of positions, houses, aspects and data;
 		# in narrow windows the lists are shown over the wheel on demand
 		self.symbols = Symbols()
+		#the modern wheel follows the light or dark style
+		style = Adw.StyleManager.get_default()
+		self.chart.dark = style.get_dark()
+		style.connect('notify::dark', self.onDarkChanged)
 		self.panels = ChartPanels(self, self.symbols)
 		self.splitView = Adw.OverlaySplitView(sidebar_position=Gtk.PackType.END, show_sidebar=True)
 		self.splitView.set_min_sidebar_width(300)
@@ -364,6 +368,11 @@ class AstroWindow(Adw.ApplicationWindow):
 
 	def tableCuspAspects_callback(self, action, parameter):
 		CuspAspectsWindow(self).present()
+
+	def onDarkChanged(self, style, pspec):
+		self.chart.dark = style.get_dark()
+		if hasattr(self, 'wheelData'):
+			self.image.replaceSVG(self.chart.makeWheelSVG(self.wheelData))
 
 	def refreshChart(self):
 		#redraw the chart after changed settings, keep zoom level

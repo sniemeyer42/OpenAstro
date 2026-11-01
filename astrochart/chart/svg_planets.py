@@ -19,15 +19,10 @@ SVG of the planets of radix and transit ring
 class PlanetsSVGMixin:
 	"""SVG of the planets of radix and transit ring"""
 
-	def makePlanets( self , r ):
-		#positions of the drawn symbols (wheel coordinates) for the interactive wheel
-		self.glyphs = []
-		planets_degut={}
-		diff=range(len(self.planets))
+	def countElements(self):
+		"""element points of the bodies (more in a sign they rule): self.fire, earth, air, water"""
+		self.fire = self.earth = self.air = self.water = 0.0
 		for i in range(len(self.planets)):
-			if self.planets[i]['visible'] == 1:
-				# list of planets sorted by degree
-				planets_degut[self.planets_degree_ut[i]]=i
 			#element: get extra points if planet is in own zodiac
 			pz = self.planets[i]['zodiac_relation']
 			cz = self.planets_sign[i]
@@ -46,6 +41,16 @@ class PlanetsSVGMixin:
 				self.air = self.air + self.planets[i]['element_points'] + extrapoints
 			elif ele == "water":
 				self.water = self.water + self.planets[i]['element_points'] + extrapoints
+
+	def makePlanets( self , r ):
+		#positions of the drawn symbols (wheel coordinates) for the interactive wheel
+		self.glyphs = []
+		planets_degut={}
+		diff=range(len(self.planets))
+		for i in range(len(self.planets)):
+			if self.planets[i]['visible'] == 1:
+				# list of planets sorted by degree
+				planets_degut[self.planets_degree_ut[i]]=i
 		output = ""
 		keys = list(planets_degut.keys())
 		keys.sort()

@@ -20,7 +20,7 @@ tables of positions, house cusps, elements and aspects
 import datetime
 from xml.sax.saxutils import escape
 from astrochart.chart.data import formatDegree
-from astrochart.constants import HOUSE_SYSTEMS, RADIUS, WHEEL_MARGIN
+from astrochart.constants import HOUSE_SYSTEMS, MODERN_ELEMENT_COLORS, RADIUS, WHEEL_MARGIN
 
 #page in units of 0.25 mm: A4 landscape 297 x 210 mm
 PAGE_WIDTH = 1188
@@ -59,7 +59,7 @@ class PrintSVGMixin:
 		"""A4 landscape page as SVG document (calculates the chart unless td is given)"""
 		if td is None:
 			td = self.templateData()
-		wheel = self.makeWheelSVG(td)
+		wheel = self.makeWheelSVG(td, dark=False)
 		out = [self.printHeader()]
 		#wheel on the left, below the header
 		bottom = PAGE_HEIGHT - MARGIN
@@ -155,6 +155,8 @@ class PrintSVGMixin:
 
 	def printElements(self, out, x, y, width):
 		"""elements as bars"""
+		#the modern wheel tints its zodiac band with these colours
+		colors = MODERN_ELEMENT_COLORS if self.modernStyle() else ELEMENT_COLORS
 		out.append(text(x, y + 12, _('Elements'), 17, weight='bold'))
 		y += 26
 		line = 17
@@ -163,7 +165,7 @@ class PrintSVGMixin:
 			out.append(text(x, cy, label, 12))
 			bar = width - 110
 			out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="7" rx="3.5" style="fill: %s;"/>\n' % (x + 64, cy - 8, bar, RULE))
-			out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="7" rx="3.5" style="fill: %s;"/>\n' % (x + 64, cy - 8, bar * percent / 100.0, ELEMENT_COLORS[key]))
+			out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="7" rx="3.5" style="fill: %s;"/>\n' % (x + 64, cy - 8, bar * percent / 100.0, colors[key]))
 			out.append(text(x + width, cy, '%d%%' % percent, 12, anchor='end'))
 		return y + line * 4
 

@@ -92,6 +92,7 @@ class DatabaseSchemaMixin:
 				"language":"default",
 				"postype":"geo",
 				"chartview":"traditional",
+				"chartstyle":"modern",
 				"zodiactype":"tropical",
 				"siderealmode":"FAGAN_BRADLEY"
 			 }

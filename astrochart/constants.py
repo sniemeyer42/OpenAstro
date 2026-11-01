@@ -99,3 +99,6 @@ HOUSE_SYSTEMS = {
 	"G":"Gauquelin sectors",
 	"M":"Morinus"
 	}
+
+#colours of the elements in the modern wheel (signs, zodiac band) and on its printed page
+MODERN_ELEMENT_COLORS = {'fire': '#e0443c', 'earth': '#3a9a54', 'air': '#c8960a', 'water': '#3a78d8'}

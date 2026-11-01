@@ -145,7 +145,7 @@ class TablesSVGMixin:
 				orbs = atgrid[key]
 				exact = min(orbs, key=orbs.get)
 				maxorb = aspects[z]['orb']
-				color = self.colors["aspect_%s" % (aspects[z]['degree'])]
+				color = self.aspectColor(aspects[z]['degree'])
 				for d, orb in orbs.items():
 					#opacity from .85 (exact) to .15 (at the orb of the aspect)
 					opacity = .85 - .7 * (orb / maxorb) if maxorb > 0 else .85
@@ -160,7 +160,7 @@ class TablesSVGMixin:
 					if retrogrid[key][d]:
 						out.append(text(cx + column - 2, ry + 7, '℞', 5.5, GREY, anchor='end'))
 			out.append(rule(MARGIN, bottom, PAGE_WIDTH - MARGIN))
-		return document(self.pages, printing, self.symbolDefinitions(), ''.join(out), title)
+		return document(self.pages, printing, self.chartSymbols(), ''.join(out), title)
 
 	""" make graphic for cusp aspects """
 	def makeCuspAspectsSVG(self, printing):
@@ -218,4 +218,4 @@ class TablesSVGMixin:
 			out.append(text(MARGIN + 2, ry + height / 2 + 4, '%s %s' % (self.label['cusp'], k + 1), min(12.0, height * 0.5)))
 			for c in range(k):
 				cell(MARGIN + label + c * column, ry, self.houses_degree_ut[k], self.houses_degree_ut[c])
-		return document(self.pages, printing, self.symbolDefinitions(), ''.join(out), title)
+		return document(self.pages, printing, self.chartSymbols(), ''.join(out), title)

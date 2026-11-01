@@ -24,10 +24,13 @@ from astrochart.constants import ASPECT_DEGREES, RADIUS, WHEEL_MARGIN
 class ChartSVGMixin:
 	"""SVG of a chart: calculation, template, zodiac, houses and rings"""
 
-	def makeWheelSVG(self, td=None):
+	def makeWheelSVG(self, td=None, dark=None):
 		"""chart wheel alone as SVG document (calculates the chart unless the
-		template data td of templateData() is given)"""
+		template data td of templateData() is given); dark: colours for a
+		dark background (modern wheel), None as self.dark"""
 		td = dict(td) if td is not None else self.templateData()
+		if td.get('style') == 'modern':
+			return self.makeModernWheelSVG(td, self.dark if dark is None else dark)
 		td['viewbox'] = '%s %s %s %s' % (-WHEEL_MARGIN, -WHEEL_MARGIN, 2*(RADIUS+WHEEL_MARGIN), 2*(RADIUS+WHEEL_MARGIN))
 		td['svgWidth'] = td['svgHeight'] = str(2*(RADIUS+WHEEL_MARGIN))
 		td['wheelCenter'] = str(RADIUS)
@@ -51,10 +54,10 @@ class ChartSVGMixin:
 			td['orb_color_%s'%(degree)]=self.colors["aspect_%s" %(degree)]
 		return td
 
-	def symbolDefinitions(self):
-		"""the symbol definitions with the colours of the chart"""
+	def symbolDefinitions(self, colors=None):
+		"""the symbol definitions with the colours of the chart (or colors)"""
 		with open(self.cfg.xml_svg_symbols) as f:
-			return Template(f.read()).substitute(self.colorData())
+			return Template(f.read()).substitute(colors or self.colorData())
 
 	def loadTemplate(self, path):
 		"""template text with the shared symbol definitions inserted"""
@@ -200,12 +203,21 @@ class ChartSVGMixin:
 	def templateData(self):
 		"""calculate the chart and fill the template dictionary of the wheel"""
 		self.calculate()
+		self.countElements()
+		#aspects of the lists (aspect grid settings), transits and synastries
+		if self.type == "Transit":
+			self.atgrid = [pair for pair in self.transitAspectPairs() if self.aspects[pair['aid']]['visible_grid'] == 1]
+		else:
+			self.atgrid = []
 		#the selected body must still be shown
 		if self.highlight is not None:
 			side, ident = self.highlight
 			key = 'visible_transit' if side == 'transit' else 'visible'
 			if (side == 'transit' and self.type != "Transit") or self.planets[ident][key] != 1:
 				self.highlight = None
+		#modern wheel unless the classic one is chosen
+		if self.modernStyle():
+			return self.modernTemplateData()
 		#template dictionary		
 		td=dict()
 		r=RADIUS
@@ -324,6 +336,10 @@ class ChartSVGMixin:
 	def redrawAspects(self, td):
 		"""template data with the aspect lines drawn again (after a change of self.highlight)"""
 		td = dict(td)
+		if td.get('style') == 'modern':
+			td['aspects'] = self.modernAspects(self.wheelLayout())
+			td['highlight'] = self.makeHighlight() if self.highlight is not None else ''
+			return td
 		r = RADIUS
 		if self.type == "Transit":
 			td['makeAspects'] = self.makeAspectsTransit( r , (r-160))

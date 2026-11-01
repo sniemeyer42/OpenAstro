@@ -54,9 +54,12 @@ class AspectsSVGMixin:
 							self.emphasis('radix', i, 'radix', x) )
 		return out
 
-	def makeAspectsTransit( self , r , ar ):
-		out = ""
-		self.atgrid=[]
+	def transitAspectPairs(self):
+		"""
+		aspects of the shown radix bodies (p1) to the shown transit or partner
+		bodies (p2): aspect index aid and angle diff
+		"""
+		pairs = []
 		for i in range(len(self.planets)):
 			start=self.planets_degree_ut[i]
 			# every radix planet against every transit (synastry) planet
@@ -67,17 +70,16 @@ class AspectsSVGMixin:
 				# radix side and transit (partner) side of the planet settings
 				if (self.planets[i]['visible'] == 1) & (self.planets[x]['visible_transit'] == 1):
 					z = self.matchAspect(diff)
-					if z is None:
-						continue
-					# check if we want to display this aspect
-					if self.aspects[z]['visible'] == 1:
-						out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.t_planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])],
-							self.emphasis('radix', i, 'transit', x) )
-					# aspect grid dictionary
-					if self.aspects[z]['visible_grid'] == 1:
-						self.atgrid.append({})
-						self.atgrid[-1]['p1']=i
-						self.atgrid[-1]['p2']=x
-						self.atgrid[-1]['aid']=z
-						self.atgrid[-1]['diff']=diff
+					if z is not None:
+						pairs.append({'p1': i, 'p2': x, 'aid': z, 'diff': diff})
+		return pairs
+
+	def makeAspectsTransit( self , r , ar ):
+		out = ""
+		for pair in self.transitAspectPairs():
+			i, x, z = pair['p1'], pair['p2'], pair['aid']
+			# check if we want to display this aspect
+			if self.aspects[z]['visible'] == 1:
+				out = out + self.drawAspect( r , ar , self.planets_degree_ut[i] , self.t_planets_degree_ut[x] , self.colors["aspect_%s" %(self.aspects[z]['degree'])],
+					self.emphasis('radix', i, 'transit', x) )
 		return out

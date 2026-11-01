@@ -28,15 +28,18 @@ from astrochart.chart.svg_chart import ChartSVGMixin
 from astrochart.chart.svg_planets import PlanetsSVGMixin
 from astrochart.chart.svg_print import PrintSVGMixin
 from astrochart.chart.svg_tables import TablesSVGMixin
+from astrochart.chart.svg_wheel import ModernWheelMixin
 from astrochart.chart.timecalc import TimeCalcMixin
 from astrochart.util import dprint
 
-class Chart(TimeCalcMixin, ChartSVGMixin, PlanetsSVGMixin, AspectsSVGMixin, TablesSVGMixin, ImportExportMixin, ChartDataMixin, PrintSVGMixin):
+class Chart(TimeCalcMixin, ChartSVGMixin, ModernWheelMixin, PlanetsSVGMixin, AspectsSVGMixin, TablesSVGMixin, ImportExportMixin, ChartDataMixin, PrintSVGMixin):
 	def __init__(self, cfg, db):
 		self.cfg = cfg
 		self.db = db
 		#selected body of the interactive wheel: (side, id), side 'radix' or 'transit'
 		self.highlight = None
+		#colours of the wheel for a dark background (window in dark style)
+		self.dark = False
 		#get color configuration
 		self.colors = self.db.getColors()
 		#get label configuration
