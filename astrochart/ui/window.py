@@ -25,6 +25,7 @@ from astrochart.constants import LIMIT, VERSION
 from astrochart.ui.chart_types import ProgressionDialog, SolarReturnDialog, TransitBar
 from astrochart.ui.database_dialogs import DatabaseDialog, FamousDialog, SelectEventDialog
 from astrochart.ui.event_dialog import EventDialog
+from astrochart.ui.dialog import iconButton
 from astrochart.ui.files import ChartFiles
 from astrochart.ui.menus import BEGIN_XML, CHART_XML, END_XML, EVENT_XML, E_ITEM, M_ITEM
 from astrochart.ui.chart_view import ChartView
@@ -184,17 +185,18 @@ class AstroWindow(Adw.ApplicationWindow):
 		header = Adw.HeaderBar()
 		self.windowTitle = Adw.WindowTitle()
 		header.set_title_widget(self.windowTitle)
-		for icon, action, tooltip in (
-			('document-new-symbolic', 'win.newChart', _('New')),
-			('document-edit-symbolic', 'win.eventData', _('Edit Event')),
-			('x-office-address-book-symbolic', 'win.openDatabase', _('Open Database'))):
-			button = Gtk.Button(icon_name=icon, action_name=action, tooltip_text=tooltip)
+		#icon names with fallbacks for icon themes without the first (Breeze)
+		for icons, action, tooltip in (
+			(('document-new-symbolic',), 'win.newChart', _('New')),
+			(('document-edit-symbolic',), 'win.eventData', _('Edit Event')),
+			(('x-office-address-book-symbolic', 'document-open-symbolic'), 'win.openDatabase', _('Open Database'))):
+			button = iconButton(Gtk.Button(action_name=action, tooltip_text=tooltip), *icons)
 			header.pack_start(button)
 		menu_button = Gtk.MenuButton(icon_name='open-menu-symbolic', menu_model=self.app.mainMenu, tooltip_text=_('Menu'))
 		menu_button.set_primary(True)
 		header.pack_end(menu_button)
 		header.pack_end(Gtk.Button(icon_name='document-print-symbolic', action_name='win.printChart', tooltip_text=_('Print')))
-		sidebar_button = Gtk.ToggleButton(icon_name='sidebar-show-right-symbolic', tooltip_text=_('Lists'))
+		sidebar_button = iconButton(Gtk.ToggleButton(tooltip_text=_('Lists')), 'sidebar-show-right-symbolic', 'sidebar-show-symbolic')
 		header.pack_end(sidebar_button)
 		header.pack_end(Gtk.MenuButton(label=_('Chart Types'), menu_model=self.chartTypesMenu()))
 		toolbar_view = Adw.ToolbarView()

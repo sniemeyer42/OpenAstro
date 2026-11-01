@@ -169,7 +169,7 @@ class ConfigurationDialog(AstroDialog):
 		confirm = _('Really change to language < {0} > ?\n').format(LANGUAGES_LABEL[lang])+_('Program will restart !')
 		alert_dialog.set_detail(confirm)
 		alert_dialog.set_modal(True)
-		alert_dialog.set_buttons(["Cancel", "OK"])
+		alert_dialog.set_buttons([_("Cancel"), _("OK")])
 		#the main window is the parent, this dialog closes at once
 		alert_dialog.choose(parent=self.window, cancellable=None, callback=self.on_change_language, user_data=lang)
 

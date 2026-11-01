@@ -20,7 +20,7 @@ import math
 import locale
 from gi.repository import Adw, Gtk
 from astrochart.constants import ASPECT_CHART_TYPES, ASPECT_DEFAULTS, ASPECT_DEGREES, ASPECT_ORB_MAX
-from astrochart.ui.dialog import AstroDialog, page
+from astrochart.ui.dialog import AstroDialog, page, pageSwitcher, pillButton
 from astrochart.util import dprint
 
 def aspectOrbText(orb):
@@ -48,7 +48,7 @@ class AspectSettingsDialog(AstroDialog):
 
 	def __init__(self, window):
 		super().__init__(window, title=_("Aspect Settings"), transient_for=window, modal=True)
-		self.set_default_size(560, 720)
+		self.set_default_size(600, 760)
 		self.stack = Adw.ViewStack()
 		self.data = {}
 		self.saved = {}
@@ -79,6 +79,7 @@ class AspectSettingsDialog(AstroDialog):
 				orb = aspect['orb']
 				widgets['orb'] = Gtk.Entry(valign=Gtk.Align.CENTER)
 				widgets['orb'].set_width_chars(5)
+				widgets['orb'].set_max_width_chars(5)
 				widgets['orb'].set_max_length(6)
 				widgets['orb'].set_alignment(1.0)
 				widgets['orb'].set_input_purpose(Gtk.InputPurpose.NUMBER)
@@ -96,16 +97,15 @@ class AspectSettingsDialog(AstroDialog):
 					'visible_grid':aspect['visible_grid'], 'orb':orb})
 			self.data[ctype] = rows
 			self.saved[ctype] = saved
-			self.stack.add_titled(page(group), ctype, titles[ctype])
+			#defaults of this page
+			self.stack.add_titled(page(group, pillButton(_("Default"), self.default)), ctype, titles[ctype])
 		#page of the chart shown
 		self.stack.set_visible_child_name(ASPECT_CHART_TYPES[self.chartTypePage(self.chart)])
-		switcher = Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE)
-		switcher.set_halign(Gtk.Align.CENTER)
-		self.toolbarView.add_top_bar(switcher)
+		self.toolbarView.add_top_bar(pageSwitcher(self.stack))
 		self.set_child(self.stack)
 		#window manager close button, cancel and ok all end in close-request
 		self.headerButtons(cancel=self.close, ok=lambda: self.submit(close=True),
-			extra=[(_("Default"), self.default), (_("Apply"), lambda: self.submit(close=False))])
+			extra=[(_("Apply"), lambda: self.submit(close=False))])
 
 	def default(self):
 		#reset the widgets of the current page only, saved with apply or ok

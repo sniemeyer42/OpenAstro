@@ -21,7 +21,7 @@ import pytz
 from gi.repository import Adw, GLib, Gtk
 from openastromod import geoname
 from astrochart.ui.city_chooser import CityChooser, geocodingAvailable
-from astrochart.ui.dialog import AstroDialog, page, spinRow, spinValue
+from astrochart.ui.dialog import AstroDialog, page, pillButton, spinRow, spinValue
 from astrochart.util import dprint
 
 def showDuplicateName(parent):
@@ -95,15 +95,9 @@ class EventDialog(AstroDialog):
 			self.chooser.start()
 		#save the database entry or add the event to the database
 		if edit:
-			self.savebutton = Gtk.Button.new_with_mnemonic(label=_("Save"))
-			self.savebutton.connect("clicked", lambda w: self.on_save(self))
+			database = pillButton(_("Save"), lambda: self.on_save(self))
 		else:
-			self.savebutton = Gtk.Button.new_with_mnemonic(label=_("Add to Database"))
-			self.savebutton.connect("clicked", lambda w: self.saveAsk())
-		self.savebutton.add_css_class('pill')
-		self.savebutton.set_halign(Gtk.Align.CENTER)
-		database = Adw.PreferencesGroup()
-		database.add(self.savebutton)
+			database = pillButton(_("Add to Database"), self.saveAsk)
 		self.set_child(page(summary, event, place, database))
 		#apply, ok (new events only), cancel
 		if edit:
@@ -140,7 +134,7 @@ class EventDialog(AstroDialog):
 		confirm = _('Are you sure you want to save < {0} > to the database?').format(self.name.props.text)
 		alert_dialog.set_detail(confirm)
 		alert_dialog.set_modal(True)
-		alert_dialog.set_buttons(["Cancel", "OK"])
+		alert_dialog.set_buttons([_("Cancel"), _("OK")])
 		alert_dialog.choose(parent=self, cancellable=None, callback=self.onSaveAnswer, user_data=None)
 
 	def onSaveAnswer(self, source_obj, async_res, user_data):

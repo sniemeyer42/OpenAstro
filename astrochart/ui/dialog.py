@@ -17,7 +17,7 @@ Base class of the windows beside the main window and helpers for their
 rows in the style of libadwaita
 """
 
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, Gio, Gtk
 
 class AstroDialog(Adw.Window):
 	"""
@@ -64,17 +64,6 @@ class AstroDialog(Adw.Window):
 			self.headerBar.set_show_start_title_buttons(False)
 			self.headerBar.set_show_end_title_buttons(False)
 
-	def buttonRow(self, buttons):
-		"""homogeneous row of buttons, buttons is a list of (label, callback)"""
-		box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		box.set_homogeneous(True)
-		box.set_spacing(8)
-		for label, callback in buttons:
-			button = Gtk.Button.new_with_mnemonic(label=label)
-			button.connect("clicked", lambda w, callback=callback: callback())
-			box.append(button)
-		return box
-
 	@staticmethod
 	def chartTypePage(chart):
 		"""settings page (index into ASPECT_CHART_TYPES) of the chart shown"""
@@ -82,6 +71,33 @@ class AstroDialog(Adw.Window):
 		if chart.type == "Transit":
 			return ASPECT_CHART_TYPES.index('synastry' if chart.synastry else 'transit')
 		return ASPECT_CHART_TYPES.index('radix')
+
+def iconButton(button, *names):
+	"""
+	button (Gtk.Button, Gtk.ToggleButton) with the first icon of names the
+	icon theme has: Breeze lacks some icons of Adwaita
+	"""
+	button.set_child(Gtk.Image.new_from_gicon(Gio.ThemedIcon.new_from_names(list(names))))
+	button.add_css_class('image-button')
+	return button
+
+def pageSwitcher(stack):
+	"""switcher of the pages of an Adw.ViewStack by their titles"""
+	switcher = Adw.InlineViewSwitcher(stack=stack, display_mode=Adw.InlineViewSwitcherDisplayMode.LABELS)
+	switcher.set_halign(Gtk.Align.CENTER)
+	switcher.set_margin_top(6)
+	switcher.set_margin_bottom(6)
+	return switcher
+
+def pillButton(label, callback):
+	"""group with a centred button, below the rows of a page"""
+	button = Gtk.Button.new_with_mnemonic(label=label)
+	button.add_css_class('pill')
+	button.set_halign(Gtk.Align.CENTER)
+	button.connect("clicked", lambda w: callback())
+	group = Adw.PreferencesGroup()
+	group.add(button)
+	return group
 
 def comboRow(title, items, selected=0):
 	"""Adw.ComboRow of the texts items"""

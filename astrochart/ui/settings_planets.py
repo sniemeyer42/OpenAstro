@@ -18,7 +18,7 @@ Dialog 'Settings > Planets & Angles': shown bodies per chart type
 
 from gi.repository import Adw, GLib, Gtk
 from astrochart.constants import ASPECT_CHART_TYPES, PLANET_DEFAULT_VISIBLE, PLANET_FIRST_ANGLE, PLANET_FIRST_POINT, PLANET_TRANSIT_HIDDEN
-from astrochart.ui.dialog import AstroDialog
+from astrochart.ui.dialog import AstroDialog, pageSwitcher, pillButton
 from astrochart.util import aspectFlag, dprint
 
 class PlanetSettingsDialog(AstroDialog):
@@ -26,7 +26,7 @@ class PlanetSettingsDialog(AstroDialog):
 
 	def __init__(self, window):
 		super().__init__(window, title=_("Planets & Angles Settings"), transient_for=window, modal=True)
-		self.set_default_size(520, 720)
+		self.set_default_size(600, 720)
 		#check boxes (planet setting, heading): radix with symbol, aspect line and
 		#aspect grid, transit and synastry per side
 		columns = {
@@ -78,18 +78,18 @@ class PlanetSettingsDialog(AstroDialog):
 				group.add(row)
 				rows.append(widgets)
 				saved.append(values)
+			#defaults of this page
+			preferences.add(pillButton(_("Default"), self.default))
 			self.data[ctype] = rows
 			self.saved[ctype] = saved
 			self.stack.add_titled(preferences, ctype, titles[ctype])
 		#page of the chart shown
 		self.stack.set_visible_child_name(ASPECT_CHART_TYPES[self.chartTypePage(self.chart)])
-		switcher = Adw.ViewSwitcher(stack=self.stack, policy=Adw.ViewSwitcherPolicy.WIDE)
-		switcher.set_halign(Gtk.Align.CENTER)
-		self.toolbarView.add_top_bar(switcher)
+		self.toolbarView.add_top_bar(pageSwitcher(self.stack))
 		self.set_child(self.stack)
 		#window manager close button, cancel and ok all end in close-request
 		self.headerButtons(cancel=self.close, ok=lambda: self.submit(close=True),
-			extra=[(_("Default"), self.default), (_("Apply"), lambda: self.submit(close=False))])
+			extra=[(_("Apply"), lambda: self.submit(close=False))])
 
 	def default(self):
 		#reset the widgets of the current page only, saved with apply or ok
