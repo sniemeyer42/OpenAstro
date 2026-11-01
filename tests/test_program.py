@@ -13,7 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Run the golden chart set and the GUI smoke test in fresh scratch homes.
+Run the golden chart set, the dialog flows and the GUI smoke test in fresh
+scratch homes.
 
 	xvfb-run python3 -m unittest discover -s tests -v
 """
@@ -55,6 +56,10 @@ class ProgramTest(unittest.TestCase):
 			ids = set(re.findall(r'id="([^"]+)"', svg))
 			refs = set(re.findall(r'xlink:href="#([^"]+)"', svg))
 			self.assertFalse(refs - ids, '%s: unresolved symbols %s' % (name, sorted(refs - ids)))
+
+	def test_dialog_flows(self):
+		result = run_tool([os.path.join(HERE, 'flows.py')], self.home)
+		self.assertEqual(result.returncode, 0, result.stdout[-4000:] + result.stderr[-3000:])
 
 	def test_gui_smoke(self):
 		out = os.path.join(self.home, 'smoke.json')

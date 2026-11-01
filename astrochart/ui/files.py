@@ -19,6 +19,7 @@ Menu 'Chart' (open, save, import, export, print) and database export/import
 import os
 from shutil import copyfile
 from gi.repository import GLib, Gio, Gtk, Rsvg
+from astrochart.ui.event_dialog import EventDialog
 from astrochart.ui.filters import FILTER_ALL_FILES, FILTER_DAT_FILES, FILTER_JPG_FILES, FILTER_OAC_FILES, FILTER_PDF_FILES, FILTER_PNG_FILES, FILTER_SKIF_FILES, FILTER_SQL_FILES, FILTER_SVG_FILES, FILTER_TXT_FILES, FILTER_XML_FILES, FILTER_ZBS_FILES
 from astrochart.util import dprint
 
@@ -46,7 +47,7 @@ class FilesMixin:
 			except GLib.Error:
 				return
 			self.chart.importOAC(local_file)
-			self.eventData(edit=False)
+			self.presentDialog('event', EventDialog)
 		elif gio_task.get_name() == 'gtk_file_dialog_save':
 			try:
 				local_file = file_dialog.save_finish(gio_task)

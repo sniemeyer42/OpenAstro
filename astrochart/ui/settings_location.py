@@ -13,38 +13,26 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Menu 'Settings': home location
+Dialog 'Settings > Set Location': home location
 """
 
 import datetime
 import pytz
 from gi.repository import Gtk
 from openastromod import geoname
+from astrochart.ui.city_chooser import CityChooser, geocodingAvailable
+from astrochart.ui.dialog import AstroDialog
 from astrochart.util import dprint
 
-class LocationSettingsMixin:
-	"""Menu 'Settings': home location"""
+class LocationDialog(AstroDialog):
+	"""home location by online geocoding or from the geonames database"""
 
-	"""
-	Menu item to set home location:
-		settingsLocation
-		settingsLocationSubmit
-		settingsLocationApply
-		settingsLocationDestroy
-		settingsLocationClose
-	"""
-	def setLocation_callback(self, action, parameter):
-		self.settingsLocationMode = True
+	def __init__(self, window):
+		super().__init__(window, title=_("Please Set Your Home Location"), modal=True)
 		# check connection to the internet
-		self.checkInternetConnection()
-		# create a new window
-		self.win_SL = Gtk.Window(title=_("Please Set Your Home Location"), modal=True)
-		""" >>> set_icon changed in GTK4 """
-
-		#window manager close button, cancel and ok all end in close-request
-		#("destroy" is not emitted while python still references the window)
-		self.win_SL.connect('close-request', self.settingsLocationClose)
-		self.win_SL.set_default_size(-1,144)
+		self.iconn = geocodingAvailable(self.db)
+		self.geoLocFound = True
+		self.set_default_size(-1,144)
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
 		vbox.props.margin_start = 16
 		vbox.props.margin_end = 16
@@ -58,7 +46,6 @@ class LocationSettingsMixin:
 		location = Gtk.Label(label=_('Location')+':')
 		grid.attach(location, 0, 1, 1, 1)
 		self.LLoc = Gtk.Label(label=self.chart.home_location)
-		#self.LLoc = Gtk.Label(label='XXXXXXXXX')
 		grid.attach_next_to(child=self.LLoc, sibling=location, side=Gtk.PositionType.RIGHT, width=1, height=1)
 		latitude = Gtk.Label(label=_('Latitude')+':')
 		grid.attach(latitude, 0, 2, 1, 1)
@@ -88,76 +75,44 @@ class LocationSettingsMixin:
 			hbox.append(self.geoCC)
 			grid.attach(hbox, 0, 0, 2, 1)
 		else:
-			# get nearest home
-			self.GEON_nearest = self.db.gnearest(self.chart.geolat,self.chart.geolon)
-			# continents
-			self.continents = Gtk.DropDown()
-			self.contstore = Gtk.ListStore(str,str)
-			grid.attach(self.continents, 0, 0, 1, 1)
-			sql = 'SELECT * FROM continent ORDER BY name ASC'
-			self.db.gquery(sql)
-			continent_info = Gtk.StringList()
-			self.continent_infos = []
-			activecont = 3
-			for i, row in enumerate(self.db.gcursor):
-				if row['code'] == self.GEON_nearest['continent']:
-					activecont = i
-					self.GEON_nearest['continent'] = None
-				self.contstore.append([row['name'],row['code']])
-				items = [row['name'],row['code']]
-				self.continent_infos.append(items)
-				continent_info.append(row['name'])
-			self.db.gclose()
-			self.continents.set_model(continent_info)
-			# countries
-			self.countries = Gtk.DropDown.new()
-			grid.attach(self.countries, 1, 0, 1, 1)
-			#self.countries.set_wrap_width(1) 
-			self.countries.connect('notify::selected-item', self.eventDataChangedCountrybox)
-			# provinces
-			self.provinces = Gtk.DropDown()
-			grid.attach(self.provinces, 2, 0, 1, 1)
-			#self.provinces.set_wrap_width(1) 
-			self.provinces.connect('notify::selected-item', self.eventDataChangedProvbox)
-			# cities
-			self.cities = Gtk.DropDown()
-			grid.attach(self.cities, 3, 0, 1, 1)
-			self.cities.set_enable_search(True)
-			expr = Gtk.PropertyExpression.new(Gtk.StringObject(), None, 'string')
-			self.cities.set_expression(expression=expr)
-			self.cities.connect('notify::selected-item', self.eventDataChangedCitybox)
-			self.continents.connect('notify::selected-item', self.eventDataChangedContbox)
-			self.continents.set_selected(activecont)
+			# geonames database, preselect the place nearest to the chart
+			self.chooser = CityChooser(self.db, self.chart.geolat, self.chart.geolon, self.cityChanged)
+			grid.attach(self.chooser.continents, 0, 0, 1, 1)
+			grid.attach(self.chooser.countries, 1, 0, 1, 1)
+			grid.attach(self.chooser.provinces, 2, 0, 1, 1)
+			grid.attach(self.chooser.cities, 3, 0, 1, 1)
+			self.chooser.start()
 		# buttonbox
 		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		button_box.set_homogeneous(True)
    		# ok button
 		button = Gtk.Button.new_with_mnemonic(label="OK")
-		button.connect("clicked", self.settingsLocationSubmit)
+		button.connect("clicked", lambda w: self.submit())
 		button_box.append(button)
 		# Apply button
 		button = Gtk.Button.new_with_mnemonic(label=_('Apply'))
-		button.connect("clicked", self.settingsLocationApply)
+		button.connect("clicked", lambda w: self.apply())
 		button_box.append(button)
-		# Cancel button
+		# Cancel button, window manager close button and ok end in close-request
 		button = Gtk.Button.new_with_mnemonic(label=_("Cancel"))
-		button.connect("clicked", self.settingsLocationDestroy)
+		button.connect("clicked", lambda w: self.close())
 		button_box.append(button)
 		grid.attach(button_box, 0, 4, 4, 1)
 		vbox.append(grid)
-		self.win_SL.set_child(vbox)
-		# show all
-		self.win_SL.present()
+		self.set_child(vbox)
 
-	def settingsLocationSubmit(self, widget):
-		self.settingsLocationApply(widget)
+	def cityChanged(self, city):
+		#show the city chosen in the geonames database
+		self.LLoc.set_text('{}: '.format(city['loc']))
+		self.LLat.set_text('{}: '.format(city['lat']))
+		self.LLon.set_text('{}: '.format(city['lon']))
+
+	def submit(self):
+		self.apply()
 		if self.geoLocFound:
-			self.settingsLocationDestroy(widget)
-			return
-		else:
-			return
+			self.close()
 
-	def settingsLocationApply(self, widget):
+	def apply(self):
 		# check for internet connection to decide geocode/database
 		self.geoLocFound = True
 		if self.iconn:
@@ -169,24 +124,19 @@ class LocationSettingsMixin:
 				tzstr = result[0]['timezonestr']
 				cc = result[0]['countryCode']
 				loc='%s, %s' % (result[0]['name'],result[0]['countryName'])
-				dprint('settingsLocationApply: %s found; %s %s %s' % (self.geoLoc.get_text(),lat,lon,loc))
+				dprint('LocationDialog.apply: %s found; %s %s %s' % (self.geoLoc.get_text(),lat,lon,loc))
 			else:
 				self.geoLocFound = False
-				#revert to defaults
-				lat = self.chart.geolat
-				lon = self.chart.geolon
-				loc = self.chart.location
-				cc = self.chart.countrycode
-				tzstr = self.chart.timezonestr
-				dprint('settingsLocationApply: %s not found, reverting to defaults' % self.geoLoc.get_text() )
+				dprint('LocationDialog.apply: %s not found' % self.geoLoc.get_text() )
 				self.geoLoc.set_text('City Not Found, Try Again!')
 				return
 		else:
-			lat = float(self.GEON_lat)
-			lon = float(self.GEON_lon)
-			loc = self.GEON_loc
-			cc = self.GEON_cc
-			tzstr = self.GEON_tzstr
+			city = self.chooser.city
+			lat = float(city['lat'])
+			lon = float(city['lon'])
+			loc = city['loc']
+			cc = city['cc']
+			tzstr = city['tzstr']
 		# apply settings to database
 		self.db.setSettingsLocation(lat, lon, loc, cc, tzstr)
 		self.chart.home_location = loc
@@ -219,18 +169,5 @@ class LocationSettingsMixin:
 		self.chart.timezone = self.chart.offsetToTz(dt.utcoffset())
 		self.chart.altitude = 25
 		self.chart.utcToLocal()
-		self.updateChart()
-
+		self.window.updateChart()
 		dprint('Setting New Home Location: %s %s %s' % (lat,lon,loc) )
-
-		return
-
-	def settingsLocationDestroy(self, widget):
-		self.win_SL.close()
-		return
-
-	def settingsLocationClose(self, window):
-		#forget the window, gtk destroys it after this handler
-		self.settingsLocationMode = False
-		self.win_SL = None
-		return False

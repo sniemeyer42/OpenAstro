@@ -17,27 +17,25 @@ Main window
 """
 
 import datetime
-import socket
 import pytz
 from string import Template
 from gi.repository import GLib, Gio, Gtk, Gdk
-from openastromod import geoname
+from openastromod import zonetab
 from astrochart.constants import LIMIT, VERSION
 from astrochart.ui.chart_types import ChartTypesMixin
 from astrochart.ui.database_dialogs import DatabaseDialogsMixin
-from astrochart.ui.event_dialog import EventDialogMixin
+from astrochart.ui.event_dialog import EventDialog
 from astrochart.ui.files import FilesMixin
 from astrochart.ui.menus import BEGIN_XML, CHART_XML, END_XML, EVENT_XML, E_ITEM, M_ITEM
 from astrochart.ui.settings_aspects import AspectSettingsDialog
 from astrochart.ui.settings_configuration import ConfigurationSettingsMixin
-from astrochart.ui.settings_location import LocationSettingsMixin
+from astrochart.ui.settings_location import LocationDialog
 from astrochart.ui.settings_planets import PlanetSettingsDialog
 from astrochart.ui.table_windows import TableWindowsMixin
 from astrochart.ui.widgets import ViewSVG
-from astrochart.util import dprint
 
 """ Application Window """
-class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, ConfigurationSettingsMixin, LocationSettingsMixin, ChartTypesMixin, TableWindowsMixin, Gtk.ApplicationWindow):
+class AstroWindow(FilesMixin, DatabaseDialogsMixin, ConfigurationSettingsMixin, ChartTypesMixin, TableWindowsMixin, Gtk.ApplicationWindow):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		#the application, the chart shown, configuration and databases
@@ -188,11 +186,11 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		scrolled_window.set_child(self.image)
 		box.append(scrolled_window)
 
-	def presentDialog(self, name, dialog_class):
+	def presentDialog(self, name, dialog_class, **arguments):
 		#only one dialog of a kind, forgotten when it closes
 		dialog = self.dialogs.get(name)
 		if dialog is None:
-			dialog = dialog_class(self)
+			dialog = dialog_class(self, **arguments)
 			self.dialogs[name] = dialog
 			dialog.connect('close-request', self.onDialogCloseRequest, name)
 		dialog.present()
@@ -203,6 +201,41 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		if self.dialogs.get(name) is dialog:
 			del self.dialogs[name]
 		return False
+
+	""" Menu 'Event' """
+	def eventDataNew_callback(self, action, parameter):
+		# default location
+		self.chart.location = self.chart.home_location
+		self.chart.geolat = float(self.chart.home_geolat)
+		self.chart.geolon = float(self.chart.home_geolon)
+		self.chart.countrycode = self.chart.home_countrycode
+		# timezone string, example Europe/Amsterdam
+		now = datetime.datetime.now()
+		self.chart.timezone_str = zonetab.nearest_tz(self.chart.geolat,self.chart.geolon,zonetab.timezones())[2]
+		#aware datetime object
+		dt_input = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second)
+		dt = pytz.timezone(self.chart.timezonestr).localize(dt_input)
+		#naive utc datetime object
+		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
+		# default
+		self.chart.name = _("New Chart")
+		self.chart.charttype = self.chart.label["radix"]
+		self.chart.year = dt_utc.year
+		self.chart.month = dt_utc.month
+		self.chart.day = dt_utc.day
+		self.chart.hour = self.chart.decHourJoin(dt_utc.hour,dt_utc.minute,dt_utc.second)
+		self.chart.timezone = self.chart.offsetToTz(dt.utcoffset())
+		# make locals
+		self.chart.utcToLocal()
+		# open editor
+		self.presentDialog('event', EventDialog)
+
+	def eventData_callback(self, action, parameter):
+		self.presentDialog('event', EventDialog)
+
+	""" Menu 'Settings' """
+	def setLocation_callback(self, action, parameter):
+		self.presentDialog('location', LocationDialog)
 
 	def setAspects_callback(self, action, parameter):
 		self.presentDialog('aspects', AspectSettingsDialog)
@@ -226,50 +259,6 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 			self.maximize()
 		else:
 			self.unmaximize()
-
-	"""
-	Function to check if we have an internet connection
-	for geonames.org geocoder
-	"""
-	def checkInternetConnection(self):
-		if self.db.getAstrocfg('use_geonames.org') == "0":
-			self.iconn = False
-			dprint('iconn: not using geocoding!')
-			return
-		# from openastromod import timeoutsocket
-		# timeoutsocket.setDefaultSocketTimeout(2)
-		HOST='api.geonames.org'
-		PORT=80
-		s = None
-		try:
-			socket.getaddrinfo(HOST, PORT, socket.AF_UNSPEC, socket.SOCK_STREAM)
-		except socket.error as msg:
-			self.iconn = False
-			dprint('iconn: no connection (getaddrinfo)')
-			return
-		for res in socket.getaddrinfo(HOST, PORT, socket.AF_UNSPEC, socket.SOCK_STREAM):
-			af, socktype, proto, canonname, sa = res
-			try:
-				s = socket.socket(af, socktype, proto)
-			except socket.error as msg:
-				s = None
-				continue
-			try:
-				s.connect(sa)
-			except (socket.error, timeoutsocket.Timeout):
-				s.close()
-				s = None
-				continue
-			break
-		if s is None:
-			self.iconn = False
-			dprint('iconn: no connection')
-		else:
-			self.iconn = True
-			dprint('iconn: got connection')
-			#timeoutsocket.setDefaultSocketTimeout(20)
-			s.close()
-		return
 
 	def updateUI(self, first_time):
 		parent = self.get_application()
@@ -423,79 +412,6 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		#the chart shown is kept as file for the export and for scripts
 		with open(self.cfg.tempfilename, 'w') as f:
 			f.write(svg)
-
-	def updateChartData(self):
-		# check for internet connection
-		self.checkInternetConnection()
-		if self.iconn:
-			result = geoname.search(self.geoLoc.get_text(),self.geoCC.get_text())
-			if result:
-				self.geoLocFound = True
-				lat = float(result[0]['lat'])
-				lon = float(result[0]['lng'])
-				gid = int(result[0]['geonameId'])
-				cc = result[0]['countryCode']
-				tzstr = result[0]['timezonestr']
-				loc = '%s, %s' % (result[0]['name'],result[0]['countryName'])
-				dprint('updateChartData: %s,%s found; %s %s %s' % (
-					self.geoLoc.get_text(),self.geoCC.get_text(),lat,lon,loc))
-			else:
-				self.geoLocFound = False
-				#revert to defaults
-				lat = self.chart.geolat
-				lon = self.chart.geolon
-				loc = self.chart.location
-				cc = self.chart.countrycode
-				tzstr = self.chart.timezonestr
-				gid = self.chart.geonameid
-
-				dprint('updateChartData: %s,%s not found, reverting to defaults' % (
-					self.geoLoc.get_text(),self.geoCC.get_text()) )
-
-				self.geoLoc.set_text(_('City not found! Try Again.'))
-				return
-		else:
-			# using geonames database
-			self.geoLocFound = True
-			lat = float(self.GEON_lat)
-			lon = float(self.GEON_lon)
-			loc = self.GEON_loc
-			cc = self.GEON_cc
-			tzstr = self.GEON_tzstr
-			gid = self.GEON_id
-		# calculate timezone
-		self.chart.timezonestr = tzstr
-		self.chart.geonameid = gid
-		# aware datetime object
-		dt_input = datetime.datetime(self.dateY.get_value_as_int(), self.dateM.get_value_as_int(), self.dateD.get_value_as_int(), self.timeH.get_value_as_int(), self.timeM.get_value_as_int(), self.timeS.get_value_as_int())
-		dt = pytz.timezone(self.chart.timezonestr).localize(dt_input)
-
-		dprint( dt.strftime('%Y-%m-%d %H:%M:%S %Z%z') )
-		dprint( 'Daylight Saving Time: %s' %((dt.dst().seconds / 3600.0)) )
-
-		# naive datetime object UTC
-		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
-		# set globals
-		self.chart.year = dt_utc.year
-		self.chart.month = dt_utc.month
-		self.chart.day = dt_utc.day
-		self.chart.hour = self.chart.decHourJoin(dt_utc.hour, dt_utc.minute, dt_utc.second)
-		self.chart.timezone = self.chart.offsetToTz(dt.utcoffset())
-		self.chart.name = self.name.get_text()
-		# location
-		self.chart.geolat=lat
-		self.chart.geolon=lon
-		self.chart.location=loc
-		self.chart.countrycode=cc
-		# update local time
-		self.chart.utcToLocal()
-		# update labels
-		labelDar = str(self.chart.year_loc)+'-%(#1)02d-%(#2)02d' % {'#1':self.chart.month_loc,'#2':self.chart.day_loc}
-		self.labelDate.set_text(labelDar)
-		labelTzStr = '%(#1)02d:%(#2)02d:%(#3)02d' % {'#1':self.chart.hour_loc,'#2':self.chart.minute_loc,'#3':self.chart.second_loc} + self.chart.decTzStr(self.chart.timezone)
-		self.labelTz.set_text(labelTzStr)
-		self.ename.set_text(self.chart.name)
-		self.entry2.set_text(' %s: %s\n %s: %s\n %s: %s' % ( _('Latitude'),lat,_('Longitude'),lon,_('Location'),loc) )
 
 	""" Menu 'Zoom' """
 	def zoom_callback(self, action, parameter):

@@ -13,73 +13,47 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Menu 'Event': edit event data
+Dialog 'Event > Edit Event': name, date, time and location of the chart
 """
 
 import datetime
 import pytz
 from gi.repository import Gtk
-from openastromod import zonetab
+from openastromod import geoname
+from astrochart.ui.city_chooser import CityChooser, geocodingAvailable
+from astrochart.ui.dialog import AstroDialog
 from astrochart.util import dprint
 
-class EventDialogMixin:
-	"""Menu 'Event': edit event data"""
+def showDuplicateName(parent):
+	"""message window: the name exists in the database"""
+	dialog = Gtk.Window(title=_('Found Duplicate'), modal=True, transient_for=parent)
+	dialog.set_default_size(256,-1)
+	vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+	double = Gtk.Label(label=_('There is already an entry for this name, please choose another'))
+	double.set_wrap(True)
+	vbox.append(double)
+	button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+	button_box.set_homogeneous(True)
+	#OK button
+	button = Gtk.Button.new_with_mnemonic(label=_("OK"))
+	button.connect("clicked",  lambda w: dialog.close())
+	button_box.append(button)
+	vbox.append(button_box)
+	dialog.set_child(vbox)
+	dialog.present()
 
+class EventDialog(AstroDialog):
 	"""
-	 Menu 'Event'
-	  eventDataNew
-	  eventData_callback
-	  eventData
-	  citySearch
-	  eventDataChangedContbox
-	  eventDataChangedCountrybox
-	  eventDataChangedProvbox(
-	  eventDataChangedCitybox
-	  eventDataSaveAsk
-	  quickopendb
+	edit the event of the chart; edit=True edits a database entry: the save
+	button then calls on_save(dialog) instead of adding a new entry
 	"""
-	def eventDataNew_callback(self, action, parameter):
-		# default location
-		self.chart.location = self.chart.home_location
-		self.chart.geolat = float(self.chart.home_geolat)
-		self.chart.geolon = float(self.chart.home_geolon)
-		self.chart.countrycode = self.chart.home_countrycode
-		# timezone string, example Europe/Amsterdam
-		now = datetime.datetime.now()
-		self.chart.timezone_str = zonetab.nearest_tz(self.chart.geolat,self.chart.geolon,zonetab.timezones())[2]
-		#aware datetime object
-		dt_input = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second)
-		dt = pytz.timezone(self.chart.timezonestr).localize(dt_input)
-		#naive utc datetime object
-		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
-		# default
-		self.chart.name = _("New Chart")
-		self.chart.charttype = self.chart.label["radix"]
-		self.chart.year = dt_utc.year
-		self.chart.month = dt_utc.month
-		self.chart.day = dt_utc.day
-		self.chart.hour = self.chart.decHourJoin(dt_utc.hour,dt_utc.minute,dt_utc.second)
-		self.chart.timezone = self.chart.offsetToTz(dt.utcoffset())
-		# make locals
-		self.chart.utcToLocal()
-		# open editor
-		self.eventData(edit=False)
 
-	def eventData_callback(self, action, parameter):
-		self.eventData(edit=False)
-
-	def eventData(self, edit):
-		self.settingsLocationMode = False
-		# create a new window
-		self.window2 = Gtk.Window(title=_("Edit Event Details"), modal=True)
-		""" set_icon changed in GTK4 """
-		#self.window2.set_icon_from_file(self.cfg.iconWindow)
-		self.window2.set_title()
-		#self.window2.connect("delete_event", lambda w,e: self.window2.destroy())
-		#self.window2.move(150,150)
-		#self.window2.set_border_width(10)
+	def __init__(self, window, edit=False, on_save=None):
+		super().__init__(window, title=_("Edit Event Details"), modal=True)
+		self.on_save = on_save
+		self.geoLocFound = True
 		# check internet connection
-		self.checkInternetConnection()
+		self.iconn = geocodingAvailable(self.db)
 		#vertical box for all
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True)
 		vbox.props.margin_start = 16
@@ -126,46 +100,12 @@ class EventDialogMixin:
 			self.geoCC.set_text(self.chart.countrycode)
 			hbox.prepend(child=self.geoCC)
 		else:
-			#otherwise use geonames sql database and get nearest geoname
-			self.GEON_nearest = self.db.gnearest(self.chart.geolat, self.chart.geolon)
-			# continents
-			self.continents = Gtk.DropDown()
-			grid.attach(self.continents, 0, 3, 1, 1)
-			#self.continents.set_wrap_width(1)
-			sql = 'SELECT * FROM continent ORDER BY name ASC'
-			self.db.gquery(sql)
-			self.continent_infos = []
-			continent_info = Gtk.StringList()
-			self.searchcontinent = {}
-			activecont = 3
-			for i, row in enumerate(self.db.gcursor):
-				self.searchcontinent[row['code']] = i
-				if row['code'] == self.GEON_nearest['continent']:
-					activecont = i
-					self.GEON_nearest['continent'] = None
-				items = [row['name'], row['code']]
-				self.continent_infos.append(items)
-				continent_info.append(row['name'])
-			self.db.gclose()
-			#self.continents.set_model(self.contstore)
-			self.continents.set_model(model=continent_info)
-			# countries
-			self.countries = Gtk.DropDown()
-			grid.attach(self.countries, 1, 3, 1, 1)
-			#self.countries.set_wrap_width(1) 
-			self.countries.connect('notify::selected-item', self.eventDataChangedCountrybox)
-			# provinces
-			self.provinces = Gtk.DropDown()
-			grid.attach(self.provinces, 2, 3, 1, 1)
-			#self.provinces.set_wrap_width(1) 
-			self.provinces.connect('notify::selected-item', self.eventDataChangedProvbox)
-			# cities
-			self.cities = Gtk.DropDown()
-			grid.attach(self.cities, 3, 3, 1, 1)
-			self.cities.set_enable_search(True)
-			expr = Gtk.PropertyExpression.new(Gtk.StringObject(), None, 'string')
-			self.cities.set_expression(expression=expr)
-			self.cities.connect('notify::selected-item', self.eventDataChangedCitybox)
+			#otherwise use geonames sql database, preselect the nearest geoname
+			self.chooser = CityChooser(self.db, self.chart.geolat, self.chart.geolon, self.cityChanged)
+			grid.attach(self.chooser.continents, 0, 3, 1, 1)
+			grid.attach(self.chooser.countries, 1, 3, 1, 1)
+			grid.attach(self.chooser.provinces, 2, 3, 1, 1)
+			grid.attach(self.chooser.cities, 3, 3, 1, 1)
 			# add search in database
 			label = Gtk.Label(label=_("Search City")+":")
 			grid.attach(label, 1, 4, 1, 1)
@@ -173,17 +113,12 @@ class EventDialogMixin:
 			self.citysearch.set_placeholder_text(_("Name of city?"))
 			self.citysearch.set_max_length(34)
 			self.citysearch.set_width_chars(24)
-			grid .attach(self.citysearch, 2, 4, 1, 1)
-			# CAVEAT: ChangedContbox callback relies on other box changes
-			self.continents.connect('notify::selected-item', self.eventDataChangedContbox)
-			#for dropdown
-			self.continents.set_selected(activecont)
-			#for combobox
-			#self.continents.set_active(activecont)
+			grid.attach(self.citysearch, 2, 4, 1, 1)
+			self.chooser.start()
 			self.citysearchbutton = Gtk.Button.new_with_mnemonic(label = _("Search"))
-			self.citysearchbutton.connect("clicked", self.citySearch)
-			self.citysearch.connect("activate", self.citySearch)
-			grid .attach(self.citysearchbutton, 3, 4, 1, 1)
+			self.citysearchbutton.connect("clicked", lambda w: self.chooser.search(self.citysearch.get_text()))
+			self.citysearch.connect("activate", lambda w: self.chooser.search(self.citysearch.get_text()))
+			grid.attach(self.citysearchbutton, 3, 4, 1, 1)
 			label = Gtk.Label(label="("+_("For example: London, GB")+")")
 			grid.attach(label, 4, 4, 1, 1)
 		# Year month day entry
@@ -255,193 +190,39 @@ class EventDialogMixin:
 		# save to database button
 		if edit:
 			self.savebutton = Gtk.Button.new_with_mnemonic(label = _("Save"))
-			self.savebutton.connect("clicked", self.openDatabaseEditAsk)
+			self.savebutton.connect("clicked", lambda w: self.on_save(self))
 			buttonbox.append(child=self.savebutton)
 		else:
 			self.savebutton = Gtk.Button.new_with_mnemonic(label = _("Add to Database"))
-			self.savebutton.connect("clicked", self.eventDataSaveAsk)
+			self.savebutton.connect("clicked", lambda w: self.saveAsk())
 			buttonbox.append(child=self.savebutton)
 		# Apply button
 		button = Gtk.Button.new_with_mnemonic(label = _("Apply"))
-		button.connect("clicked", self.eventDataApply)
+		button.connect("clicked", lambda w: self.apply())
 		buttonbox.append(child=button)
   		#ok button
 		if edit == False:
 			button = Gtk.Button.new_with_mnemonic(label = _("OK"))
-			button.connect("clicked", self.eventDataSubmit)
+			button.connect("clicked", lambda w: self.submit())
 			buttonbox.append(child=button)
 		# cancel button
 		button = Gtk.Button.new_with_mnemonic(label = _("Cancel"))
-		button.connect("clicked", lambda w: self.window2.destroy())
+		button.connect("clicked", lambda w: self.close())
 		buttonbox.append(child=button)
 		vbox.append(grid)
-		self.window2.set_child(vbox)
-		self.window2.present()
+		self.set_child(vbox)
 
-	def citySearch(self, widget):
-		#text entry
-		city = self.citysearch.get_text()
-		#look for country in search string
-		isoalpha2 = None
-		if city.find(","):
-			split = city.split(",")
-			for x in range(len(split)):
-				sql = "SELECT * FROM countryinfo WHERE (isoalpha2 LIKE ? OR name LIKE ?) LIMIT 1"
-				y = split[x].strip()
-				self.db.gquery(sql,(y,y))
-				result = self.db.gcursor.fetchone()
-				if result != None:
-					isoalpha2 = result["isoalpha2"]
-					city = city.replace(split[x]+",","").replace(","+split[x],"").strip()
-					break
-		#normal search
-		normal = city
-		fuzzy = "%"+city+"%"
-		if isoalpha2:
-			extra = " AND country='%s'"%(isoalpha2)
-		else:
-			extra = ""
-		sql = "SELECT * FROM geonames WHERE (name LIKE ? OR asciiname LIKE ?)%s LIMIT 1" %(extra)
-		self.db.gquery(sql,(normal,normal))
-		result = self.db.gcursor.fetchone()
-		if result == None:
-			sql = "SELECT * FROM geonames WHERE (name LIKE ? OR asciiname LIKE ?)%s LIMIT 1" %(extra)
-			self.db.gquery(sql,(fuzzy,fuzzy))
-			result = self.db.gcursor.fetchone()
-		if result == None:
-			sql = "SELECT * FROM geonames WHERE (alternatenames LIKE ?)%s LIMIT 1"%(extra)
-			self.db.gquery(sql,(fuzzy,))
-			result = self.db.gcursor.fetchone()
-		if result != None:
-			#set continent
-			sql = "SELECT continent FROM countryinfo WHERE isoalpha2=? LIMIT 1"
-			self.db.gquery(sql,(result["country"],))
-			self.continents.set_selected(self.searchcontinent[self.db.gcursor.fetchone()[0]])
-			#set country
-			self.countries.set_selected(self.searchcountry[result["country"]])
-			#set admin1
-			self.provinces.set_selected(self.searchprov[result["admin1"]])
-			#set city
-			self.cities.set_selected(self.searchcity[result["geonameid"]])
-		return
+	def cityChanged(self, city):
+		#show the city chosen in the geonames database
+		self.entry2.set_text(' %s: %s\n %s: %s\n %s: %s' % (_('Latitude'), city['lat'], _('Longitude'), city['lon'], _('Location'), city['loc']) )
 
-	def eventDataChangedContbox(self, dropdown, _pspec):
-		model = dropdown.get_model()
-		index = dropdown.get_selected()
-		info = self.continent_infos[index]
-		sql = "SELECT * FROM countryinfo WHERE continent=? ORDER BY name ASC"
-		self.db.gquery(sql,(info[1],))
-		country_info = Gtk.StringList()
-		self.country_infos = []
-		#self.country_list = []
-		activecountry=0
-		self.searchcountry={}
-		for i, row in enumerate(self.db.gcursor):
-			self.searchcountry[row['isoalpha2']]=i
-			if self.GEON_nearest['country'] == row['isoalpha2']:
-				activecountry=i
-				self.GEON_nearest['country'] = None
-			items = [row['name'],row['isoalpha2']]
-			self.country_infos.append(items)
-			#self.country_list.append((row['name'],row['isoalpha2']))
-			country_info.append(row['name'])
-		self.db.gclose()
-		self.countries.set_model(country_info)
-		self.countries.set_selected(activecountry) 
-		return
-
-	def eventDataChangedCountrybox(self, dropdown, _pspec):
-		model = dropdown.get_model()
-		index = dropdown.get_selected()
-		info = self.country_infos[index]
-		sql = "SELECT * FROM admin1codes WHERE country=? ORDER BY admin1 ASC"
-		self.db.gquery(sql,(info[1],))
-		self.province_infos = []
-		province_info = Gtk.StringList()
-		activeprov = 0
-		self.searchprov={}
-		for i, row in enumerate(self.db.gcursor):
-			self.searchprov[row["admin1"]] = i
-			if self.GEON_nearest['admin1'] == row['admin1']:
-				activeprov = i
-				self.GEON_nearest['admin1'] = None
-			items = [row['province'],row['country'],row['admin1'],info[0]]
-			self.province_infos.append(items)
-			province_info.append(row['province'])
-		self.db.gclose()
-		self.provinces.set_model(province_info)
-		self.provinces.set_selected(activeprov) 
-		return
-
-	def eventDataChangedProvbox(self, dropdown, _pspec):
-		model = dropdown.get_model()
-		index = dropdown.get_selected()
-		info = self.province_infos[index]
-		sql = 'SELECT * FROM geonames WHERE country=? AND admin1=? ORDER BY name ASC'
-		self.db.gquery(sql,(info[1],info[2]))
-		self.city_infos = []
-		city_info = Gtk.StringList()
-		activecity = 0
-		self.searchcity = {}
-		for i, row in enumerate(self.db.gcursor):
-			self.searchcity[row["geonameid"]]=i
-			if self.GEON_nearest['geonameid'] == row['geonameid']:
-				activecity = i
-				self.GEON_nearest['geonameid'] = None
-			items = [row['name'], str(row['latitude']), str(row['longitude']), info[3], info[0], row['country'], str(row['geonameid']), row['timezone']]
-			self.city_infos.append(items)
-			city_info.append(row['name'])
-		self.db.gclose()
-		self.cities.set_model(city_info)
-		self.cities.set_selected(activecity) 
-		return
-
-	def eventDataChangedCitybox(self, dropdown, _pspec):
-		model = dropdown.get_model()
-		index = dropdown.get_selected()
-		info = self.city_infos[index]
-		#change label for eventdata
-		self.GEON_lat = info[1]
-		self.GEON_lon = info[2]
-		self.GEON_loc = '%s, %s, %s' % (info[0],info[4],info[3])
-		self.GEON_cc = info[5]
-		self.GEON_id = info[6]
-		self.GEON_tzstr = info[7]
-
-		dprint( 'evenDataChangedCitybox: %s:%s:%s:%s:%s:%s' % (self.GEON_loc, self.GEON_lat, self.GEON_lon, self.GEON_cc, self.GEON_tzstr, self.GEON_id) )
-
-		if self.settingsLocationMode:
-			#set home location
-			self.LLoc.set_text('{}: '.format(self.GEON_loc))
-			self.LLat.set_text('{}: '.format(self.GEON_lat))
-			self.LLon.set_text('{}: '.format(self.GEON_lon))
-		else:
-			#set event data
-			self.entry2.set_text(' %s: %s\n %s: %s\n %s: %s' % (_('Latitude'), self.GEON_lat, _('Longitude'), self.GEON_lon, _('Location'), self.GEON_loc) )
-
-	def eventDataSaveAsk(self, widget):
+	def saveAsk(self):
 		""" test for duplicate entry and save when unique """
 		en = self.db.getDatabase()
 		#test for duplicate
 		for i in range(len(en)):
 			if en[i]["name"] == self.name.get_text():
-				dialog = Gtk.Window(title=_('Found Duplicate'),modal=True)
-				""" set_icon """
-				#dialog.set_icon_from_file(self.cfg.iconWindow)
-				dialog.set_default_size(256,-1)
-				vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-				double = Gtk.Label(label=_('There is already an entry for this name, please choose another'))
-				double.set_wrap(True)
-				vbox.append(double)
-				button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-				button_box.set_homogeneous(True)
-				#OK button
-				button = Gtk.Button.new_with_mnemonic(label=_("OK"))
-				button.connect("clicked",  lambda w: dialog.destroy())
-				button_box.append(button)
-				vbox.append(button_box)
-				dialog.set_child(vbox)
-				dialog.present()
+				showDuplicateName(self)
 				return
 		#ask for confirmation
 		alert_dialog = Gtk.AlertDialog()
@@ -450,18 +231,18 @@ class EventDialogMixin:
 		alert_dialog.set_detail(confirm)
 		alert_dialog.set_modal(True)
 		alert_dialog.set_buttons(["Cancel", "OK"])
-		alert_dialog.choose(parent=self, cancellable=None, callback=self.on_save_perform, user_data=None)
+		alert_dialog.choose(parent=self, cancellable=None, callback=self.onSaveAnswer, user_data=None)
 
-	def on_save_perform(self, source_obj, async_res, user_data):
+	def onSaveAnswer(self, source_obj, async_res, user_data):
 		result = source_obj.choose_finish(async_res)
 		if result == 1:
 			#OK button clicked
-			self.window2.close()
-			self.eventDataSave()
+			self.close()
+			self.save()
 		else:
-			self.window2.present()
+			self.present()
 
-	def eventDataSave(self):
+	def save(self):
 		#update chart data
 		self.updateChartData()
 		#add data into event_natal table
@@ -469,9 +250,9 @@ class EventDialogMixin:
 		tuple=(self.chart.name,self.chart.year,self.chart.month,self.chart.day,self.chart.hour, self.chart.geolon, self.chart.geolat, self.chart.altitude, self.chart.location, self.chart.timezone, '', '', self.chart.countrycode, self.chart.geonameid, self.chart.timezonestr, '')
 		self.db.pquery([sql],[tuple])
 		dprint('Saved to Database: '+self.chart.name)
-		self.updateUI(first_time=False)
+		self.window.updateUI(first_time=False)
 
-	def eventDataSubmit(self, widget):
+	def submit(self):
 		#check if no changes were made
 		if self.name.get_text() == self.chart.name and \
 		self.dateY.get_value_as_int() == str(self.chart.year_loc) and \
@@ -482,24 +263,85 @@ class EventDialogMixin:
 		self.timeS.get_value_as_int() == self.chart.second_loc:
 			if self.iconn and self.geoCC.get_text() == self.chart.countrycode and self.geoLoc.get_text() == self.chart.location.partition(',')[0]:
 				# go ahead ;)
-				self.window2.destroy()
+				self.close()
 				return
 		#apply data
-		self.eventDataApply(widget)
+		self.apply()
 		if self.geoLocFound:
-			self.window2.destroy()
+			self.close()
 			#update history
 			self.db.addHistory(self.chart)
-			self.updateUI(first_time=False)
-			return
-		else:
-			return
+			self.window.updateUI(first_time=False)
 
-	def eventDataApply(self, widget):
+	def apply(self):
 		#update chart data
 		self.chart.charttype = self.chart.label["radix"]
 		self.chart.type = "Radix"
 		self.chart.transit = False
 		self.updateChartData()
 		#update chart
-		self.updateChart()
+		self.window.updateChart()
+
+	def updateChartData(self):
+		"""event data of the dialog into the chart"""
+		if self.iconn:
+			result = geoname.search(self.geoLoc.get_text(),self.geoCC.get_text())
+			if result:
+				self.geoLocFound = True
+				lat = float(result[0]['lat'])
+				lon = float(result[0]['lng'])
+				gid = int(result[0]['geonameId'])
+				cc = result[0]['countryCode']
+				tzstr = result[0]['timezonestr']
+				loc = '%s, %s' % (result[0]['name'],result[0]['countryName'])
+				dprint('updateChartData: %s,%s found; %s %s %s' % (
+					self.geoLoc.get_text(),self.geoCC.get_text(),lat,lon,loc))
+			else:
+				self.geoLocFound = False
+				dprint('updateChartData: %s,%s not found, reverting to defaults' % (
+					self.geoLoc.get_text(),self.geoCC.get_text()) )
+				self.geoLoc.set_text(_('City not found! Try Again.'))
+				return
+		else:
+			# using geonames database
+			self.geoLocFound = True
+			city = self.chooser.city
+			lat = float(city['lat'])
+			lon = float(city['lon'])
+			loc = city['loc']
+			cc = city['cc']
+			tzstr = city['tzstr']
+			gid = city['geonameid']
+		# calculate timezone
+		self.chart.timezonestr = tzstr
+		self.chart.geonameid = gid
+		# aware datetime object
+		dt_input = datetime.datetime(self.dateY.get_value_as_int(), self.dateM.get_value_as_int(), self.dateD.get_value_as_int(), self.timeH.get_value_as_int(), self.timeM.get_value_as_int(), self.timeS.get_value_as_int())
+		dt = pytz.timezone(self.chart.timezonestr).localize(dt_input)
+
+		dprint( dt.strftime('%Y-%m-%d %H:%M:%S %Z%z') )
+		dprint( 'Daylight Saving Time: %s' %((dt.dst().seconds / 3600.0)) )
+
+		# naive datetime object UTC
+		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
+		# set globals
+		self.chart.year = dt_utc.year
+		self.chart.month = dt_utc.month
+		self.chart.day = dt_utc.day
+		self.chart.hour = self.chart.decHourJoin(dt_utc.hour, dt_utc.minute, dt_utc.second)
+		self.chart.timezone = self.chart.offsetToTz(dt.utcoffset())
+		self.chart.name = self.name.get_text()
+		# location
+		self.chart.geolat=lat
+		self.chart.geolon=lon
+		self.chart.location=loc
+		self.chart.countrycode=cc
+		# update local time
+		self.chart.utcToLocal()
+		# update labels
+		labelDar = str(self.chart.year_loc)+'-%(#1)02d-%(#2)02d' % {'#1':self.chart.month_loc,'#2':self.chart.day_loc}
+		self.labelDate.set_text(labelDar)
+		labelTzStr = '%(#1)02d:%(#2)02d:%(#3)02d' % {'#1':self.chart.hour_loc,'#2':self.chart.minute_loc,'#3':self.chart.second_loc} + self.chart.decTzStr(self.chart.timezone)
+		self.labelTz.set_text(labelTzStr)
+		self.ename.set_text(self.chart.name)
+		self.entry2.set_text(' %s: %s\n %s: %s\n %s: %s' % ( _('Latitude'),lat,_('Longitude'),lon,_('Location'),loc) )

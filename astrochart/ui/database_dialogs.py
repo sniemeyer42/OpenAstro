@@ -21,6 +21,7 @@ import pytz
 import sqlite3
 from gi.repository import Gio, Gtk
 from openastromod import zonetab
+from astrochart.ui.event_dialog import EventDialog, showDuplicateName
 from astrochart.ui.widgets import EventData, bind_birth, bind_ident, bind_location, bind_name, setup
 from astrochart.util import dprint
 
@@ -158,40 +159,26 @@ class DatabaseDialogsMixin:
 		self.chart.transit = False
 		#self.updateChartList(widget, self.oDE_list)
 		self.updateChartList(widget, self.oDE_list)
-		self.eventData(edit=True)
+		self.presentDialog('event', EventDialog, edit=True, on_save=self.openDatabaseEditAsk)
 		return
 
-	def openDatabaseEditAsk(self, widget):
-		#check for duplicate name without duplicate id
+	def openDatabaseEditAsk(self, dialog):
+		#the event dialog edits the entry self.oDE_list, check for the
+		#name in another entry
+		self.editDialog = dialog
 		en = self.db.getDatabase()
 		for i, row in enumerate(en):
-			if row["name"] == self.name.props.text and self.oDE_list["id"] == row["id"]:
-				dialog = Gtk.Window(title=_('Found Duplicate'),modal=True)
-				""" set_icon """
-				#dialog.set_icon_from_file(self.cfg.iconWindow)
-				dialog.set_default_size(256,-1)
-				vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-				double = Gtk.Label(label=_('There is already an entry for this name, please choose another'))
-				double.set_wrap(True)
-				vbox.append(double)
-				button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-				button_box.set_homogeneous(True)
-				#OK button
-				button = Gtk.Button.new_with_mnemonic(label=_("OK"))
-				button.connect("clicked",  lambda w: dialog.destroy())
-				button_box.append(button)
-				vbox.append(button_box)
-				dialog.set_child(vbox)
-				dialog.present()
+			if row["name"] == dialog.name.props.text and self.oDE_list["id"] != row["id"]:
+				showDuplicateName(dialog)
 				return
 		#ask for confirmation
 		alert_dialog = Gtk.AlertDialog()
 		alert_dialog.set_message(_('Caution'))
-		confirm = _('Are you sure you want to save < {0} > to the database?').format(self.name.props.text)
+		confirm = _('Are you sure you want to save < {0} > to the database?').format(dialog.name.props.text)
 		alert_dialog.set_detail(confirm)
 		alert_dialog.set_modal(True)
 		alert_dialog.set_buttons([_("Cancel"), _("OK")])
-		alert_dialog.choose(parent=self, cancellable=None, callback=self.on_save_record, user_data=None)
+		alert_dialog.choose(parent=dialog, cancellable=None, callback=self.on_save_record, user_data=None)
 
 	def on_save_record(self, source_obj, async_res, user_data):
 		result = source_obj.choose_finish(async_res)
@@ -214,14 +201,13 @@ class DatabaseDialogsMixin:
 
 	def openDatabaseEditSave(self):
 		#update chart data
-		self.updateChartData()
+		self.editDialog.updateChartData()
 		#set query to save
 		sql = 'UPDATE event_natal SET name=?,year=?,month=?,day=?,hour=?, geolon=?, geolat=?, altitude=?, location=?, timezone=?, notes=?, image=?, countrycode=?, timezonestr=?, geonameid=? WHERE id=?'
 		values = (self.chart.name, self.chart.year, self.chart.month, self.chart.day, self.chart.hour, self.chart.geolon, self.chart.geolat, self.chart.altitude, self.chart.location, self.chart.timezone, '', '', self.chart.countrycode,self.chart.timezonestr,self.chart.geonameid,self.oDE_list["id"])
 		self.db.pquery([sql],[values])
 		dprint('After editing saved to database: '+self.chart.name)
-		#widget.destroy()
-		self.window2.destroy()
+		self.editDialog.close()
 		#self.win_OD.destroy()
 		self.openDatabase(extraDB=None)
 		#self.openDatabase_callback( None, None)
