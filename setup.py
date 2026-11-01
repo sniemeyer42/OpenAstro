@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from distutils.core import setup, Extension
+from setuptools import setup
 import glob, os.path, sys
 
 f=open('VERSION')
@@ -31,6 +31,6 @@ setup(name='openastro',
       url='http://www.openastro.org',
       license='GPL',
       scripts=['astroChart.py'],
-      packages=['openastromod'],
+      packages=['openastromod', 'astrochart', 'astrochart.chart', 'astrochart.ui'],
       data_files=pre_data_files
      )

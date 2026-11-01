@@ -37,6 +37,12 @@ chmod +x ./astroChart.py
 # a simple SVG viewer
 ./astroChartShow.py
 ```
+Source layout: `astroChart.py` only starts the program, the code lives in the package `astrochart/`:
+- `application.py` (Gtk.Application), `database.py`, `config.py`, `constants.py`, `i18n.py`
+- `chart/`: calculation and SVG drawing of charts and tables, chart file import/export
+- `ui/`: main window and one module per dialog
+- `tests/`: golden chart set and GUI smoke test, see `tests/README.md`
+
 The program is localized in 25 languages in folder 'locale'. Localization for the 'AstroChart programs' is incomplete.
 
 To generate a RPM package (suitable for Red Hat, Fedora, OpenSUSE and so on) a .spec file can be found in directory "packages".<br/>
