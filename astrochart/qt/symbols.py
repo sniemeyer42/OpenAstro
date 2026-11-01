@@ -24,13 +24,19 @@ from astrochart.qt.svg_view import svgRenderer
 
 SIGNS = ('aries','taurus','gemini','cancer','leo','virgo','libra','scorpio','sagittarius','capricorn','aquarius','pisces')
 
+#angles drawn as text (As, Mc, Ds, Ic), wider than the box of the other symbols
+TEXT_SYMBOLS = ('Asc', 'Mc', 'Dsc', 'Ic')
+
 def symbolBox(name):
-	"""size of the drawing area of a symbol in the chart template"""
+	"""view box (x, y, size) of the drawing area of a symbol in the chart template"""
 	if name in SIGNS:
-		return 32
+		return 0, 0, 32
 	if name.startswith('orb') or name == 'retrograde':
-		return 12
-	return 24
+		return 0, 0, 12
+	if name in TEXT_SYMBOLS:
+		#two letters of 20 to 22 pixels with their baseline at 20, centred
+		return -2, -4, 32
+	return 0, 0, 24
 
 class Symbols:
 	"""
@@ -61,9 +67,9 @@ class Symbols:
 			block = self.definitions.get(name)
 			if block is None:
 				return None
-			box = symbolBox(name)
+			x, y, box = symbolBox(name)
 			svg = ('<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
-				'width="%s" height="%s" viewBox="0 0 %s %s">%s<use xlink:href="#%s"/></svg>' % (box, box, box, box, block, name))
+				'width="%s" height="%s" viewBox="%s %s %s %s">%s<use xlink:href="#%s"/></svg>' % (box, box, x, y, box, box, block, name))
 			pixels = max(1, int(round(size * ratio)))
 			pixmap = QPixmap(pixels, pixels)
 			pixmap.fill(Qt.GlobalColor.transparent)

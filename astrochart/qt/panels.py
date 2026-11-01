@@ -53,6 +53,11 @@ def numericFont(font):
 		pass
 	return font
 
+def numberText(text):
+	"""degrees right aligned in a column: a thin space after the minute sign,
+	which reaches beyond its advance and would be cut off at the edge"""
+	return text + '\u2009'
+
 def treeWidget(columns, stretch):
 	"""list without header, column stretch takes the free width"""
 	tree = QTreeWidget()
@@ -202,7 +207,7 @@ class ChartPanels(QTabWidget):
 				tree.addTopLevelItem(group)
 				group.setFirstColumnSpanned(True)
 			for row in rows:
-				item = QTreeWidgetItem(['  ' + row['label'], row['degree'], '℞' if row['retrograde'] else '', str(row['house'])])
+				item = QTreeWidgetItem(['  ' + row['label'], numberText(row['degree']), '℞' if row['retrograde'] else '', str(row['house'])])
 				item.setIcon(0, self.icon(row['symbol']))
 				item.setIcon(1, self.icon(row['sign'], 16))
 				for column in (1, 3):
@@ -218,7 +223,11 @@ class ChartPanels(QTabWidget):
 		#elements of the radix
 		layout = self.elementsLayout
 		while layout.count():
-			layout.takeAt(0).widget().deleteLater()
+			#gone at once, not only when the event loop deletes it
+			widget = layout.takeAt(0).widget()
+			widget.hide()
+			widget.setParent(None)
+			widget.deleteLater()
 		for line, (key, text, percent) in enumerate(chart.elementRows()):
 			layout.addWidget(QLabel(text), line, 0)
 			bar = QProgressBar()
@@ -263,7 +272,7 @@ class ChartPanels(QTabWidget):
 		tree.clear()
 		number = numericFont(tree.font())
 		for row in self.chart.houseRows():
-			item = QTreeWidgetItem(['%s %s' % (self.chart.label['cusp'], row['house']), row['degree']])
+			item = QTreeWidgetItem(['%s %s' % (self.chart.label['cusp'], row['house']), numberText(row['degree'])])
 			item.setIcon(1, self.icon(row['sign'], 16))
 			item.setFont(1, number)
 			item.setTextAlignment(1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -285,7 +294,7 @@ class ChartPanels(QTabWidget):
 		for row in rows:
 			first, second = row['first'], row['second']
 			item = QTreeWidgetItem(['', '', '', '%s %s %s' % (first['label'], row['name'], second['label']),
-				formatDegree(row['orb'], seconds=False)])
+				numberText(formatDegree(row['orb'], seconds=False))])
 			item.setIcon(0, self.icon(first['symbol'], 18))
 			item.setIcon(1, self.icon('orb%s' % row['degree'], 14))
 			item.setIcon(2, self.icon(second['symbol'], 18))
