@@ -92,6 +92,45 @@ class Chart(TimeCalcMixin, ChartSVGMixin, ModernWheelMixin, PlanetsSVGMixin, Asp
 		# synastry is drawn as type Transit, flag selects the synastry aspect set
 		self.synastry = False
 
+	def homeTimezone(self):
+		"""timezone of the home location, the nearest one if home has none"""
+		if self.home_timezonestr in pytz.all_timezones_set:
+			return self.home_timezonestr
+		return zonetab.nearest_tz(float(self.home_geolat), float(self.home_geolon), zonetab.timezones())[2]
+
+	def setHereAndNow(self, utc=None):
+		"""
+		radix chart 'Here and Now' at the home location for the moment utc
+		(naive UTC datetime, default now); returns the aware local datetime
+		"""
+		zone = pytz.timezone(self.homeTimezone())
+		if utc is None:
+			utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
+		local = pytz.utc.localize(utc).astimezone(zone)
+		self.type = "Radix"
+		self.charttype = self.label["radix"]
+		self.transit = False
+		self.synastry = False
+		self.name = _("Here and Now")
+		self.location = self.home_location
+		self.geolat = float(self.home_geolat)
+		self.geolon = float(self.home_geolon)
+		self.countrycode = self.home_countrycode
+		self.timezonestr = zone.zone
+		self.geonameid = None
+		self.altitude = 25
+		self.year = utc.year
+		self.month = utc.month
+		self.day = utc.day
+		self.hour = self.decHourJoin(utc.hour, utc.minute, utc.second)
+		self.timezone = self.offsetToTz(local.utcoffset())
+		self.utcToLocal()
+		return local
+
+	def eventKey(self):
+		"""type, name, time and place of the chart: tells whether it is still the same chart"""
+		return (self.type, self.name, self.year, self.month, self.day, self.hour, self.geolat, self.geolon)
+
 	def setSecondEvent(self, record):
 		"""second event (partner) from a record of the event database"""
 		self.t_name=str(record["name"])

@@ -23,7 +23,6 @@ import pytz
 from PySide6.QtCore import QDateTime, QDate, QTime, QTimer
 from PySide6.QtWidgets import (QDateTimeEdit, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QInputDialog,
 	QLabel, QPushButton, QSpinBox, QWidget)
-from openastromod import zonetab
 from astrochart.constants import TRANSIT_YEAR_MAX, TRANSIT_YEAR_MIN
 
 class TwoDigitSpinBox(QSpinBox):
@@ -80,9 +79,7 @@ class TransitBar(QWidget):
 
 	def start(self):
 		#transit at home location, nearest timezone if home has none
-		self.chart.t_timezonestr = self.chart.home_timezonestr
-		if self.chart.t_timezonestr not in pytz.all_timezones_set:
-			self.chart.t_timezonestr = zonetab.nearest_tz(float(self.chart.home_geolat), float(self.chart.home_geolon), zonetab.timezones())[2]
+		self.chart.t_timezonestr = self.chart.homeTimezone()
 		self.transitZone.setToolTip('%s (%s)' % (self.chart.home_location, self.chart.t_timezonestr))
 		self.setVisible(True)
 		self.setTransitNow()

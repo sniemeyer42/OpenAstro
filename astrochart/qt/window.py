@@ -27,6 +27,7 @@ from astrochart.qt.chart_view import ChartView
 from astrochart.qt.database_dialogs import DatabaseDialog, FamousDialog
 from astrochart.qt.event_dialog import EventDialog
 from astrochart.qt.files import ChartFiles
+from astrochart.qt.here_and_now import HereAndNowBar
 from astrochart.qt.panels import ChartPanels, listFontSize
 from astrochart.qt.settings_aspects import AspectSettingsDialog
 from astrochart.qt.settings_configuration import ConfigurationDialog
@@ -62,13 +63,17 @@ class MainWindow(QMainWindow):
 		self.chart.dark = self.isDark()
 		#chart wheel with the date bar of transits above, lists beside
 		self.transitBar = TransitBar(self)
+		self.nowBar = HereAndNowBar(self)
 		self.image = ChartView(self.chartSVGs(), self.chart, self.selectBody)
+		#mouse wheel over the chart 'Here and Now': earlier or later
+		self.image.on_wheel = lambda event: not self.nowBar.isHidden() and self.nowBar.wheel(event)
 		self.image.viewport().setBackgroundRole(QPalette.ColorRole.Window)
 		chartArea = QWidget()
 		layout = QVBoxLayout(chartArea)
 		layout.setContentsMargins(0, 0, 0, 0)
 		layout.setSpacing(0)
 		layout.addWidget(self.transitBar)
+		layout.addWidget(self.nowBar)
 		layout.addWidget(self.image, 1)
 		self.panels = ChartPanels(self, self.symbols, listFontSize(self.db.astrocfg.get('listfontsize')))
 		self.panels.setMinimumWidth(280)
@@ -93,6 +98,10 @@ class MainWindow(QMainWindow):
 		self.splitter.setSizes([int(width * 0.68), int(width * 0.32)])
 		self.updateTitle()
 		self.panels.update()
+		#the chart at the start: 'Here and Now', following the clock
+		self.nowBar.setIcons(themeIcon('mark-location', 'find-location', 'gps'), themeIcon('chronometer', 'clock', 'appointment-soon'),
+			themeIcon('go-previous'), themeIcon('go-next'))
+		self.nowBar.start()
 
 	""" Actions, menus and tool bar """
 
@@ -123,6 +132,7 @@ class MainWindow(QMainWindow):
 		self.databaseAction = self.action(_('Open Database'), lambda: self.presentDialog('database', lambda: DatabaseDialog(self)),
 			'Ctrl+D', themeIcon('x-office-address-book', 'document-open'))
 		self.famousAction = self.action(_('Open Famous People Database'), lambda: self.presentDialog('famous', lambda: FamousDialog(self)))
+		self.hereNowAction = self.action(_('Here and Now'), self.showHereAndNow, 'Ctrl+H', themeIcon('chronometer', 'clock', 'appointment-soon'))
 		self.radixAction = self.action(_('Radix Chart'), self.showRadix, 'Ctrl+R')
 		self.transitAction = self.action(_('Transit Chart'), self.transitBar.start, 'Ctrl+T')
 		self.solarAction = self.action(_('Solar Return'), lambda: askSolarReturn(self))
@@ -203,6 +213,8 @@ class MainWindow(QMainWindow):
 		menu.addAction(self.famousAction)
 		#chart types, the second event of synastry, composite and combine from the event database
 		self.chartTypesMenu = menu = bar.addMenu(_('Chart Types'))
+		menu.addAction(self.hereNowAction)
+		menu.addSeparator()
 		menu.addAction(self.radixAction)
 		menu.addAction(self.transitAction)
 		menu.addSeparator()
@@ -279,6 +291,7 @@ class MainWindow(QMainWindow):
 		toolbar.addAction(self.editAction)
 		toolbar.addAction(self.databaseAction)
 		toolbar.addSeparator()
+		toolbar.addAction(self.hereNowAction)
 		button = QToolButton()
 		button.setText(_('Chart Types'))
 		button.setMenu(self.chartTypesMenu)
@@ -356,6 +369,8 @@ class MainWindow(QMainWindow):
 		# date bar belongs to transit charts only (synastry: no date)
 		if self.chart.type != "Transit" or self.chart.synastry:
 			self.transitBar.setVisible(False)
+		#time bar as long as the chart is 'Here and Now'
+		self.nowBar.follow()
 
 	def refreshChart(self):
 		#redraw the chart after changed settings, keep zoom level
@@ -374,6 +389,10 @@ class MainWindow(QMainWindow):
 		#radix chart of a database or history record
 		self.chart.setEvent(record)
 		self.updateChart()
+
+	def showHereAndNow(self):
+		"""chart 'Here and Now' at the home location, following the clock"""
+		self.nowBar.start()
 
 	def showRadix(self):
 		self.chart.type = "Radix"

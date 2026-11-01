@@ -15,7 +15,8 @@
 """
 Functional test of the Qt program (offscreen, no display needed): menus,
 quick open and history, interactive wheel and lists, chart types, zoom,
-tables, export, print, chart files, database export/import, the dialogs
+tables, export, print, chart files, database export/import, the chart
+'Here and Now' with its time bar (mouse wheel, steps, clock), the dialogs
 (event, event database, famous people, home location, configuration,
 aspects, planets), font size of the lists, light and dark colours. File,
 print, input and message dialogs are answered by stand-ins.
@@ -130,6 +131,12 @@ def main():
 		check('wheel drawn', win.image.renderer.isValid() and win.image.pixmap is not None)
 		check('lists filled', win.panels.positions.topLevelItemCount() == len(chart.bodyRows()) > 10, win.panels.positions.topLevelItemCount())
 		check('status bar: chart type and place', chart.location in win.status.text(), win.status.text())
+		# ---- start: chart 'Here and Now' with its time bar, following the clock
+		now = win.nowBar
+		check('start: here and now', chart.name == T('Here and Now') and chart.location == chart.home_location and chart.type == 'Radix', (chart.name, chart.location))
+		check('start: time bar, following the clock', not now.isHidden() and now.nowButton.isChecked() and now.clockTimer.isActive())
+		utcNow = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).replace(tzinfo=None)
+		check('start: the current minute', abs((now.utc - utcNow).total_seconds()) < 120, (now.utc, utcNow))
 		# ---- quick open: the database entries, current whenever the menu opens
 		addPerson(app.cfg.peopledb, PARTNER)
 		menus = {a.text(): a.menu() for a in bar.actions()}
@@ -415,6 +422,81 @@ def main():
 		pd.button[Button.Ok].click()
 		events()
 		check('planet defaults', app.db.getSettingsPlanet('radix')[0]['visible'] == 1 and ('radix', 0) in win.panels.positionItems)
+		# ---- chart 'Here and Now': time bar, mouse wheel, steps
+		import datetime
+		win.openRecord({'name': 'Flow Test', 'year': 1985, 'month': 3, 'day': 20, 'hour': 8.0, 'geolon': 9.99,
+			'geolat': 53.55, 'altitude': 25, 'location': 'Hamburg, Germany', 'timezone': 1.0, 'timezonestr': 'Europe/Berlin'})
+		events()
+		check('other chart: no time bar', now.isHidden() and not now.nowButton.isChecked())
+		win.zoomActions[1].trigger()
+		win.hereNowAction.trigger()
+		events()
+		check('here and now from the menu', not now.isHidden() and now.nowButton.isChecked() and chart.name == T('Here and Now')
+			and 'Berlin' in chart.location and win.windowTitle().startswith(T('Here and Now')), (chart.name, chart.location))
+		check('here and now in the chart types menu and tool bar', win.hereNowAction in menus[T('Chart Types')].actions()
+			and any(win.hereNowAction in tb.actions() for tb in win.findChildren(__import__('PySide6.QtWidgets', fromlist=['QToolBar']).QToolBar)))
+		now.stepBox.setCurrentIndex(now.stepBox.findData('day'))
+		check('step size kept', app.db.astrocfg.get('herenow_step') == 'day')
+		before = now.local()
+		viewport = win.image.viewport()
+		def turn(notches, modifiers=Qt.KeyboardModifier.NoModifier):
+			event = QWheelEvent(QPointF(50, 50), QPointF(viewport.mapToGlobal(QPoint(50, 50))), QPoint(0, 0), QPoint(0, 120 * notches),
+				Qt.MouseButton.NoButton, modifiers, Qt.ScrollPhase.NoScrollPhase, False)
+			QApplication.sendEvent(viewport, event)
+			events()
+		turn(1)
+		check('mouse wheel: a day later', now.local() == before + datetime.timedelta(days=1) and not now.nowButton.isChecked(), (before, now.local()))
+		check('mouse wheel: chart and status follow', (chart.year_loc, chart.month_loc, chart.day_loc) == (now.local().year, now.local().month, now.local().day)
+			and now.local().strftime('%Y-%m-%d %H:%M') in win.status.text(), win.status.text())
+		turn(-3)
+		check('mouse wheel back: two days earlier', now.local() == before - datetime.timedelta(days=2), now.local())
+		for i in range(4):
+			event = QWheelEvent(QPointF(50, 50), QPointF(viewport.mapToGlobal(QPoint(50, 50))), QPoint(0, 0), QPoint(0, 30),
+				Qt.MouseButton.NoButton, Qt.KeyboardModifier.NoModifier, Qt.ScrollPhase.NoScrollPhase, False)
+			QApplication.sendEvent(viewport, event)
+		events()
+		check('touchpad: four small turns are one step', now.local() == before - datetime.timedelta(days=1), now.local())
+		turn(1, Qt.KeyboardModifier.ControlModifier)
+		check('ctrl + mouse wheel zooms, time stays', win.image.scale > 1.0 and now.local() == before - datetime.timedelta(days=1), win.image.scale)
+		win.zoomActions[1].trigger()
+		#hours across the change to daylight saving time (home Berlin)
+		now.stepBox.setCurrentIndex(now.stepBox.findData('hour'))
+		now.setLocal(datetime.datetime(2026, 3, 29, 1, 30))
+		now.later.click()
+		events()
+		check('hour step across daylight saving time', now.local() == datetime.datetime(2026, 3, 29, 3, 30) and chart.timezone == 2.0, (now.local(), chart.timezone))
+		now.earlier.click()
+		check('hour step back', now.local() == datetime.datetime(2026, 3, 29, 1, 30) and chart.timezone == 1.0, now.local())
+		now.stepBox.setCurrentIndex(now.stepBox.findData('month'))
+		now.setLocal(datetime.datetime(2026, 1, 31, 12, 0))
+		now.step(1)
+		check('month step keeps the day within the month', now.local() == datetime.datetime(2026, 2, 28, 12, 0), now.local())
+		now.stepBox.setCurrentIndex(now.stepBox.findData('year'))
+		now.step(-3)
+		check('year step', now.local() == datetime.datetime(2023, 2, 28, 12, 0), now.local())
+		now.setLocal(datetime.datetime(2398, 6, 1, 12, 0))
+		now.step(5)
+		check('stays within the ephemeris', now.local() == datetime.datetime(2398, 6, 1, 12, 0), now.local())
+		now.edit.setDateTime(__import__('PySide6.QtCore', fromlist=['QDateTime']).QDateTime(QDate(2000, 1, 1), QTime(12, 0)))
+		events()
+		check('date typed in the bar', now.local() == datetime.datetime(2000, 1, 1, 12, 0) and (chart.year_loc, chart.hour_loc) == (2000, 12))
+		# ---- transit over the moment, back to its radix
+		win.transitAction.trigger()
+		events()
+		check('transit: no time bar', now.isHidden() and win.transitBar.isVisible())
+		win.radixAction.trigger()
+		events()
+		check('radix of the moment: time bar again', not now.isHidden() and now.local() == datetime.datetime(2000, 1, 1, 12, 0))
+		# ---- now: follows the clock
+		now.nowButton.click()
+		events()
+		utcNow = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+		check('now: current minute, following', now.nowButton.isChecked() and abs((now.utc - utcNow).total_seconds()) < 120 and now.clockTimer.isActive())
+		now.utc = now.utc - datetime.timedelta(minutes=5)
+		now.tick()
+		check('clock tick: the current minute again', abs((now.utc - utcNow).total_seconds()) < 120)
+		now.nowButton.click()
+		check('now off: clock stopped', not now.nowButton.isChecked() and not now.clockTimer.isActive())
 		# ---- light and dark colours follow the palette
 		dark = QPalette(QColor('#202326'))
 		QApplication.setPalette(dark)

@@ -16,7 +16,8 @@ HOME=$(mktemp -d) python3 tests/golden.py /tmp/golden-new
 diff -r /tmp/golden-old /tmp/golden-new
 
 # Qt program: menus, quick open, wheel and lists, chart types, zoom, tables,
-# export, print, chart files, database export/import, event dialog, event
+# export, print, chart files, database export/import, Here and Now (time
+# bar, mouse wheel, steps, clock), event dialog, event
 # database, famous people, home location, configuration, aspects, planets,
 # font size of the lists, light and dark
 HOME=$(mktemp -d) python3 tests/qt_flows.py

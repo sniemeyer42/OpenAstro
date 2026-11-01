@@ -16,8 +16,6 @@
 Dialog 'Settings > Set Location': home location
 """
 
-import datetime
-import pytz
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
 from astrochart.places import geocodingAvailable
@@ -34,6 +32,9 @@ class LocationDialog(AstroDialog):
 		self.setMinimumWidth(460)
 		chart = self.chart
 		layout = QVBoxLayout(self)
+		hint = QLabel(_("Place of the chart 'Here and Now' and of new events"))
+		hint.setWordWrap(True)
+		layout.addWidget(hint)
 		#home location as it is now
 		self.home = QLabel()
 		self.home.setTextFormat(Qt.TextFormat.RichText)
@@ -89,29 +90,8 @@ class LocationDialog(AstroDialog):
 		chart.home_geolon = lon
 		chart.home_countrycode = cc
 		chart.home_timezonestr = tzstr
-		chart.location = loc
-		chart.timezonestr = tzstr
-		chart.geolat = lat
-		chart.geolon = lon
-		chart.countrycode = cc
-		chart.geonameid = city.get('geonameid')
-		chart.transit = False
-		chart.type = "Radix"
 		self.showHome(loc, lat, lon)
-		# set defaults for chart creation
-		now = datetime.datetime.now()
-		dt_input = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second)
-		dt = pytz.timezone(chart.timezonestr).localize(dt_input)
-		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
-		chart.name = _("Here and Now")
-		chart.charttype = chart.label["radix"]
-		chart.year = dt_utc.year
-		chart.month = dt_utc.month
-		chart.day = dt_utc.day
-		chart.hour = chart.decHourJoin(dt_utc.hour, dt_utc.minute, dt_utc.second)
-		chart.timezone = chart.offsetToTz(dt.utcoffset())
-		chart.altitude = 25
-		chart.utcToLocal()
-		self.window.updateChart()
+		#the chart 'Here and Now' there
+		self.window.showHereAndNow()
 		dprint('Setting New Home Location: %s %s %s' % (lat, lon, loc))
 		return True
