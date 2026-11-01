@@ -24,8 +24,14 @@ from PySide6.QtWidgets import (QApplication, QLabel, QMainWindow, QMessageBox, Q
 from astrochart.constants import LIMIT, OFFSET, RATIO, VERSION
 from astrochart.qt.chart_types import TransitBar, askMonth, askProgression, askSolarReturn
 from astrochart.qt.chart_view import ChartView
+from astrochart.qt.database_dialogs import DatabaseDialog, FamousDialog
+from astrochart.qt.event_dialog import EventDialog
 from astrochart.qt.files import ChartFiles
-from astrochart.qt.panels import ChartPanels
+from astrochart.qt.panels import ChartPanels, listFontSize
+from astrochart.qt.settings_aspects import AspectSettingsDialog
+from astrochart.qt.settings_configuration import ConfigurationDialog
+from astrochart.qt.settings_location import LocationDialog
+from astrochart.qt.settings_planets import PlanetSettingsDialog
 from astrochart.qt.symbols import Symbols
 from astrochart.qt.table_windows import CuspAspectsWindow, TimelineWindow
 
@@ -47,6 +53,8 @@ class MainWindow(QMainWindow):
 		self.db = app.db
 		#open table windows, see refreshTableWindows
 		self.tableWindows = set()
+		#open dialogs of which only one may exist, see presentDialog
+		self.dialogs = {}
 		#file dialogs, import, export and printing
 		self.files = ChartFiles(self)
 		self.symbols = Symbols()
@@ -62,7 +70,7 @@ class MainWindow(QMainWindow):
 		layout.setSpacing(0)
 		layout.addWidget(self.transitBar)
 		layout.addWidget(self.image, 1)
-		self.panels = ChartPanels(self, self.symbols)
+		self.panels = ChartPanels(self, self.symbols, listFontSize(self.db.astrocfg.get('listfontsize')))
 		self.panels.setMinimumWidth(280)
 		self.splitter = QSplitter(Qt.Orientation.Horizontal)
 		self.splitter.addWidget(chartArea)
@@ -100,21 +108,21 @@ class MainWindow(QMainWindow):
 		action.setCheckable(checkable)
 		if slot is not None:
 			action.triggered.connect(slot)
-		#not yet in the Qt version
-		action.setEnabled(enabled and slot is not None)
+		action.setEnabled(enabled)
 		self.addAction(action)
 		return action
 
 	def createActions(self):
 		Key = QKeySequence.StandardKey
-		self.newAction = self.action(_('New'), None, Key.New, themeIcon('document-new'))
+		self.newAction = self.action(_('New'), self.newEvent, Key.New, themeIcon('document-new'))
 		self.openAction = self.action(_('Open'), self.files.openChart, Key.Open, themeIcon('document-open'))
 		self.saveAction = self.action(_('Save'), self.files.saveChart, Key.Save, themeIcon('document-save'))
 		self.printAction = self.action(_('Print'), self.files.printChart, Key.Print, themeIcon('document-print'))
 		self.quitAction = self.action(_('Quit'), self.close, Key.Quit, themeIcon('application-exit'))
-		self.editAction = self.action(_('Edit Event'), None, 'Ctrl+E', themeIcon('document-edit', 'document-properties'))
-		self.databaseAction = self.action(_('Open Database'), None, 'Ctrl+D', themeIcon('x-office-address-book', 'document-open'))
-		self.famousAction = self.action(_('Open Famous People Database'), None)
+		self.editAction = self.action(_('Edit Event'), self.editEvent, 'Ctrl+E', themeIcon('document-edit', 'document-properties'))
+		self.databaseAction = self.action(_('Open Database'), lambda: self.presentDialog('database', lambda: DatabaseDialog(self)),
+			'Ctrl+D', themeIcon('x-office-address-book', 'document-open'))
+		self.famousAction = self.action(_('Open Famous People Database'), lambda: self.presentDialog('famous', lambda: FamousDialog(self)))
 		self.radixAction = self.action(_('Radix Chart'), self.showRadix, 'Ctrl+R')
 		self.transitAction = self.action(_('Transit Chart'), self.transitBar.start, 'Ctrl+T')
 		self.solarAction = self.action(_('Solar Return'), lambda: askSolarReturn(self))
@@ -133,10 +141,11 @@ class MainWindow(QMainWindow):
 		self.listsAction = self.action(_('Lists'), self.showLists, 'F9', themeIcon('sidebar-show', 'view-right-new', 'view-split-left-right'), checkable=True)
 		self.listsAction.setChecked(True)
 		self.maximizeAction = self.action(_('Maximize'), self.setMaximized, None, themeIcon('view-fullscreen', 'window-maximize'), checkable=True)
-		self.locationAction = self.action(_('Set Location'), None)
-		self.configurationAction = self.action(_('Configuration'), None, None, themeIcon('configure', 'preferences-system'))
-		self.aspectsAction = self.action(_('Aspects'), None)
-		self.planetsAction = self.action(_('Planets & Angles'), None)
+		self.locationAction = self.action(_('Set Location'), lambda: self.presentDialog('location', lambda: LocationDialog(self)))
+		self.configurationAction = self.action(_('General Configuration'), lambda: self.presentDialog('configuration', lambda: ConfigurationDialog(self)),
+			None, themeIcon('configure', 'preferences-system'))
+		self.aspectsAction = self.action(_('Aspects'), lambda: self.presentDialog('aspects', lambda: AspectSettingsDialog(self)))
+		self.planetsAction = self.action(_('Planets & Angles'), lambda: self.presentDialog('planets', lambda: PlanetSettingsDialog(self)))
 		self.exportDatabaseAction = self.action(_('Export Database'), self.files.exportDatabase)
 		self.importDatabaseAction = self.action(_('Import Database'), self.files.importDatabase)
 		self.aboutAction = self.action(_('About'), self.about, None, themeIcon('help-about'))
@@ -146,6 +155,12 @@ class MainWindow(QMainWindow):
 
 	def showLists(self, visible):
 		self.panels.setVisible(visible)
+
+	def setListFontSize(self, size):
+		"""font size of the lists (points), kept in the configuration"""
+		size = listFontSize(size)
+		self.db.setAstrocfg('listfontsize', '%g' % (size))
+		self.panels.setFontSize(size)
 
 	def setMaximized(self, maximized):
 		if maximized:
@@ -277,6 +292,43 @@ class MainWindow(QMainWindow):
 		toolbar.addWidget(spacer)
 		toolbar.addAction(self.listsAction)
 		self.addToolBar(toolbar)
+
+	""" Dialogs """
+
+	def presentDialog(self, name, factory, replace=False):
+		"""
+		show the dialog of a kind, only one at a time: factory() creates it,
+		an open one is raised (closed and created again if replace)
+		"""
+		dialog = self.dialogs.get(name)
+		if dialog is not None and replace:
+			dialog.close()
+			dialog = None
+		if dialog is None:
+			dialog = factory()
+			self.dialogs[name] = dialog
+			dialog.finished.connect(lambda result, name=name, dialog=dialog: self.forgetDialog(name, dialog))
+		dialog.show()
+		dialog.raise_()
+		dialog.activateWindow()
+		return dialog
+
+	def forgetDialog(self, name, dialog):
+		if self.dialogs.get(name) is dialog:
+			del self.dialogs[name]
+
+	def newEvent(self):
+		"""event dialog with a new event: now, at the home location"""
+		self.presentDialog('event', lambda: EventDialog(self, new=True), replace=True)
+
+	def editEvent(self):
+		self.presentDialog('event', lambda: EventDialog(self))
+
+	def databaseChanged(self):
+		#the database window shows the changed entries (menus are filled when they open)
+		dialog = self.dialogs.get('database')
+		if dialog is not None:
+			dialog.refresh()
 
 	""" Chart """
 

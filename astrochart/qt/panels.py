@@ -17,15 +17,32 @@ Side bar of the main window: positions, houses, aspects and data of the
 chart as lists
 """
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QIcon, QPalette
-from PySide6.QtWidgets import (QAbstractItemView, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout, QHeaderView,
-	QLabel, QProgressBar, QTabWidget, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout,
+	QHeaderView, QLabel, QProgressBar, QTabWidget, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 from astrochart.chart.data import formatDegree
 from astrochart.constants import HOUSE_SYSTEMS, MODERN_ELEMENT_COLORS
 from astrochart.qt.chart_view import involves
 
 BODY = Qt.ItemDataRole.UserRole
+
+#font size of the lists in points
+LIST_FONT_MIN = 7
+LIST_FONT_MAX = 24
+
+def baseFontSize():
+	"""point size of the font of the desktop"""
+	size = QApplication.font().pointSizeF()
+	return size if size > 0 else 10.0
+
+def listFontSize(value):
+	"""font size of the lists: the setting (points), else a bit larger than the desktop font"""
+	try:
+		size = float(value)
+	except (TypeError, ValueError):
+		size = baseFontSize() + 1
+	return min(LIST_FONT_MAX, max(LIST_FONT_MIN, size))
 
 def numericFont(font):
 	"""font with digits of equal width"""
@@ -62,15 +79,19 @@ def heading(text):
 	return label
 
 class ChartPanels(QTabWidget):
-	"""pages: positions, houses, aspects, info"""
+	"""
+	pages: positions, houses, aspects, info; the font size of the lists
+	(points) is fontSize, ctrl + mouse wheel changes it
+	"""
 
-	def __init__(self, window, symbols):
+	def __init__(self, window, symbols, fontSize):
 		super().__init__()
 		self.window = window
 		self.chart = window.chart
 		self.symbols = symbols
 		self.setDocumentMode(True)
 		self.positionItems = {}
+		self.ratio = self.devicePixelRatioF()
 		#positions and elements
 		page = QWidget()
 		layout = QVBoxLayout(page)
@@ -108,6 +129,41 @@ class ChartPanels(QTabWidget):
 		self.info = QFormLayout(page)
 		self.info.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
 		self.addTab(page, _('Info'))
+		for tree in (self.positions, self.houses, self.aspects):
+			tree.viewport().installEventFilter(self)
+		self.applyFontSize(fontSize)
+
+	def applyFontSize(self, size):
+		"""font of the lists, the symbols grow with it"""
+		self.fontSize = size
+		font = QFont(self.font())
+		font.setPointSizeF(size)
+		self.setFont(font)
+		self.factor = size / baseFontSize()
+		for tree in (self.positions, self.houses, self.aspects):
+			tree.setIconSize(QSize(self.iconSize(20), self.iconSize(20)))
+
+	def setFontSize(self, size):
+		self.applyFontSize(size)
+		self.update()
+
+	def zoomFont(self, delta):
+		#ctrl + mouse wheel: one point larger or smaller
+		if delta:
+			self.window.setListFontSize(round(self.fontSize) + (1 if delta > 0 else -1))
+
+	def eventFilter(self, watched, event):
+		if event.type() == QEvent.Type.Wheel and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+			self.zoomFont(event.angleDelta().y())
+			return True
+		return super().eventFilter(watched, event)
+
+	def wheelEvent(self, event):
+		if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+			self.zoomFont(event.angleDelta().y())
+			event.accept()
+			return
+		super().wheelEvent(event)
 
 	def update(self):
 		"""fill the pages from the calculated chart"""
@@ -117,8 +173,12 @@ class ChartPanels(QTabWidget):
 		self.updateAspects()
 		self.updateInfo()
 
+	def iconSize(self, size):
+		"""size of a symbol for the font size of the lists"""
+		return max(8, int(round(size * self.factor)))
+
 	def icon(self, name, size=20):
-		return self.symbols.icon(name, size, self.ratio)
+		return self.symbols.icon(name, self.iconSize(size), self.ratio)
 
 	def muted(self):
 		return self.palette().color(QPalette.ColorRole.PlaceholderText)
@@ -135,7 +195,9 @@ class ChartPanels(QTabWidget):
 		for side, title, rows in sides:
 			if len(sides) > 1:
 				group = QTreeWidgetItem([title])
-				group.setFont(0, heading('').font())
+				bold = QFont(tree.font())
+				bold.setBold(True)
+				group.setFont(0, bold)
 				group.setFlags(Qt.ItemFlag.ItemIsEnabled)
 				tree.addTopLevelItem(group)
 				group.setFirstColumnSpanned(True)

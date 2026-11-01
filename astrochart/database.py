@@ -371,19 +371,10 @@ class OpenAstroSqlite(DatabaseSchemaMixin):
 			return self.astrocfg['home_location'],self.astrocfg['home_geolat'],self.astrocfg['home_geolon'],self.astrocfg['home_countrycode'],self.astrocfg['home_timezonestr']
 
 	def setSettingsLocation(self, lat, lon, loc, cc, tzstr):
-		self.open()
-		sql = 'UPDATE astrocfg SET value="%s" WHERE name="home_location"' % loc
-		self.cursor.execute(sql)
-		sql = 'UPDATE astrocfg SET value="%s" WHERE name="home_geolat"' % lat
-		self.cursor.execute(sql)
-		sql = 'UPDATE astrocfg SET value="%s" WHERE name="home_geolon"' % lon
-		self.cursor.execute(sql)
-		sql = 'UPDATE astrocfg SET value="%s" WHERE name="home_countrycode"' % cc
-		self.cursor.execute(sql)
-		sql = 'UPDATE astrocfg SET value="%s" WHERE name="home_timezonestr"' % tzstr
-		self.cursor.execute(sql)
-		self.link.commit()
-		self.close()
+		#as parameters (names with quotes), the settings in memory follow
+		for key, value in (("home_location", loc), ("home_geolat", lat), ("home_geolon", lon),
+			("home_countrycode", cc), ("home_timezonestr", tzstr)):
+			self.setAstrocfg(key, str(value))
 
 	def updateHistory(self):
 		sql='SELECT * FROM history'

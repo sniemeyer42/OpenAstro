@@ -13,10 +13,12 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Functional test of the Qt main window (offscreen, no display needed): menus,
+Functional test of the Qt program (offscreen, no display needed): menus,
 quick open and history, interactive wheel and lists, chart types, zoom,
-tables, export, print, chart files, database export/import, light and dark
-colours. File, print and input dialogs are answered by stand-ins.
+tables, export, print, chart files, database export/import, the dialogs
+(event, event database, famous people, home location, configuration,
+aspects, planets), font size of the lists, light and dark colours. File,
+print, input and message dialogs are answered by stand-ins.
 
 	HOME=$(mktemp -d) python3 tests/qt_flows.py
 """
@@ -51,12 +53,13 @@ def main():
 	sys.excepthook = hook
 	app, run = start_qt()
 	import builtins
-	from PySide6.QtCore import QPoint, Qt
-	from PySide6.QtGui import QColor, QImage, QPalette
+	from PySide6.QtCore import QDate, QPoint, QPointF, Qt, QTime
+	from PySide6.QtGui import QColor, QImage, QPalette, QWheelEvent
 	from PySide6.QtTest import QTest
-	from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QInputDialog, QMessageBox
-	from astrochart.constants import RADIUS, WHEEL_MARGIN
+	from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFileDialog, QInputDialog, QMessageBox
+	from astrochart.constants import ASPECT_DEFAULTS, RADIUS, WHEEL_MARGIN
 	from astrochart.qt import chart_types, files
+	Button = QDialogButtonBox.StandardButton
 	T = lambda s: builtins._(s)
 	home = os.environ['HOME']
 
@@ -86,6 +89,35 @@ def main():
 	def answers(save=None, open_=None):
 		QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (save, ''))
 		QFileDialog.getOpenFileName = staticmethod(lambda *a, **k: (open_, ''))
+
+	#questions answered with ok (or cancel), warnings recorded
+	questions = []
+	warnings = []
+	def answer(ok):
+		def question(parent, title, text, *args):
+			questions.append(text)
+			return QMessageBox.StandardButton.Ok if ok else QMessageBox.StandardButton.Cancel
+		QMessageBox.question = staticmethod(question)
+	QMessageBox.warning = staticmethod(lambda parent, title, text, *args: warnings.append(text))
+
+	def people():
+		return [(row['id'], row['name'], row['location']) for row in app.db.getDatabase()]
+
+	def visibleNames(dialog):
+		tree = dialog.tree
+		return [tree.topLevelItem(i).text(0) for i in range(tree.topLevelItemCount()) if not tree.topLevelItem(i).isHidden()]
+
+	def eventDialog(action, name, date, time, city):
+		"""event dialog of action with name, local date, time and a city searched in the geonames database"""
+		action.trigger()
+		events()
+		dialog = app.window.dialogs.get('event')
+		dialog.name.setText(name)
+		dialog.date.setDate(QDate(*date))
+		dialog.time.setTime(QTime(*time))
+		if city is not None:
+			dialog.chooser.search(city)
+		return dialog
 
 	def flow(app):
 		win = app.window
@@ -229,6 +261,160 @@ def main():
 		answers(open_=other)
 		win.importDatabaseAction.trigger()
 		check('database import: entry in quick open', ('Merged Person', True) in entries(quick), entries(quick))
+		# ---- event dialog: new event, offline place from the geonames database
+		history_before = len(app.db.history)
+		d = eventDialog(win.newAction, 'Dialog Test', (1985, 3, 20), (9, 30, 0), 'Hamburg, DE')
+		check('new event: dialog with city chooser', d is not None and d.chooser is not None and 'Hamburg' in d.chooser.city['loc'],
+			d.chooser.city if d is not None and d.chooser is not None else None)
+		check('new event: summary shows the place', 'Hamburg' in d.summary.text(), d.summary.text())
+		d.button[Button.Ok].click()
+		events()
+		check('new event OK: chart', chart.name == 'Dialog Test' and 'Hamburg' in chart.location and chart.type == 'Radix', (chart.name, chart.location))
+		check('new event OK: local date and timezone', (chart.year_loc, chart.month_loc, chart.day_loc, chart.hour_loc, chart.minute_loc) == (1985, 3, 20, 9, 30)
+			and chart.timezonestr == 'Europe/Berlin' and chart.timezone == 1.0, (chart.year_loc, chart.month_loc, chart.day_loc, chart.hour_loc, chart.timezonestr, chart.timezone))
+		check('new event OK: dialog closed, history entry', 'event' not in win.dialogs and len(app.db.history) >= min(history_before + 1, 10))
+		check('new event OK: title and lists', win.windowTitle().startswith('Dialog Test') and win.panels.positions.topLevelItemCount() > 10)
+		# ---- edit the event: apply keeps the dialog open
+		d = eventDialog(win.editAction, 'Dialog Test', (1985, 3, 20), (10, 0, 0), None)
+		check('edit event: fields of the chart', d.name.text() == 'Dialog Test' and 'Hamburg' in d.chooser.city['loc'])
+		d.button[Button.Apply].click()
+		check('edit event apply: chart changed, dialog open', chart.hour_loc == 10 and 'event' in win.dialogs)
+		d.button[Button.Cancel].click()
+		events()
+		check('edit event cancel: closed', 'event' not in win.dialogs)
+		# ---- add to the database, a name only once
+		before = people()
+		d = eventDialog(win.newAction, 'Dialog Test', (1985, 3, 20), (9, 30, 0), 'Hamburg, DE')
+		answer(True)
+		d.button[T('Add to Database')].click()
+		events()
+		after = people()
+		check('add to database', len(after) == len(before) + 1 and after[-1][1] == 'Dialog Test' and 'Hamburg' in after[-1][2], after[-1:])
+		check('add to database: asked, chart shown, closed', questions and chart.name == 'Dialog Test' and 'event' not in win.dialogs)
+		check('add to database: quick open lists it', ('Dialog Test', True) in entries(quick))
+		d = eventDialog(win.newAction, 'Dialog Test', (1990, 1, 1), (12, 0, 0), 'Berlin, DE')
+		d.button[T('Add to Database')].click()
+		check('duplicate name refused', warnings and len(people()) == len(after) and 'event' in win.dialogs, warnings)
+		d.close()
+		events()
+		# ---- event database: filter, edit, delete, open
+		win.databaseAction.trigger()
+		events()
+		db_dialog = win.dialogs.get('database')
+		check('database window', db_dialog is not None and set(visibleNames(db_dialog)) >= {'Flow Test', 'Dialog Test', 'Merged Person'}, visibleNames(db_dialog) if db_dialog else None)
+		db_dialog.filter.setText('dialog')
+		check('database filter', visibleNames(db_dialog) == ['Dialog Test'] and db_dialog.selectedRecord()['name'] == 'Dialog Test', visibleNames(db_dialog))
+		db_dialog.button[T('Edit')].click()
+		events()
+		ed = win.dialogs.get('event')
+		check('edit entry: event dialog with save', ed is not None and Button.Save in ed.button and chart.name == 'Dialog Test')
+		ed.chooser.search('Munich, DE')
+		ed.time.setTime(QTime(11, 15, 0))
+		ed.button[Button.Save].click()
+		events()
+		entry = [p for p in people() if p[1] == 'Dialog Test']
+		check('edit entry saved', len(entry) == 1 and 'Munich' in entry[0][2] and 'event' not in win.dialogs, entry)
+		check('edit entry: list and chart updated', 'Munich' in db_dialog.tree.topLevelItem(0).text(2) + ''.join(
+			db_dialog.tree.topLevelItem(i).text(2) for i in range(db_dialog.tree.topLevelItemCount())) and 'Munich' in chart.location and chart.hour_loc == 11)
+		db_dialog.filter.setText('merged')
+		count = len(people())
+		db_dialog.button[T('Delete')].click()
+		check('delete entry', len(people()) == count - 1 and 'Merged Person' not in [p[1] for p in people()] and visibleNames(db_dialog) == [], visibleNames(db_dialog))
+		db_dialog.filter.setText('flow')
+		db_dialog.button[Button.Open].click()
+		events()
+		check('open entry', chart.name.startswith('Flow Test') and 'database' not in win.dialogs, chart.name)
+		# ---- famous people
+		win.famousAction.trigger()
+		events()
+		fd = win.dialogs.get('famous')
+		check('famous people', fd is not None and len(visibleNames(fd)) > 1000, len(visibleNames(fd)) if fd else None)
+		fd.filter.setText('einstein')
+		fd.tree.itemActivated.emit(fd.tree.currentItem(), 0)
+		events()
+		check('famous person opened', 'Einstein' in chart.name and 'famous' not in win.dialogs, chart.name)
+		# ---- home location
+		win.locationAction.trigger()
+		events()
+		ld = win.dialogs.get('location')
+		ld.chooser.search('Berlin, DE')
+		ld.button[Button.Ok].click()
+		events()
+		check('home location saved', 'Berlin' in app.db.astrocfg['home_location'] and 'Berlin' in chart.home_location
+			and chart.home_timezonestr == 'Europe/Berlin' and 'location' not in win.dialogs, app.db.astrocfg['home_location'])
+		check('home location: chart here and now', chart.name == T('Here and Now') and 'Berlin' in chart.location)
+		d = eventDialog(win.newAction, 'Other', (2000, 1, 1), (0, 0, 0), None)
+		check('new event starts at home', 'Berlin' in d.chooser.city['loc'], d.chooser.city['loc'])
+		d.close()
+		events()
+		# ---- configuration: classic wheel, back to the modern one
+		check('modern wheel by default', win.wheelData.get('style') == 'modern')
+		win.configurationAction.trigger()
+		events()
+		cd = win.dialogs.get('configuration')
+		cd.chartview.setCurrentIndex(cd.chartview.findData('traditional'))
+		cd.button[Button.Ok].click()
+		events()
+		check('classic wheel chosen', app.db.astrocfg['chartstyle'] == 'classic' and app.db.astrocfg['chartview'] == 'traditional'
+			and win.wheelData.get('style') != 'modern', (app.db.astrocfg.get('chartstyle'), app.db.astrocfg.get('chartview')))
+		win.configurationAction.trigger()
+		events()
+		cd = win.dialogs.get('configuration')
+		check('configuration shows the classic view', cd.chartview.currentData() == 'traditional')
+		check('sidereal mode only for the sidereal zodiac', not cd.siderealmode.isEnabled())
+		cd.zodiactype.setCurrentIndex(cd.zodiactype.findData('sidereal'))
+		check('sidereal mode enabled', cd.siderealmode.isEnabled())
+		cd.zodiactype.setCurrentIndex(cd.zodiactype.findData('tropical'))
+		cd.chartview.setCurrentIndex(cd.chartview.findData('modern'))
+		cd.fontSize.setValue(14)
+		#a new language is asked for (answered with cancel: no restart)
+		cd.language.setCurrentIndex(cd.language.findData('en'))
+		answer(False)
+		questions.clear()
+		cd.button[Button.Ok].click()
+		events()
+		check('modern wheel again', app.db.astrocfg['chartstyle'] == 'modern' and win.wheelData.get('style') == 'modern')
+		check('language asked, kept when cancelled', len(questions) == 1 and app.db.astrocfg['language'] == 'default', questions)
+		# ---- font size of the lists: configuration and ctrl + mouse wheel
+		check('list font size saved', win.panels.fontSize == 14 and app.db.astrocfg.get('listfontsize') == '14'
+			and win.panels.positions.font().pointSizeF() == 14, (win.panels.fontSize, app.db.astrocfg.get('listfontsize')))
+		check('list symbols grow with the font', win.panels.positions.iconSize().width() > 20, win.panels.positions.iconSize())
+		viewport = win.panels.positions.viewport()
+		wheel = QWheelEvent(QPointF(10, 10), QPointF(viewport.mapToGlobal(QPoint(10, 10))), QPoint(0, 0), QPoint(0, 120),
+			Qt.MouseButton.NoButton, Qt.KeyboardModifier.ControlModifier, Qt.ScrollPhase.NoScrollPhase, False)
+		QApplication.sendEvent(viewport, wheel)
+		check('ctrl + mouse wheel: larger list font', win.panels.fontSize == 15 and app.db.astrocfg.get('listfontsize') == '15', win.panels.fontSize)
+		# ---- aspect settings
+		win.radixAction.trigger()
+		win.aspectsAction.trigger()
+		events()
+		ad = win.dialogs.get('aspects')
+		check('aspect settings: page of the chart', ad is not None and ad.tabs.currentIndex() == 0)
+		ad.data['radix'][0]['orb'].setValue(7.5)
+		ad.button[Button.Apply].click()
+		check('orb saved with apply', app.db.getSettingsAspect('radix')[0]['orb'] == 7.5 and 'aspects' in win.dialogs, app.db.getSettingsAspect('radix')[0]['orb'])
+		ad.button[Button.RestoreDefaults].click()
+		check('default orb restored in the dialog', ad.data['radix'][0]['orb'].value() == ASPECT_DEFAULTS['radix']['orb'][0])
+		ad.button[Button.Ok].click()
+		events()
+		check('default orb saved, closed', app.db.getSettingsAspect('radix')[0]['orb'] == ASPECT_DEFAULTS['radix']['orb'][0] and 'aspects' not in win.dialogs)
+		# ---- planet settings
+		win.planetsAction.trigger()
+		events()
+		pd = win.dialogs.get('planets')
+		state = app.db.getSettingsPlanet('radix')[0]['visible']
+		pd.data['radix'][0]['visible'].setChecked(not state)
+		pd.button[Button.Ok].click()
+		events()
+		check('planet setting saved', app.db.getSettingsPlanet('radix')[0]['visible'] == int(not state) and 'planets' not in win.dialogs)
+		check('hidden sun not listed', ('radix', 0) not in win.panels.positionItems if state else ('radix', 0) in win.panels.positionItems)
+		win.planetsAction.trigger()
+		events()
+		pd = win.dialogs.get('planets')
+		pd.button[Button.RestoreDefaults].click()
+		pd.button[Button.Ok].click()
+		events()
+		check('planet defaults', app.db.getSettingsPlanet('radix')[0]['visible'] == 1 and ('radix', 0) in win.panels.positionItems)
 		# ---- light and dark colours follow the palette
 		dark = QPalette(QColor('#202326'))
 		QApplication.setPalette(dark)
