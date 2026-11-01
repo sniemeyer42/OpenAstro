@@ -38,10 +38,11 @@ chmod +x ./astroChart.py
 ./astroChartShow.py
 ```
 Source layout: `astroChart.py` only starts the program, the code lives in the package `astrochart/`:
-- `application.py` (Gtk.Application), `database.py`, `config.py`, `constants.py`, `i18n.py`
-- `chart/`: calculation and SVG drawing of charts and tables, chart file import/export
-- `ui/`: main window and one module per dialog
-- `tests/`: golden chart set and GUI smoke test, see `tests/README.md`
+- `application.py` (Gtk.Application), `config.py`, `constants.py`, `i18n.py`
+- `database.py`, `database_schema.py`: settings, history and event databases
+- `chart/`: the class `Chart` (chart state, calculation) with the SVG drawing of charts and tables and the chart file import/export
+- `ui/`: main window `window.py` and one class per dialog (`AstroDialog` subclasses)
+- `tests/`: golden chart set, dialog flows and GUI smoke test, see `tests/README.md`
 
 The program is localized in 25 languages in folder 'locale'. Localization for the 'AstroChart programs' is incomplete.
 
