@@ -1153,51 +1153,51 @@ msgid "Are you sure you want to save this entry to the database?"
 msgstr ""
 
 
-#: ./astrochart/ui/panels.py ./astrochart/chart/svg_print.py
+#: ./astrochart/chart/svg_print.py ./astrochart/qt/panels.py
 msgid "Elements"
 msgstr ""
 
-#: ./astrochart/ui/files.py ./astrochart/ui/table_windows.py
+#: ./astrochart/qt/files.py
 msgid "Error printing"
 msgstr ""
 
-#: ./astrochart/ui/panels.py ./astrochart/chart/svg_print.py
+#: ./astrochart/chart/svg_print.py ./astrochart/chart/svg_tables.py ./astrochart/qt/panels.py
 msgid "Houses"
 msgstr ""
 
-#: ./astrochart/ui/window.py
+#: ./astrochart/qt/window.py
 msgid "Lists"
 msgstr ""
 
-#: ./astrochart/ui/window.py
+#: ./astrochart/qt/window.py
 msgid "Menu"
 msgstr ""
 
-#: ./astrochart/ui/panels.py ./astrochart/ui/settings_planets.py
+#: ./astrochart/chart/svg_print.py ./astrochart/qt/chart_view.py ./astrochart/qt/panels.py ./astrochart/qt/settings_planets.py
 msgid "Partner"
 msgstr ""
 
-#: ./astrochart/ui/panels.py ./astrochart/chart/svg_print.py
+#: ./astrochart/chart/svg_print.py ./astrochart/qt/panels.py
 msgid "Positions"
 msgstr ""
 
-#: ./astrochart/ui/panels.py
+#: ./astrochart/qt/panels.py
 msgid "All aspects"
 msgstr ""
 
-#: ./astrochart/ui/panels.py ./astrochart/ui/chart_view.py
+#: ./astrochart/qt/chart_view.py ./astrochart/qt/panels.py
 msgid "House"
 msgstr ""
 
-#: ./astrochart/ui/city_chooser.py
+#: ./astrochart/qt/city_chooser.py
 msgid "Continent"
 msgstr ""
 
-#: ./astrochart/ui/city_chooser.py
+#: ./astrochart/qt/city_chooser.py
 msgid "Country"
 msgstr ""
 
-#: ./astrochart/ui/city_chooser.py
+#: ./astrochart/qt/city_chooser.py
 msgid "Province"
 msgstr ""
 
@@ -1205,10 +1205,22 @@ msgstr ""
 msgid "Sec"
 msgstr ""
 
-#: ./astrochart/ui/settings_configuration.py
+#: ./astrochart/qt/settings_configuration.py
 msgid "Modern"
 msgstr ""
 
-#: ./astrochart/ui/settings_configuration.py
+#: ./astrochart/qt/settings_configuration.py
 msgid "Classic"
+msgstr ""
+
+#: ./astrochart/qt/event_dialog.py
+msgid "Date"
+msgstr ""
+
+#: ./astrochart/qt/event_dialog.py
+msgid "Time"
+msgstr ""
+
+#: ./astrochart/qt/settings_configuration.py
+msgid "Font Size of the Lists"
 msgstr ""
