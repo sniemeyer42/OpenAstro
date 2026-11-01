@@ -21,7 +21,6 @@ import pytz
 import sqlite3
 from gi.repository import Gio, Gtk
 from openastromod import zonetab
-from astrochart.state import app
 from astrochart.ui.widgets import EventData, bind_birth, bind_ident, bind_location, bind_name, setup
 from astrochart.util import dprint
 
@@ -34,7 +33,7 @@ class DatabaseDialogsMixin:
 	def openDatabase(self, extraDB):
 		self.win_OD = Gtk.Window()
 		""" set_icon """
-		#self.win_OD.set_icon_from_file(app.cfg.iconWindow)
+		#self.win_OD.set_icon_from_file(self.cfg.iconWindow)
 		self.win_OD.set_title(_('Open Database Entry'))
 		self.win_OD.set_default_size(480, 480)
 		#self.win_OD.move(150,150)
@@ -54,9 +53,9 @@ class DatabaseDialogsMixin:
 			self.DB = extraDB
 		else:
 			#self.win_OD_treeview.set_enable_search(True)
-			self.DB = app.db.getDatabase()
+			self.DB = self.db.getDatabase()
 		for data in self.DB:
-			h,m,s = app.chart.decHour(float(data["hour"]))
+			h,m,s = self.chart.decHour(float(data["hour"]))
 			dt_utc = datetime.datetime(int(data["year"]), int(data["month"]), int(data["day"]), h, m, s)
 			dt = dt_utc + datetime.timedelta(seconds=float(data["timezone"])*float(3600))
 			birth_date = str(dt.year)+'-%(#1)02d-%(#2)02d %(#3)02d:%(#4)02d:%(#5)02d' % {'#1':dt.month,'#2':dt.day,'#3':dt.hour,'#4':dt.minute,'#5':dt.second}
@@ -154,9 +153,9 @@ class DatabaseDialogsMixin:
 		#get selection of selected item
 		active = self.win_OD.selection.get_selected()
 		self.oDE_list = self.DB[active]
-		app.chart.type="Radix"
-		app.chart.charttype = app.chart.label["radix"]
-		app.chart.transit = False
+		self.chart.type="Radix"
+		self.chart.charttype = self.chart.label["radix"]
+		self.chart.transit = False
 		#self.updateChartList(widget, self.oDE_list)
 		self.updateChartList(widget, self.oDE_list)
 		self.eventData(edit=True)
@@ -164,12 +163,12 @@ class DatabaseDialogsMixin:
 
 	def openDatabaseEditAsk(self, widget):
 		#check for duplicate name without duplicate id
-		en = app.db.getDatabase()
+		en = self.db.getDatabase()
 		for i, row in enumerate(en):
 			if row["name"] == self.name.props.text and self.oDE_list["id"] == row["id"]:
 				dialog = Gtk.Window(title=_('Found Duplicate'),modal=True)
 				""" set_icon """
-				#dialog.set_icon_from_file(app.cfg.iconWindow)
+				#dialog.set_icon_from_file(self.cfg.iconWindow)
 				dialog.set_default_size(256,-1)
 				vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 				double = Gtk.Label(label=_('There is already an entry for this name, please choose another'))
@@ -207,9 +206,9 @@ class DatabaseDialogsMixin:
 	def openDatabaseOpen(self, widget):
 		active = self.win_OD.selection.get_selected()
 		self.oDE_list = self.DB[active]
-		app.chart.type="Radix"
-		app.chart.charttype = app.chart.label["radix"]
-		app.chart.transit = False
+		self.chart.type="Radix"
+		self.chart.charttype = self.chart.label["radix"]
+		self.chart.transit = False
 		self.updateChartList(widget, self.oDE_list)
 		self.win_OD.destroy()
 
@@ -218,9 +217,9 @@ class DatabaseDialogsMixin:
 		self.updateChartData()
 		#set query to save
 		sql = 'UPDATE event_natal SET name=?,year=?,month=?,day=?,hour=?, geolon=?, geolat=?, altitude=?, location=?, timezone=?, notes=?, image=?, countrycode=?, timezonestr=?, geonameid=? WHERE id=?'
-		values = (app.chart.name, app.chart.year, app.chart.month, app.chart.day, app.chart.hour, app.chart.geolon, app.chart.geolat, app.chart.altitude, app.chart.location, app.chart.timezone, '', '', app.chart.countrycode,app.chart.timezonestr,app.chart.geonameid,self.oDE_list["id"])
-		app.db.pquery([sql],[values])
-		dprint('After editing saved to database: '+app.chart.name)
+		values = (self.chart.name, self.chart.year, self.chart.month, self.chart.day, self.chart.hour, self.chart.geolon, self.chart.geolat, self.chart.altitude, self.chart.location, self.chart.timezone, '', '', self.chart.countrycode,self.chart.timezonestr,self.chart.geonameid,self.oDE_list["id"])
+		self.db.pquery([sql],[values])
+		dprint('After editing saved to database: '+self.chart.name)
 		#widget.destroy()
 		self.window2.destroy()
 		#self.win_OD.destroy()
@@ -255,7 +254,7 @@ class DatabaseDialogsMixin:
 		del_id = del_rec["id"]
 		#delete database entry
 		sql='DELETE FROM event_natal WHERE id='+str(del_id)
-		app.db.pquery([sql])
+		self.db.pquery([sql])
 		dprint('Deleted Database Entry: '+del_rec["name"])
 		#dialog.destroy()
 		#self.win_OD.destroy()
@@ -274,7 +273,7 @@ class DatabaseDialogsMixin:
 		self.listmodel.remove_all()
 		self.DB = self.getDatabaseFamous(limit="15",search=self.namesearch.get_text())
 		for data in self.DB:
-			h,m,s = app.chart.decHour(float(data["hour"]))
+			h,m,s = self.chart.decHour(float(data["hour"]))
 			dt_utc = datetime.datetime(int(data["year"]), int(data["month"]), int(data["day"]), h, m, s)
 			dt = dt_utc + datetime.timedelta(seconds=float(data["timezone"])*float(3600))
 			birth_date = str(dt.year)+'-%(#1)02d-%(#2)02d %(#3)02d:%(#4)02d:%(#5)02d' % {'#1':dt.month,'#2':dt.day,'#3':dt.hour,'#4':dt.minute,'#5':dt.second}
@@ -286,7 +285,7 @@ class DatabaseDialogsMixin:
 		self.listmodel.remove_all()
 		self.DB = self.getDatabaseFamous(limit="2000", search=None)
 		for data in self.DB:
-			h,m,s = app.chart.decHour(float(data["hour"]))
+			h,m,s = self.chart.decHour(float(data["hour"]))
 			dt_utc=datetime.datetime(int(data["year"]),int(data["month"]),int(data["day"]),h,m,s)
 			dt = dt_utc + datetime.timedelta(seconds=float(data["timezone"])*float(3600))
 			birth_date = str(dt.year)+'-%(#1)02d-%(#2)02d %(#3)02d:%(#4)02d:%(#5)02d' % {'#1':dt.month,'#2':dt.day,'#3':dt.hour,'#4':dt.minute,'#5':dt.second}
@@ -299,7 +298,7 @@ class DatabaseDialogsMixin:
 
 	def getDatabaseFamous(self, limit, search):
 		""" Start searching from year 1800 onwards """
-		self.flink = sqlite3.connect(app.cfg.famousdb)
+		self.flink = sqlite3.connect(self.cfg.famousdb)
 		self.flink.row_factory = sqlite3.Row
 		self.fcursor = self.flink.cursor()
 		if search is not None:
@@ -326,18 +325,18 @@ class DatabaseDialogsMixin:
 			month = oldDB[a][13]
 			day = oldDB[a][14]
 			hour = oldDB[a][15]
-			h,m,s = app.chart.decHour(hour)
+			h,m,s = self.chart.decHour(hour)
 			# aware datetime object
 			dt_input = datetime.datetime(year,month,day,h,m,s)
 			dt = pytz.timezone(oldDB[a][20]).localize(dt_input)
 			# naive utc datetime object
 			dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
 			# timezone
-			timezone=app.chart.offsetToTz(dt.utcoffset())
+			timezone=self.chart.offsetToTz(dt.utcoffset())
 			year = dt_utc.year
 			month = dt_utc.month
 			day = dt_utc.day
-			hour = app.chart.decHourJoin(dt_utc.hour,dt_utc.minute,dt_utc.second)
+			hour = self.chart.decHourJoin(dt_utc.hour,dt_utc.minute,dt_utc.second)
 			newDB.append({
 				"id":oldDB[a][0], #index
 				"name":oldDB[a][3]+" "+oldDB[a][4], #christian name, name
@@ -374,7 +373,7 @@ class DatabaseDialogsMixin:
 		self.win_OD = Gtk.Window()
 		self.win_OD.set_title(_('Select Database Entry'))
 		""" >>> set_icon """
-		#self.win_OD.set_icon_from_file(app.cfg.iconWindow)
+		#self.win_OD.set_icon_from_file(self.cfg.iconWindow)
 		self.win_OD.set_size_request(480, 480)
 		#self.win_OD.move(150,150)
 		#self.win_OD.connect("delete_event", lambda w,e: self.openDatabaseSelectReject())
@@ -385,9 +384,9 @@ class DatabaseDialogsMixin:
 		self.listmodel = Gio.ListStore.new(EventData)
 		self.win_OD.selection.set_model(self.listmodel)
 		#add data from event_natal table
-		self.DB = app.db.getDatabase()
+		self.DB = self.db.getDatabase()
 		for data in self.DB:
-			h,m,s = app.chart.decHour(float(data["hour"]))
+			h,m,s = self.chart.decHour(float(data["hour"]))
 			dt_utc=datetime.datetime(int(data["year"]),int(data["month"]),int(data["day"]),h,m,s)
 			dt = dt_utc + datetime.timedelta(seconds=float(data["timezone"])*float(3600))
 			birth_date = str(dt.year)+'-%(#1)02d-%(#2)02d %(#3)02d:%(#4)02d:%(#5)02d' % {'#1':dt.month,'#2':dt.day,'#3':dt.hour,'#4':dt.minute,'#5':dt.second}
@@ -465,54 +464,54 @@ class DatabaseDialogsMixin:
 		data_record = self.DB[active]
 		#synastry
 		if ctype == "Synastry":
-			app.chart.type="Transit"
-			app.chart.t_name=str(data_record["name"])
-			app.chart.t_year=int(data_record["year"])
-			app.chart.t_month=int(data_record["month"])
-			app.chart.t_day=int(data_record["day"])
-			app.chart.t_hour=float(data_record["hour"])
-			app.chart.t_geolon=float(data_record["geolon"])
-			app.chart.t_geolat=float(data_record["geolat"])
-			app.chart.t_altitude=int(data_record["altitude"])
-			app.chart.t_location=str(data_record["location"])
-			app.chart.t_timezone=float(data_record["timezone"])
-			app.chart.charttype="%s (%s)" % (app.chart.label["synastry"],app.chart.t_name)
-			app.chart.transit=True
-			app.chart.synastry=True
-			#chart_name = app.chart.makeSVG()
+			self.chart.type="Transit"
+			self.chart.t_name=str(data_record["name"])
+			self.chart.t_year=int(data_record["year"])
+			self.chart.t_month=int(data_record["month"])
+			self.chart.t_day=int(data_record["day"])
+			self.chart.t_hour=float(data_record["hour"])
+			self.chart.t_geolon=float(data_record["geolon"])
+			self.chart.t_geolat=float(data_record["geolat"])
+			self.chart.t_altitude=int(data_record["altitude"])
+			self.chart.t_location=str(data_record["location"])
+			self.chart.t_timezone=float(data_record["timezone"])
+			self.chart.charttype="%s (%s)" % (self.chart.label["synastry"],self.chart.t_name)
+			self.chart.transit=True
+			self.chart.synastry=True
+			#chart_name = self.chart.makeSVG()
 		elif ctype == "Composite":
-			app.chart.type="Composite"
-			app.chart.t_name=str(data_record["name"])
-			app.chart.t_year=int(data_record["year"])
-			app.chart.t_month=int(data_record["month"])
-			app.chart.t_day=int(data_record["day"])
-			app.chart.t_hour=float(data_record["hour"])
-			app.chart.t_geolon=float(data_record["geolon"])
-			app.chart.t_geolat=float(data_record["geolat"])
-			app.chart.t_altitude=int(data_record["altitude"])
-			app.chart.t_location=str(data_record["location"])
-			app.chart.t_timezone=float(data_record["timezone"])
-			app.chart.charttype="%s (%s)" % (app.chart.label["composite"],app.chart.t_name)
-			app.chart.transit=False
-			app.chart.synastry=False
-			#chart_name = app.chart.makeSVG()
+			self.chart.type="Composite"
+			self.chart.t_name=str(data_record["name"])
+			self.chart.t_year=int(data_record["year"])
+			self.chart.t_month=int(data_record["month"])
+			self.chart.t_day=int(data_record["day"])
+			self.chart.t_hour=float(data_record["hour"])
+			self.chart.t_geolon=float(data_record["geolon"])
+			self.chart.t_geolat=float(data_record["geolat"])
+			self.chart.t_altitude=int(data_record["altitude"])
+			self.chart.t_location=str(data_record["location"])
+			self.chart.t_timezone=float(data_record["timezone"])
+			self.chart.charttype="%s (%s)" % (self.chart.label["composite"],self.chart.t_name)
+			self.chart.transit=False
+			self.chart.synastry=False
+			#chart_name = self.chart.makeSVG()
 		elif ctype == "Combine":
-			app.chart.type="Combine"
-			app.chart.t_name=str(data_record["name"])
-			app.chart.t_year=int(data_record["year"])
-			app.chart.t_month=int(data_record["month"])
-			app.chart.t_day=int(data_record["day"])
-			app.chart.t_hour=float(data_record["hour"])
-			app.chart.t_geolon=float(data_record["geolon"])
-			app.chart.t_geolat=float(data_record["geolat"])
-			app.chart.t_altitude=int(data_record["altitude"])
-			app.chart.t_location=str(data_record["location"])
-			app.chart.t_timezone=float(data_record["timezone"])
+			self.chart.type="Combine"
+			self.chart.t_name=str(data_record["name"])
+			self.chart.t_year=int(data_record["year"])
+			self.chart.t_month=int(data_record["month"])
+			self.chart.t_day=int(data_record["day"])
+			self.chart.t_hour=float(data_record["hour"])
+			self.chart.t_geolon=float(data_record["geolon"])
+			self.chart.t_geolat=float(data_record["geolat"])
+			self.chart.t_altitude=int(data_record["altitude"])
+			self.chart.t_location=str(data_record["location"])
+			self.chart.t_timezone=float(data_record["timezone"])
 			#calculate combine between both utc times
-			h,m,s = app.chart.decHour(app.chart.hour)
-			dt1 = datetime.datetime(app.chart.year,app.chart.month,app.chart.day,h,m,s)
-			h,m,s = app.chart.decHour(app.chart.t_hour)
-			dt2 = datetime.datetime(app.chart.t_year,app.chart.t_month,app.chart.t_day,h,m,s)
+			h,m,s = self.chart.decHour(self.chart.hour)
+			dt1 = datetime.datetime(self.chart.year,self.chart.month,self.chart.day,h,m,s)
+			h,m,s = self.chart.decHour(self.chart.t_hour)
+			dt2 = datetime.datetime(self.chart.t_year,self.chart.t_month,self.chart.t_day,h,m,s)
 			if dt1 > dt2:
 				delta = dt1 - dt2
 				hdelta = delta // 2
@@ -522,32 +521,32 @@ class DatabaseDialogsMixin:
 				hdelta = delta // 2
 				combine = dt1 + hdelta
 			#take lon,lat middle
-			app.chart.c_geolon = (app.chart.geolon + app.chart.t_geolon)/2.0
-			app.chart.c_geolat = (app.chart.geolat + app.chart.t_geolat)/2.0
-			app.chart.c_altitude = (app.chart.t_altitude + app.chart.altitude)/2.0
-			app.chart.c_year = combine.year
-			app.chart.c_month = combine.month
-			app.chart.c_day = combine.day
-			app.chart.c_hour = app.chart.decHourJoin(combine.hour,combine.minute,combine.second)
-			app.chart.charttype = "%s (%s)" % (app.chart.label["combine"],app.chart.t_name)
-			app.chart.transit = False
-			app.chart.synastry = False
+			self.chart.c_geolon = (self.chart.geolon + self.chart.t_geolon)/2.0
+			self.chart.c_geolat = (self.chart.geolat + self.chart.t_geolat)/2.0
+			self.chart.c_altitude = (self.chart.t_altitude + self.chart.altitude)/2.0
+			self.chart.c_year = combine.year
+			self.chart.c_month = combine.month
+			self.chart.c_day = combine.day
+			self.chart.c_hour = self.chart.decHourJoin(combine.hour,combine.minute,combine.second)
+			self.chart.charttype = "%s (%s)" % (self.chart.label["combine"],self.chart.t_name)
+			self.chart.transit = False
+			self.chart.synastry = False
 			#set new date for printing in svg
-			app.chart.year = app.chart.c_year
-			app.chart.month = app.chart.c_month
-			app.chart.day = app.chart.c_day
-			app.chart.hour = app.chart.c_hour
-			app.chart.geolat = app.chart.c_geolat
-			app.chart.geolon = app.chart.c_geolon
-			app.chart.timezone_str = zonetab.nearest_tz(app.chart.geolat,app.chart.geolon,zonetab.timezones())[2]
+			self.chart.year = self.chart.c_year
+			self.chart.month = self.chart.c_month
+			self.chart.day = self.chart.c_day
+			self.chart.hour = self.chart.c_hour
+			self.chart.geolat = self.chart.c_geolat
+			self.chart.geolon = self.chart.c_geolon
+			self.chart.timezone_str = zonetab.nearest_tz(self.chart.geolat,self.chart.geolon,zonetab.timezones())[2]
 			#aware datetime object
 			dt_input = datetime.datetime(combine.year, combine.month, combine.day, combine.hour, combine.minute, combine.second)
-			dt = pytz.timezone(app.chart.timezone_str).localize(dt_input)
-			app.chart.timezone=app.chart.offsetToTz(dt.utcoffset())
-			app.chart.utcToLocal()
+			dt = pytz.timezone(self.chart.timezone_str).localize(dt_input)
+			self.chart.timezone=self.chart.offsetToTz(dt.utcoffset())
+			self.chart.utcToLocal()
 		# synastry is drawn as transit chart, but has no transit date
 		self.transitBar.set_visible(False)
-		chart_name = app.chart.makeSVG()
+		chart_name = self.chart.makeSVG()
 		self.image.setupSVG(chart_name)
 		self.image.queue_resize()
 		self.win_OD.close()

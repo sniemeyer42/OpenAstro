@@ -21,7 +21,6 @@ import os
 import locale
 from gi.repository import Gtk
 from astrochart.constants import ASPECT_CHART_TYPES, ASPECT_DEFAULTS, ASPECT_DEGREES, ASPECT_ORB_MAX
-from astrochart.state import app
 from astrochart.util import dprint
 
 class AspectSettingsMixin:
@@ -68,8 +67,8 @@ class AspectSettingsMixin:
 				grid.attach(Gtk.Label(label=text, justify=Gtk.Justification.CENTER), col, 0, 1, 1)
 			rows = []
 			saved = []
-			for row, aspect in enumerate(app.db.getSettingsAspect(ctype), start=1):
-				icon = Gtk.Image.new_from_file(os.path.join(app.cfg.iconAspects, '%s.svg' % (aspect['degree'])))
+			for row, aspect in enumerate(self.db.getSettingsAspect(ctype), start=1):
+				icon = Gtk.Image.new_from_file(os.path.join(self.cfg.iconAspects, '%s.svg' % (aspect['degree'])))
 				icon.set_pixel_size(16)
 				widgets = {'degree': aspect['degree']}
 				widgets['visible'] = Gtk.CheckButton(halign=Gtk.Align.CENTER)
@@ -102,8 +101,8 @@ class AspectSettingsMixin:
 			self.aspectsNotebook.append_page(scrolled_window, Gtk.Label(label=titles[ctype]))
 		vbox.append(self.aspectsNotebook)
 		#open the page of the chart shown
-		if app.chart.type == "Transit":
-			if app.chart.synastry:
+		if self.chart.type == "Transit":
+			if self.chart.synastry:
 				self.aspectsNotebook.set_current_page(ASPECT_CHART_TYPES.index('synastry'))
 			else:
 				self.aspectsNotebook.set_current_page(ASPECT_CHART_TYPES.index('transit'))
@@ -187,7 +186,7 @@ class AspectSettingsMixin:
 		for ctype in ASPECT_CHART_TYPES:
 			if new[ctype] != self.aspectsSaved[ctype]:
 				dprint('settingsAspectsSubmit: saving %s aspects' % (ctype))
-				app.db.setSettingsAspect(ctype, new[ctype])
+				self.db.setSettingsAspect(ctype, new[ctype])
 				self.aspectsSaved[ctype] = new[ctype]
 				changed.append(ctype)
 		if changed:
@@ -213,13 +212,13 @@ class AspectSettingsMixin:
 				window = getattr(self, 'win_TMT', None)
 				if window is None or not window.get_visible():
 					continue
-				app.chart.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
+				self.chart.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
 			else:
 				window = getattr(self, 'win_TCA', None)
 				if window is None or not window.get_visible():
 					continue
-				app.chart.makeCuspAspectsSVG(printing=None)
-			window.image.setupSVG(app.cfg.tempfilenametable)
+				self.chart.makeCuspAspectsSVG(printing=None)
+			window.image.setupSVG(self.cfg.tempfilenametable)
 			window.image.queue_resize()
 
 	def settingsAspectsClose(self, window):

@@ -79,7 +79,7 @@ class AstroApplication(Gtk.Application):
 		#configuration
 		self.cfg = OpenAstroCfg()
 		# handle data bases
-		self.db = OpenAstroSqlite()
+		self.db = OpenAstroSqlite(self.cfg)
 		#chart shown in the window: event data, chart type, settings, positions
 		self.chart = Chart(self.cfg, self.db, self.screen_width, self.screen_height)
 

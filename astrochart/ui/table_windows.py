@@ -18,7 +18,6 @@ Menu 'Tables': monthly timeline and cusp aspects windows
 
 import datetime
 from gi.repository import Gio, Gtk, Rsvg
-from astrochart.state import app
 from astrochart.ui.filters import FILTER_ALL_FILES, FILTER_PDF_FILES
 from astrochart.ui.widgets import ViewSVG
 
@@ -84,23 +83,23 @@ class TableWindowsMixin:
 		self.tabletype="timeline"
 		self.tMT_year = spinner['Y'].get_value_as_int()
 		self.tMT_month = spinner['M'].get_value_as_int()
-		app.chart.makeTimelineSVG(printing=None,y=self.tMT_year,m=self.tMT_month)
+		self.chart.makeTimelineSVG(printing=None,y=self.tMT_year,m=self.tMT_month)
 			#generate window
 		self.win_TMT = Gtk.Window()
 		self.win_TMT.set_title("OpenAstro.org Monthly Timeline")
 		""" >>> set_icon """
-		#self.win_TMT.set_icon_from_file(app.cfg.iconWindow)
+		#self.win_TMT.set_icon_from_file(self.cfg.iconWindow)
 		self.win_TMT.set_default_size(1024, 732)
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		button = Gtk.Button.new_with_mnemonic(label=_('Print'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(app.chart.pages,pdf=False,window=self.win_TMT,name="Timeline-%s.pdf"%(app.chart.name)))
+		button.connect("clicked", lambda w: self.tablesChartPrint(self.chart.pages,pdf=False,window=self.win_TMT,name="Timeline-%s.pdf"%(self.chart.name)))
 		button_box.append(button)
 		button = Gtk.Button.new_with_mnemonic(label=_('Save as PDF'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(app.chart.pages,pdf=True,window=self.win_TMT,name="Timeline-%s.pdf"%(app.chart.name)))
+		button.connect("clicked", lambda w: self.tablesChartPrint(self.chart.pages,pdf=True,window=self.win_TMT,name="Timeline-%s.pdf"%(self.chart.name)))
 		button_box.append(button)
 		vbox.append(button_box)
-		self.win_TMT.image = ViewSVG(app.cfg.tempfilenametable)
+		self.win_TMT.image = ViewSVG(self.cfg.tempfilenametable)
 		self.win_TMT.image.set_vexpand(True)
 		self.win_TMT.image.set_hexpand(True)
 		self.win_TMT.image.set_valign(Gtk.Align.CENTER)
@@ -117,7 +116,7 @@ class TableWindowsMixin:
 		window.print_op.set_unit(Gtk.Unit.MM)
 		if settings != None: 
 			window.print_op.set_print_settings(settings)
-		window.print_op.connect("begin_print", self.tablesChartPrintBegin, app.chart.pages)
+		window.print_op.connect("begin_print", self.tablesChartPrintBegin, self.chart.pages)
 		window.print_op.connect("draw_page", self.tablesChartPrintDraw)
 		res = None
 		if pdf:
@@ -146,7 +145,7 @@ class TableWindowsMixin:
 		window.close()
 
 	def tablesChartPrintBegin(self, operation, context, pages):
-		operation.set_n_pages(app.chart.pages)
+		operation.set_n_pages(self.chart.pages)
 		operation.set_use_full_page(False)
 		ps = Gtk.PageSetup()
 		ps.set_orientation(Gtk.PageOrientation.PORTRAIT)
@@ -164,13 +163,13 @@ class TableWindowsMixin:
 		printing['dpi_y']=Gtk.PrintContext.get_dpi_y(context)
 		#draw svg
 		if(self.tabletype == "timeline"):
-			app.chart.makeTimelineSVG(printing=printing,y=self.tMT_year,m=self.tMT_month)
+			self.chart.makeTimelineSVG(printing=printing,y=self.tMT_year,m=self.tMT_month)
 			#draw svg for printing
-			svg = Rsvg.Handle.new_from_file(app.cfg.tempfilenametableprint)
+			svg = Rsvg.Handle.new_from_file(self.cfg.tempfilenametableprint)
 		elif(self.tabletype == "cuspaspects"):
-			app.chart.makeCuspAspectsSVG(printing=printing)
+			self.chart.makeCuspAspectsSVG(printing=printing)
 			#draw svg for printing
-			svg = Rsvg.Handle.new_from_file(app.cfg.tempfilenametableprint)
+			svg = Rsvg.Handle.new_from_file(self.cfg.tempfilenametableprint)
 		viewport = Rsvg.Rectangle()
 		viewport.x = 0
 		viewport.y = 0
@@ -197,24 +196,24 @@ class TableWindowsMixin:
 
 	def tableCuspAspects_callback(self, action, parameter):
 		self.tabletype="cuspaspects"
-		app.chart.makeCuspAspectsSVG(printing=None)
+		self.chart.makeCuspAspectsSVG(printing=None)
 		#generate window
 		self.win_TCA = Gtk.Window()
 		self.win_TCA.set_title("OpenAstro.org Cusp Aspects")
 		""" >>> set_icon """
-		#self.win_TCA.set_icon_from_file(app.cfg.iconWindow)
+		#self.win_TCA.set_icon_from_file(self.cfg.iconWindow)
 		self.win_TCA.set_default_size(924,732)
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 		vbox.set_vexpand(True)
 		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		button = Gtk.Button.new_with_mnemonic(label=_('Print'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=False,window=self.win_TCA,name="CuspAspects-%s.pdf"%(app.chart.name)))
+		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=False,window=self.win_TCA,name="CuspAspects-%s.pdf"%(self.chart.name)))
 		hbox.append(button)
 		button = Gtk.Button.new_with_mnemonic(label=_('Save as PDF'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=True,window=self.win_TCA,name="CuspAspects-%s.pdf"%(app.chart.name)))
+		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=True,window=self.win_TCA,name="CuspAspects-%s.pdf"%(self.chart.name)))
 		hbox.append(button)
 		vbox.append(hbox)
-		self.win_TCA.image = ViewSVG(app.cfg.tempfilenametable)
+		self.win_TCA.image = ViewSVG(self.cfg.tempfilenametable)
 		self.win_TCA.image.set_vexpand(True)
 		self.win_TCA.image.set_hexpand(True)
 		self.win_TCA.image.set_valign(Gtk.Align.CENTER)

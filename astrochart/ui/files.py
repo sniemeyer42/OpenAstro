@@ -19,7 +19,6 @@ Menu 'Chart' (open, save, import, export, print) and database export/import
 import os
 from shutil import copyfile
 from gi.repository import GLib, Gio, Gtk, Rsvg
-from astrochart.state import app
 from astrochart.ui.filters import FILTER_ALL_FILES, FILTER_DAT_FILES, FILTER_JPG_FILES, FILTER_OAC_FILES, FILTER_PDF_FILES, FILTER_PNG_FILES, FILTER_SKIF_FILES, FILTER_SQL_FILES, FILTER_SVG_FILES, FILTER_TXT_FILES, FILTER_XML_FILES, FILTER_ZBS_FILES
 from astrochart.util import dprint
 
@@ -46,14 +45,14 @@ class FilesMixin:
 				local_file = file_dialog.open_finish(gio_task)
 			except GLib.Error:
 				return
-			app.chart.importOAC(local_file)
+			self.chart.importOAC(local_file)
 			self.eventData(edit=False)
 		elif gio_task.get_name() == 'gtk_file_dialog_save':
 			try:
 				local_file = file_dialog.save_finish(gio_task)
 			except GLib.Error:
 				return
-			app.chart.exportOAC(local_file)
+			self.chart.exportOAC(local_file)
 
 		"""
 		print(f'File name: {local_file.get_basename()}')
@@ -88,16 +87,16 @@ class FilesMixin:
 		#select file formats
 		if selected == 'importOroboros':
 			gio_filters.append(item=FILTER_XML_FILES)
-			self.file_to_open(filters=gio_filters, name='', import_app=app.chart.importOroboros)
+			self.file_to_open(filters=gio_filters, name='', import_app=self.chart.importOroboros)
 		elif selected == 'importAstrolog':
 			gio_filters.append(item=FILTER_DAT_FILES)
-			self.file_to_open(filters=gio_filters, name='', import_app=app.chart.importAstrolog)
+			self.file_to_open(filters=gio_filters, name='', import_app=self.chart.importAstrolog)
 		elif selected == 'importSkylendar':
 			gio_filters.append(item=FILTER_SKIF_FILES)
-			self.file_to_open(filters=gio_filters, name='', import_app=app.chart.importSkylendar)
+			self.file_to_open(filters=gio_filters, name='', import_app=self.chart.importSkylendar)
 		elif selected == 'importZet8':
 			gio_filters.append(item=FILTER_ZBS_FILES)
-			self.file_to_open(filters=gio_filters, name='', import_app=app.chart.importZet8)
+			self.file_to_open(filters=gio_filters, name='', import_app=self.chart.importZet8)
 
 		dprint('Dialog closed, no files selected')
 
@@ -131,13 +130,13 @@ class FilesMixin:
 		export_app(local_file)
 
 	def exportPNG(self, local_file):
-		os.system("%s %s %s" % ('magick', app.cfg.tempfilename,"'"+local_file.get_path()+"'"))
+		os.system("%s %s %s" % ('magick', self.cfg.tempfilename,"'"+local_file.get_path()+"'"))
 
 	def exportJPG(self, local_file):
-		os.system("%s %s %s" % ('magick', app.cfg.tempfilename,"'"+local_file.get_path()+"'"))
+		os.system("%s %s %s" % ('magick', self.cfg.tempfilename,"'"+local_file.get_path()+"'"))
 
 	def exportSVG(self, local_file):
-		copyfile(app.cfg.tempfilename, local_file.get_path())
+		copyfile(self.cfg.tempfilename, local_file.get_path())
 
 	def exportPDF(self, local_file):
 		#prepare printing into PDF
@@ -199,8 +198,8 @@ class FilesMixin:
 		printing['dpi_x']=context.get_dpi_x()
 		printing['dpi_y']=context.get_dpi_y()
 		#make printing svg
-		app.chart.makeSVG(printing=printing)
-		svg = Rsvg.Handle.new_from_file(app.cfg.tempfilenameprint)
+		self.chart.makeSVG(printing=printing)
+		svg = Rsvg.Handle.new_from_file(self.cfg.tempfilenameprint)
 		#render SVG into cairo context
 		if svg is not None:
 			cr = Gtk.PrintContext.get_cairo_context(context)
@@ -224,7 +223,7 @@ class FilesMixin:
 		self.file_to_save(filters=gio_filters, name='openastro-database.sql', export_app=self.exportSQL)
 
 	def exportSQL(self, local_file):
-		copyfile(app.cfg.peopledb, local_file.get_path())
+		copyfile(self.cfg.peopledb, local_file.get_path())
 
 	def importdb_callback(self, action, parameter):
 		gio_filters = Gio.ListStore.new(Gtk.FileFilter)
@@ -233,4 +232,4 @@ class FilesMixin:
 		self.file_to_open(filters=gio_filters, name='openastro-database.sql', import_app=self.importSQL)
 
 	def importSQL(self, local_file):
-		app.db.databaseMerge(app.cfg.peopledb, local_file.get_path())
+		self.db.databaseMerge(self.cfg.peopledb, local_file.get_path())

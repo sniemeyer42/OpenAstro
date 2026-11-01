@@ -20,7 +20,6 @@ import sys
 import os
 from gi.repository import Gtk
 from astrochart.i18n import LANGUAGES, LANGUAGES_LABEL
-from astrochart.state import app
 from astrochart.util import dprint
 
 class ConfigurationSettingsMixin:
@@ -54,7 +53,7 @@ class ConfigurationSettingsMixin:
 		data['use_geonames.org'] = Gtk.CheckButton()
 		hbox.append(data['use_geonames.org'])
 		grid.attach(hbox, 0, 0, 1, 1)
-		if app.db.getAstrocfg('use_geonames.org') == "1":
+		if self.db.getAstrocfg('use_geonames.org') == "1":
 			data['use_geonames.org'].set_active(True)
 		"""
 		 replace ComboBox by DrowDown
@@ -86,7 +85,7 @@ class ConfigurationSettingsMixin:
 		for i, key in enumerate(house_systems.keys()):
 			self.houses_list.append(key)
 			systems.append(house_systems[key])
-			if app.db.astrocfg['houses_system'] == key:
+			if self.db.astrocfg['houses_system'] == key:
 				active = i
 		data['houses_system'].set_model(model=systems)
 		data['houses_system'].set_selected(active)
@@ -96,17 +95,17 @@ class ConfigurationSettingsMixin:
 		grid.attach(Gtk.Label(label=_('Position Calculation')), 0, 3, 1, 1)
 		grid.attach(data['postype'], 0, 4, 1, 1)
 		postype={
-			"geo":app.chart.label["apparent_geocentric"]+" "+_("(default)"),
-			"truegeo":app.chart.label["true_geocentric"],
-			"topo":app.chart.label["topocentric"],
-			"helio":app.chart.label["heliocentric"]
+			"geo":self.chart.label["apparent_geocentric"]+" "+_("(default)"),
+			"truegeo":self.chart.label["true_geocentric"],
+			"topo":self.chart.label["topocentric"],
+			"helio":self.chart.label["heliocentric"]
 		}
 		self.postype_list=["geo","truegeo","topo","helio"]
 		postypes = Gtk.StringList()
 		active = 0
 		for i, key in enumerate(postype.keys()):
 			postypes.append(postype[key])
-			if app.db.astrocfg['postype'] == key:
+			if self.db.astrocfg['postype'] == key:
 				active = i
 		data['postype'].set_model(model=postypes)
 		data['postype'].set_selected(active)
@@ -124,7 +123,7 @@ class ConfigurationSettingsMixin:
 		active = 0
 		for i, key in enumerate(chartview.keys()):
 			chartviews.append(chartview[key])
-			if app.db.astrocfg['chartview'] == key:
+			if self.db.astrocfg['chartview'] == key:
 				active = i
 		data['chartview'].set_model(model=chartviews)
 		data['chartview'].set_selected(active)
@@ -139,14 +138,14 @@ class ConfigurationSettingsMixin:
 		active = 0
 		for i, key in enumerate(zodiactype.keys()):
 			zodiactypes.append(zodiactype[key])
-			if app.db.astrocfg['zodiactype'] == key:
+			if self.db.astrocfg['zodiactype'] == key:
 				active = i
 		data['zodiactype'].set_model(model=zodiactypes)
 		data['zodiactype'].set_selected(active)
 
 		#sidereal mode
 		data['siderealmode'] = Gtk.DropDown.new()
-		if app.db.astrocfg['zodiactype'] != 'sidereal':
+		if self.db.astrocfg['zodiactype'] != 'sidereal':
 			data['siderealmode'].set_sensitive(False)
 
 		def zodiactype_changed(dropdown, _pspec):
@@ -210,7 +209,7 @@ class ConfigurationSettingsMixin:
 		active = 0
 		for i, key in enumerate(self.siderealmode_chartview.keys()):
 			sideralmodes.append(self.siderealmode_chartview[key])
-			if app.db.astrocfg['siderealmode'] == key:
+			if self.db.astrocfg['siderealmode'] == key:
 				active = i
 		data['siderealmode'].set_model(model=sideralmodes)
 		data['siderealmode'].set_selected(active)
@@ -222,8 +221,8 @@ class ConfigurationSettingsMixin:
 		languages.append(_("Default"))
 		active = 0
 		for i, language in enumerate(LANGUAGES):
-			languages.append(app.db.lang_label[language])
-			if app.db.astrocfg['language'] == language:
+			languages.append(self.db.lang_label[language])
+			if self.db.astrocfg['language'] == language:
 				active = i+1
 		data['language'].set_model(model=languages)
 		data['language'].set_selected(active)
@@ -251,42 +250,42 @@ class ConfigurationSettingsMixin:
 	def settingsConfigurationSubmit(self, widget, data):
 		update = False
 		if data['use_geonames.org'].get_active():
-			app.db.setAstrocfg("use_geonames.org","1")
+			self.db.setAstrocfg("use_geonames.org","1")
 		else:
-			app.db.setAstrocfg("use_geonames.org","0")
+			self.db.setAstrocfg("use_geonames.org","0")
 		# houses system
 		model = data['houses_system'].get_model()
 		active = data['houses_system'].get_selected()
 		dprint('House system choosen: '+model.get_string(active))
-		if self.houses_list[active] != app.db.astrocfg['houses_system']:
+		if self.houses_list[active] != self.db.astrocfg['houses_system']:
 			update = True
-			app.db.setAstrocfg("houses_system",self.houses_list[active])
+			self.db.setAstrocfg("houses_system",self.houses_list[active])
 		# position calculation
 		model = data['postype'].get_model()
 		active = data['postype'].get_selected()
 		dprint('Position Type choosen: '+model.get_string(active))
-		if self.postype_list[active] != app.db.astrocfg['postype']:
+		if self.postype_list[active] != self.db.astrocfg['postype']:
 			update = True
-			app.db.setAstrocfg("postype",self.postype_list[active])
+			self.db.setAstrocfg("postype",self.postype_list[active])
 		#chart view
 		model = data['chartview'].get_model()
 		active = data['chartview'].get_selected()
 		dprint('Chart View choosen: '+model.get_string(active))
-		if self.chartview_list[active] != app.db.astrocfg['chartview']:
+		if self.chartview_list[active] != self.db.astrocfg['chartview']:
 			update = True
-			app.db.setAstrocfg("chartview",self.chartview_list[active])
+			self.db.setAstrocfg("chartview",self.chartview_list[active])
 		#zodiac type
 		model = data['zodiactype'].get_model()
 		active = data['zodiactype'].get_selected()
-		if self.zodiactype_list[active] != app.db.astrocfg['zodiactype']:
+		if self.zodiactype_list[active] != self.db.astrocfg['zodiactype']:
 			update = True
-			app.db.setAstrocfg("zodiactype",self.zodiactype_list[active])
+			self.db.setAstrocfg("zodiactype",self.zodiactype_list[active])
 		#sidereal mode
 		model = data['siderealmode'].get_model()
 		active = data['siderealmode'].get_selected()
-		if self.siderealmode_list[active] != app.db.astrocfg['siderealmode']:
+		if self.siderealmode_list[active] != self.db.astrocfg['siderealmode']:
 			update = True
-			app.db.setAstrocfg("siderealmode",self.siderealmode_list[active])
+			self.db.setAstrocfg("siderealmode",self.siderealmode_list[active])
 		#language
 		model = data['language'].get_model()
 		active = data['language'].get_selected()
@@ -294,7 +293,7 @@ class ConfigurationSettingsMixin:
 			active_lang = "default"
 		else:
 			active_lang = LANGUAGES[active-1]
-		if active_lang != app.db.astrocfg['language']:
+		if active_lang != self.db.astrocfg['language']:
 			self.confirm_language(active_lang)
 		self.updateUI(first_time=False)
 		# updatechart
@@ -315,8 +314,8 @@ class ConfigurationSettingsMixin:
 	def on_change_language(self, source_obj, async_res, lang):
 		result = source_obj.choose_finish(async_res)
 		if result == 1:
-			app.db.setAstrocfg("language",lang)
+			self.db.setAstrocfg("language",lang)
 			# set language to be used
-			app.db.setLanguage(lang=lang)
+			self.db.setLanguage(lang=lang)
 			#restart
 			os.execv(sys.executable, ['python'] + sys.argv)

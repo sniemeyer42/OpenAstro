@@ -20,7 +20,6 @@ import datetime
 import pytz
 from gi.repository import Gtk
 from openastromod import geoname
-from astrochart.state import app
 from astrochart.util import dprint
 
 class LocationSettingsMixin:
@@ -58,16 +57,16 @@ class LocationSettingsMixin:
 		# display of location (non editable)
 		location = Gtk.Label(label=_('Location')+':')
 		grid.attach(location, 0, 1, 1, 1)
-		self.LLoc = Gtk.Label(label=app.chart.home_location)
+		self.LLoc = Gtk.Label(label=self.chart.home_location)
 		#self.LLoc = Gtk.Label(label='XXXXXXXXX')
 		grid.attach_next_to(child=self.LLoc, sibling=location, side=Gtk.PositionType.RIGHT, width=1, height=1)
 		latitude = Gtk.Label(label=_('Latitude')+':')
 		grid.attach(latitude, 0, 2, 1, 1)
-		self.LLat = Gtk.Label(label=str(app.chart.home_geolat))
+		self.LLat = Gtk.Label(label=str(self.chart.home_geolat))
 		grid.attach_next_to(child=self.LLat, sibling=latitude, side=Gtk.PositionType.RIGHT, width=1, height=1)
 		longitude = Gtk.Label(label=_('Longitude')+':')
 		grid.attach(longitude, 0, 3, 1, 1)
-		self.LLon = Gtk.Label(label=str(app.chart.home_geolon))
+		self.LLon = Gtk.Label(label=str(self.chart.home_geolon))
 		grid.attach_next_to(child=self.LLon, sibling=longitude, side=Gtk.PositionType.RIGHT, width=1, height=1)
 		#use geocoders if we have an internet connection else geonames database
 		if self.iconn:
@@ -78,29 +77,29 @@ class LocationSettingsMixin:
 			self.geoLoc = Gtk.Entry()
 			self.geoLoc.set_max_length(100)
 			self.geoLoc.set_width_chars(30)
-			self.geoLoc.set_text(app.chart.home_location.partition(',')[0])
+			self.geoLoc.set_text(self.chart.home_location.partition(',')[0])
 			hbox.append(self.geoLoc)
 			label = Gtk.Label(label=" "+_("Country-code")+": ")
 			hbox.append(label)
 			self.geoCC = Gtk.Entry()
 			self.geoCC.set_max_length(2)
 			self.geoCC.set_width_chars(2)
-			self.geoCC.set_text(app.chart.home_countrycode)
+			self.geoCC.set_text(self.chart.home_countrycode)
 			hbox.append(self.geoCC)
 			grid.attach(hbox, 0, 0, 2, 1)
 		else:
 			# get nearest home
-			self.GEON_nearest = app.db.gnearest(app.chart.geolat,app.chart.geolon)
+			self.GEON_nearest = self.db.gnearest(self.chart.geolat,self.chart.geolon)
 			# continents
 			self.continents = Gtk.DropDown()
 			self.contstore = Gtk.ListStore(str,str)
 			grid.attach(self.continents, 0, 0, 1, 1)
 			sql = 'SELECT * FROM continent ORDER BY name ASC'
-			app.db.gquery(sql)
+			self.db.gquery(sql)
 			continent_info = Gtk.StringList()
 			self.continent_infos = []
 			activecont = 3
-			for i, row in enumerate(app.db.gcursor):
+			for i, row in enumerate(self.db.gcursor):
 				if row['code'] == self.GEON_nearest['continent']:
 					activecont = i
 					self.GEON_nearest['continent'] = None
@@ -108,7 +107,7 @@ class LocationSettingsMixin:
 				items = [row['name'],row['code']]
 				self.continent_infos.append(items)
 				continent_info.append(row['name'])
-			app.db.gclose()
+			self.db.gclose()
 			self.continents.set_model(continent_info)
 			# countries
 			self.countries = Gtk.DropDown.new()
@@ -174,11 +173,11 @@ class LocationSettingsMixin:
 			else:
 				self.geoLocFound = False
 				#revert to defaults
-				lat = app.chart.geolat
-				lon = app.chart.geolon
-				loc = app.chart.location
-				cc = app.chart.countrycode
-				tzstr = app.chart.timezonestr
+				lat = self.chart.geolat
+				lon = self.chart.geolon
+				loc = self.chart.location
+				cc = self.chart.countrycode
+				tzstr = self.chart.timezonestr
 				dprint('settingsLocationApply: %s not found, reverting to defaults' % self.geoLoc.get_text() )
 				self.geoLoc.set_text('City Not Found, Try Again!')
 				return
@@ -189,37 +188,37 @@ class LocationSettingsMixin:
 			cc = self.GEON_cc
 			tzstr = self.GEON_tzstr
 		# apply settings to database
-		app.db.setSettingsLocation(lat, lon, loc, cc, tzstr)
-		app.chart.home_location = loc
-		app.chart.home_geolat = lat
-		app.chart.home_geolon = lon
-		app.chart.home_countrycode = cc
-		app.chart.home_timezonestr = tzstr
-		app.chart.location=loc
-		app.chart.timezonestr = tzstr
-		app.chart.geolat = lat
-		app.chart.geolon = lon
-		app.chart.countrycode = cc
-		app.chart.transit = False
-		app.chart.name = _("Here and Now")
-		app.chart.type = "Radix"
+		self.db.setSettingsLocation(lat, lon, loc, cc, tzstr)
+		self.chart.home_location = loc
+		self.chart.home_geolat = lat
+		self.chart.home_geolon = lon
+		self.chart.home_countrycode = cc
+		self.chart.home_timezonestr = tzstr
+		self.chart.location=loc
+		self.chart.timezonestr = tzstr
+		self.chart.geolat = lat
+		self.chart.geolon = lon
+		self.chart.countrycode = cc
+		self.chart.transit = False
+		self.chart.name = _("Here and Now")
+		self.chart.type = "Radix"
 		self.LLat.set_text(str(lat))
 		self.LLon.set_text(str(lon))
 		self.LLoc.set_text(str(loc))
 		# set defaults for chart creation
 		now = datetime.datetime.now()
 		dt_input = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second)
-		dt = pytz.timezone(app.chart.timezonestr).localize(dt_input)
+		dt = pytz.timezone(self.chart.timezonestr).localize(dt_input)
 		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
-		app.chart.name = _("Here and Now")
-		app.chart.charttype = app.chart.label["radix"]
-		app.chart.year = dt_utc.year
-		app.chart.month = dt_utc.month
-		app.chart.day = dt_utc.day
-		app.chart.hour = app.chart.decHourJoin(dt_utc. hour, dt_utc. minute, dt_utc. second)
-		app.chart.timezone = app.chart.offsetToTz(dt.utcoffset())
-		app.chart.altitude = 25
-		app.chart.utcToLocal()
+		self.chart.name = _("Here and Now")
+		self.chart.charttype = self.chart.label["radix"]
+		self.chart.year = dt_utc.year
+		self.chart.month = dt_utc.month
+		self.chart.day = dt_utc.day
+		self.chart.hour = self.chart.decHourJoin(dt_utc. hour, dt_utc. minute, dt_utc. second)
+		self.chart.timezone = self.chart.offsetToTz(dt.utcoffset())
+		self.chart.altitude = 25
+		self.chart.utcToLocal()
 		self.updateChart()
 
 		dprint('Setting New Home Location: %s %s %s' % (lat,lon,loc) )

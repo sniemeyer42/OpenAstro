@@ -18,7 +18,6 @@ Menu 'Settings': shown bodies per chart type
 
 from gi.repository import Gtk
 from astrochart.constants import ASPECT_CHART_TYPES, PLANET_DEFAULT_VISIBLE, PLANET_FIRST_ANGLE, PLANET_FIRST_POINT, PLANET_TRANSIT_HIDDEN
-from astrochart.state import app
 from astrochart.util import aspectFlag, dprint
 
 class PlanetSettingsMixin:
@@ -69,7 +68,7 @@ class PlanetSettingsMixin:
 			rows = []
 			saved = []
 			line = 0
-			for planet in app.db.getSettingsPlanet(ctype):
+			for planet in self.db.getSettingsPlanet(ctype):
 				pid = planet['id']
 				#header above planets, angles and sensitive points
 				if line == 0 or pid in (PLANET_FIRST_ANGLE, PLANET_FIRST_POINT):
@@ -111,8 +110,8 @@ class PlanetSettingsMixin:
 			self.planetsNotebook.append_page(scrolled_window, Gtk.Label(label=titles[ctype]))
 		vbox.append(self.planetsNotebook)
 		#open the page of the chart shown
-		if app.chart.type == "Transit":
-			if app.chart.synastry:
+		if self.chart.type == "Transit":
+			if self.chart.synastry:
 				self.planetsNotebook.set_current_page(ASPECT_CHART_TYPES.index('synastry'))
 			else:
 				self.planetsNotebook.set_current_page(ASPECT_CHART_TYPES.index('transit'))
@@ -163,7 +162,7 @@ class PlanetSettingsMixin:
 				new.append(values)
 			if new != self.planetsSaved[ctype]:
 				dprint('settingsPlanetsSubmit: saving %s planets' % (ctype))
-				app.db.setSettingsPlanet(ctype, new)
+				self.db.setSettingsPlanet(ctype, new)
 				self.planetsSaved[ctype] = new
 				changed.append(ctype)
 		if changed:

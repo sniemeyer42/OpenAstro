@@ -20,7 +20,6 @@ import datetime
 import pytz
 from gi.repository import Gtk
 from openastromod import zonetab
-from astrochart.state import app
 from astrochart.util import dprint
 
 class EventDialogMixin:
@@ -41,28 +40,28 @@ class EventDialogMixin:
 	"""
 	def eventDataNew_callback(self, action, parameter):
 		# default location
-		app.chart.location = app.chart.home_location
-		app.chart.geolat = float(app.chart.home_geolat)
-		app.chart.geolon = float(app.chart.home_geolon)
-		app.chart.countrycode = app.chart.home_countrycode
+		self.chart.location = self.chart.home_location
+		self.chart.geolat = float(self.chart.home_geolat)
+		self.chart.geolon = float(self.chart.home_geolon)
+		self.chart.countrycode = self.chart.home_countrycode
 		# timezone string, example Europe/Amsterdam
 		now = datetime.datetime.now()
-		app.chart.timezone_str = zonetab.nearest_tz(app.chart.geolat,app.chart.geolon,zonetab.timezones())[2]
+		self.chart.timezone_str = zonetab.nearest_tz(self.chart.geolat,self.chart.geolon,zonetab.timezones())[2]
 		#aware datetime object
 		dt_input = datetime.datetime(now.year, now.month, now.day, now.hour, now.minute, now.second)
-		dt = pytz.timezone(app.chart.timezonestr).localize(dt_input)
+		dt = pytz.timezone(self.chart.timezonestr).localize(dt_input)
 		#naive utc datetime object
 		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
 		# default
-		app.chart.name = _("New Chart")
-		app.chart.charttype = app.chart.label["radix"]
-		app.chart.year = dt_utc.year
-		app.chart.month = dt_utc.month
-		app.chart.day = dt_utc.day
-		app.chart.hour = app.chart.decHourJoin(dt_utc.hour,dt_utc.minute,dt_utc.second)
-		app.chart.timezone = app.chart.offsetToTz(dt.utcoffset())
+		self.chart.name = _("New Chart")
+		self.chart.charttype = self.chart.label["radix"]
+		self.chart.year = dt_utc.year
+		self.chart.month = dt_utc.month
+		self.chart.day = dt_utc.day
+		self.chart.hour = self.chart.decHourJoin(dt_utc.hour,dt_utc.minute,dt_utc.second)
+		self.chart.timezone = self.chart.offsetToTz(dt.utcoffset())
 		# make locals
-		app.chart.utcToLocal()
+		self.chart.utcToLocal()
 		# open editor
 		self.eventData(edit=False)
 
@@ -74,7 +73,7 @@ class EventDialogMixin:
 		# create a new window
 		self.window2 = Gtk.Window(title=_("Edit Event Details"), modal=True)
 		""" set_icon changed in GTK4 """
-		#self.window2.set_icon_from_file(app.cfg.iconWindow)
+		#self.window2.set_icon_from_file(self.cfg.iconWindow)
 		self.window2.set_title()
 		#self.window2.connect("delete_event", lambda w,e: self.window2.destroy())
 		#self.window2.move(150,150)
@@ -96,15 +95,15 @@ class EventDialogMixin:
 		grid.attach(hbox, 0, 1, 4, 1)
 		label = Gtk.Label(label = _("Name")+":", halign=Gtk.Align.END)
 		hbox.append(child=label)
-		self.name = Gtk.Entry(text=app.chart.name, halign=Gtk.Align.END)
+		self.name = Gtk.Entry(text=self.chart.name, halign=Gtk.Align.END)
 		self.name.set_max_length(50)
 		self.name.set_width_chars(25)
 		hbox.prepend(child=self.name)
 		# name entry (non editable)
-		self.ename = Gtk.Label(label=app.chart.name)
+		self.ename = Gtk.Label(label=self.chart.name)
 		grid.attach(self.ename, 4, 1, 1, 1)
 		# data of location (non editable)
-		self.entry2 = Gtk.Label(label=' '+_('Latitude')+': %s\n '%app.chart.geolat+_('Longitude')+': %s\n '%app.chart.geolon+_('Location')+': %s'%app.chart.location)
+		self.entry2 = Gtk.Label(label=' '+_('Latitude')+': %s\n '%self.chart.geolat+_('Longitude')+': %s\n '%self.chart.geolon+_('Location')+': %s'%self.chart.location)
 		grid.attach(self.entry2, 4, 2, 1, 2)
 		#do we have a  connection
 		if self.iconn:
@@ -117,29 +116,29 @@ class EventDialogMixin:
 			self.geoLoc = Gtk.Entry()
 			self.geoLoc.set_max_length(50)
 			self.geoLoc.set_width_chars(20)
-			self.geoLoc.set_text(app.chart.location.partition(',')[0])
+			self.geoLoc.set_text(self.chart.location.partition(',')[0])
 			hbox.prepend(child=self.geoLoc)
 			label = Gtk.Label(label=" "+_("Country-code")+": ")
 			hbox.prepend(child=label)
 			self.geoCC = Gtk.Entry()
 			self.geoCC.set_max_length(2)
 			self.geoCC.set_width_chars(2)
-			self.geoCC.set_text(app.chart.countrycode)
+			self.geoCC.set_text(self.chart.countrycode)
 			hbox.prepend(child=self.geoCC)
 		else:
 			#otherwise use geonames sql database and get nearest geoname
-			self.GEON_nearest = app.db.gnearest(app.chart.geolat, app.chart.geolon)
+			self.GEON_nearest = self.db.gnearest(self.chart.geolat, self.chart.geolon)
 			# continents
 			self.continents = Gtk.DropDown()
 			grid.attach(self.continents, 0, 3, 1, 1)
 			#self.continents.set_wrap_width(1)
 			sql = 'SELECT * FROM continent ORDER BY name ASC'
-			app.db.gquery(sql)
+			self.db.gquery(sql)
 			self.continent_infos = []
 			continent_info = Gtk.StringList()
 			self.searchcontinent = {}
 			activecont = 3
-			for i, row in enumerate(app.db.gcursor):
+			for i, row in enumerate(self.db.gcursor):
 				self.searchcontinent[row['code']] = i
 				if row['code'] == self.GEON_nearest['continent']:
 					activecont = i
@@ -147,7 +146,7 @@ class EventDialogMixin:
 				items = [row['name'], row['code']]
 				self.continent_infos.append(items)
 				continent_info.append(row['name'])
-			app.db.gclose()
+			self.db.gclose()
 			#self.continents.set_model(self.contstore)
 			self.continents.set_model(model=continent_info)
 			# countries
@@ -197,7 +196,7 @@ class EventDialogMixin:
 		self.dateY = Gtk.SpinButton()
 		self.dateY.props.adjustment = adjustment
 		self.dateY.set_numeric(True)
-		self.dateY.set_value(app.chart.year_loc)
+		self.dateY.set_value(self.chart.year_loc)
 		hbox.prepend(child=self.dateY)
 		label = Gtk.Label(label=_("Month")+":")
 		hbox.prepend(child=label)
@@ -205,7 +204,7 @@ class EventDialogMixin:
 		self.dateM = Gtk.SpinButton()
 		self.dateM.props.adjustment = adjustment
 		self.dateM.set_numeric(True)
-		self.dateM.set_value(app.chart.month_loc)
+		self.dateM.set_value(self.chart.month_loc)
 		hbox.prepend(child=self.dateM)
 		label = Gtk.Label(label=_("Day")+":")
 		hbox.prepend(child=label)
@@ -213,10 +212,10 @@ class EventDialogMixin:
 		self.dateD = Gtk.SpinButton()
 		self.dateD.props.adjustment = adjustment
 		self.dateD.set_numeric(True)
-		self.dateD.set_value(app.chart.day_loc)
+		self.dateD.set_value(self.chart.day_loc)
 		hbox.prepend(child=self.dateD)
 		# date entry (non editable)
-		labelDateStr = str(app.chart.year_loc)+'-%(#1)02d-%(#2)02d' % {'#1':app.chart.month_loc, '#2':app.chart.day_loc}
+		labelDateStr = str(self.chart.year_loc)+'-%(#1)02d-%(#2)02d' % {'#1':self.chart.month_loc, '#2':self.chart.day_loc}
 		self.labelDate = Gtk.Label(label=labelDateStr)
 		grid.attach(self.labelDate, 3, 5, 1, 1)
 		# time entry (editable) (Hour, Minutes, Seconds, Timezone)
@@ -228,7 +227,7 @@ class EventDialogMixin:
 		self.timeH = Gtk.SpinButton()
 		self.timeH.props.adjustment = adjustment
 		self.timeH.set_numeric(True)
-		self.timeH.set_value(app.chart.hour_loc)
+		self.timeH.set_value(self.chart.hour_loc)
 		hbox.prepend(child=self.timeH)
 		label = Gtk.Label(label=_("Min")+":")
 		hbox.prepend(child=label)
@@ -236,7 +235,7 @@ class EventDialogMixin:
 		self.timeM = Gtk.SpinButton()
 		self.timeM.props.adjustment = adjustment
 		self.timeM.set_numeric(True)
-		self.timeM.set_value(app.chart.minute_loc)
+		self.timeM.set_value(self.chart.minute_loc)
 		hbox.prepend(child=self.timeM)
 		label = Gtk.Label(label="Sec:")
 		hbox.prepend(child=label)
@@ -244,10 +243,10 @@ class EventDialogMixin:
 		self.timeS = Gtk.SpinButton()
 		self.timeS.props.adjustment = adjustment
 		self.timeS.set_numeric(True)
-		self.timeS.set_value(app.chart.second_loc)
+		self.timeS.set_value(self.chart.second_loc)
 		hbox.prepend(child=self.timeS)
 		#time entry (non editable)
-		labelTzStr = '%(#1)02d:%(#2)02d:%(#3)02d' % {'#1':app.chart.hour_loc, '#2':app.chart.minute_loc, '#3':app.chart.second_loc} + app.chart.decTzStr(app.chart.timezone)
+		labelTzStr = '%(#1)02d:%(#2)02d:%(#3)02d' % {'#1':self.chart.hour_loc, '#2':self.chart.minute_loc, '#3':self.chart.second_loc} + self.chart.decTzStr(self.chart.timezone)
 		self.labelTz = Gtk.Label(label=labelTzStr)
 		grid.attach(self.labelTz, 3, 6, 1, 1)
 		# buttonbox
@@ -289,8 +288,8 @@ class EventDialogMixin:
 			for x in range(len(split)):
 				sql = "SELECT * FROM countryinfo WHERE (isoalpha2 LIKE ? OR name LIKE ?) LIMIT 1"
 				y = split[x].strip()
-				app.db.gquery(sql,(y,y))
-				result = app.db.gcursor.fetchone()
+				self.db.gquery(sql,(y,y))
+				result = self.db.gcursor.fetchone()
 				if result != None:
 					isoalpha2 = result["isoalpha2"]
 					city = city.replace(split[x]+",","").replace(","+split[x],"").strip()
@@ -303,21 +302,21 @@ class EventDialogMixin:
 		else:
 			extra = ""
 		sql = "SELECT * FROM geonames WHERE (name LIKE ? OR asciiname LIKE ?)%s LIMIT 1" %(extra)
-		app.db.gquery(sql,(normal,normal))
-		result = app.db.gcursor.fetchone()
+		self.db.gquery(sql,(normal,normal))
+		result = self.db.gcursor.fetchone()
 		if result == None:
 			sql = "SELECT * FROM geonames WHERE (name LIKE ? OR asciiname LIKE ?)%s LIMIT 1" %(extra)
-			app.db.gquery(sql,(fuzzy,fuzzy))
-			result = app.db.gcursor.fetchone()
+			self.db.gquery(sql,(fuzzy,fuzzy))
+			result = self.db.gcursor.fetchone()
 		if result == None:
 			sql = "SELECT * FROM geonames WHERE (alternatenames LIKE ?)%s LIMIT 1"%(extra)
-			app.db.gquery(sql,(fuzzy,))
-			result = app.db.gcursor.fetchone()
+			self.db.gquery(sql,(fuzzy,))
+			result = self.db.gcursor.fetchone()
 		if result != None:
 			#set continent
 			sql = "SELECT continent FROM countryinfo WHERE isoalpha2=? LIMIT 1"
-			app.db.gquery(sql,(result["country"],))
-			self.continents.set_selected(self.searchcontinent[app.db.gcursor.fetchone()[0]])
+			self.db.gquery(sql,(result["country"],))
+			self.continents.set_selected(self.searchcontinent[self.db.gcursor.fetchone()[0]])
 			#set country
 			self.countries.set_selected(self.searchcountry[result["country"]])
 			#set admin1
@@ -331,13 +330,13 @@ class EventDialogMixin:
 		index = dropdown.get_selected()
 		info = self.continent_infos[index]
 		sql = "SELECT * FROM countryinfo WHERE continent=? ORDER BY name ASC"
-		app.db.gquery(sql,(info[1],))
+		self.db.gquery(sql,(info[1],))
 		country_info = Gtk.StringList()
 		self.country_infos = []
 		#self.country_list = []
 		activecountry=0
 		self.searchcountry={}
-		for i, row in enumerate(app.db.gcursor):
+		for i, row in enumerate(self.db.gcursor):
 			self.searchcountry[row['isoalpha2']]=i
 			if self.GEON_nearest['country'] == row['isoalpha2']:
 				activecountry=i
@@ -346,7 +345,7 @@ class EventDialogMixin:
 			self.country_infos.append(items)
 			#self.country_list.append((row['name'],row['isoalpha2']))
 			country_info.append(row['name'])
-		app.db.gclose()
+		self.db.gclose()
 		self.countries.set_model(country_info)
 		self.countries.set_selected(activecountry) 
 		return
@@ -356,12 +355,12 @@ class EventDialogMixin:
 		index = dropdown.get_selected()
 		info = self.country_infos[index]
 		sql = "SELECT * FROM admin1codes WHERE country=? ORDER BY admin1 ASC"
-		app.db.gquery(sql,(info[1],))
+		self.db.gquery(sql,(info[1],))
 		self.province_infos = []
 		province_info = Gtk.StringList()
 		activeprov = 0
 		self.searchprov={}
-		for i, row in enumerate(app.db.gcursor):
+		for i, row in enumerate(self.db.gcursor):
 			self.searchprov[row["admin1"]] = i
 			if self.GEON_nearest['admin1'] == row['admin1']:
 				activeprov = i
@@ -369,7 +368,7 @@ class EventDialogMixin:
 			items = [row['province'],row['country'],row['admin1'],info[0]]
 			self.province_infos.append(items)
 			province_info.append(row['province'])
-		app.db.gclose()
+		self.db.gclose()
 		self.provinces.set_model(province_info)
 		self.provinces.set_selected(activeprov) 
 		return
@@ -379,12 +378,12 @@ class EventDialogMixin:
 		index = dropdown.get_selected()
 		info = self.province_infos[index]
 		sql = 'SELECT * FROM geonames WHERE country=? AND admin1=? ORDER BY name ASC'
-		app.db.gquery(sql,(info[1],info[2]))
+		self.db.gquery(sql,(info[1],info[2]))
 		self.city_infos = []
 		city_info = Gtk.StringList()
 		activecity = 0
 		self.searchcity = {}
-		for i, row in enumerate(app.db.gcursor):
+		for i, row in enumerate(self.db.gcursor):
 			self.searchcity[row["geonameid"]]=i
 			if self.GEON_nearest['geonameid'] == row['geonameid']:
 				activecity = i
@@ -392,7 +391,7 @@ class EventDialogMixin:
 			items = [row['name'], str(row['latitude']), str(row['longitude']), info[3], info[0], row['country'], str(row['geonameid']), row['timezone']]
 			self.city_infos.append(items)
 			city_info.append(row['name'])
-		app.db.gclose()
+		self.db.gclose()
 		self.cities.set_model(city_info)
 		self.cities.set_selected(activecity) 
 		return
@@ -422,13 +421,13 @@ class EventDialogMixin:
 
 	def eventDataSaveAsk(self, widget):
 		""" test for duplicate entry and save when unique """
-		en = app.db.getDatabase()
+		en = self.db.getDatabase()
 		#test for duplicate
 		for i in range(len(en)):
 			if en[i]["name"] == self.name.get_text():
 				dialog = Gtk.Window(title=_('Found Duplicate'),modal=True)
 				""" set_icon """
-				#dialog.set_icon_from_file(app.cfg.iconWindow)
+				#dialog.set_icon_from_file(self.cfg.iconWindow)
 				dialog.set_default_size(256,-1)
 				vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 				double = Gtk.Label(label=_('There is already an entry for this name, please choose another'))
@@ -467,21 +466,21 @@ class EventDialogMixin:
 		self.updateChartData()
 		#add data into event_natal table
 		sql='INSERT INTO event_natal (id, name, year, month, day, hour, geolon, geolat, altitude, location, timezone, notes, image, countrycode, geonameid, timezonestr, extra) VALUES (null, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-		tuple=(app.chart.name,app.chart.year,app.chart.month,app.chart.day,app.chart.hour, app.chart.geolon, app.chart.geolat, app.chart.altitude, app.chart.location, app.chart.timezone, '', '', app.chart.countrycode, app.chart.geonameid, app.chart.timezonestr, '')
-		app.db.pquery([sql],[tuple])
-		dprint('Saved to Database: '+app.chart.name)
+		tuple=(self.chart.name,self.chart.year,self.chart.month,self.chart.day,self.chart.hour, self.chart.geolon, self.chart.geolat, self.chart.altitude, self.chart.location, self.chart.timezone, '', '', self.chart.countrycode, self.chart.geonameid, self.chart.timezonestr, '')
+		self.db.pquery([sql],[tuple])
+		dprint('Saved to Database: '+self.chart.name)
 		self.updateUI(first_time=False)
 
 	def eventDataSubmit(self, widget):
 		#check if no changes were made
-		if self.name.get_text() == app.chart.name and \
-		self.dateY.get_value_as_int() == str(app.chart.year_loc) and \
-		self.dateM.get_value_as_int() == app.chart.month_loc and \
-		self.dateD.get_value_as_int() == app.chart.day_loc and \
-		self.timeH.get_value_as_int() == app.chart.hour_loc and \
-		self.timeM.get_value_as_int() == app.chart.minute_loc and \
-		self.timeS.get_value_as_int() == app.chart.second_loc:
-			if self.iconn and self.geoCC.get_text() == app.chart.countrycode and self.geoLoc.get_text() == app.chart.location.partition(',')[0]:
+		if self.name.get_text() == self.chart.name and \
+		self.dateY.get_value_as_int() == str(self.chart.year_loc) and \
+		self.dateM.get_value_as_int() == self.chart.month_loc and \
+		self.dateD.get_value_as_int() == self.chart.day_loc and \
+		self.timeH.get_value_as_int() == self.chart.hour_loc and \
+		self.timeM.get_value_as_int() == self.chart.minute_loc and \
+		self.timeS.get_value_as_int() == self.chart.second_loc:
+			if self.iconn and self.geoCC.get_text() == self.chart.countrycode and self.geoLoc.get_text() == self.chart.location.partition(',')[0]:
 				# go ahead ;)
 				self.window2.destroy()
 				return
@@ -490,7 +489,7 @@ class EventDialogMixin:
 		if self.geoLocFound:
 			self.window2.destroy()
 			#update history
-			app.db.addHistory()
+			self.db.addHistory(self.chart)
 			self.updateUI(first_time=False)
 			return
 		else:
@@ -498,9 +497,9 @@ class EventDialogMixin:
 
 	def eventDataApply(self, widget):
 		#update chart data
-		app.chart.charttype = app.chart.label["radix"]
-		app.chart.type = "Radix"
-		app.chart.transit = False
+		self.chart.charttype = self.chart.label["radix"]
+		self.chart.type = "Radix"
+		self.chart.transit = False
 		self.updateChartData()
 		#update chart
 		self.updateChart()

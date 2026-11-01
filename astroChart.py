@@ -19,10 +19,8 @@ Start the OpenAstro Gtk4 program: ./astroChart.py [--local] [--purge] [--debug]
 import sys
 
 from astrochart.application import AstroApplication
-from astrochart.state import set_app
 
 if __name__ == "__main__":
 	app = AstroApplication()
-	set_app(app)
 	exit_status = app.run(sys.argv)
 	sys.exit(exit_status)

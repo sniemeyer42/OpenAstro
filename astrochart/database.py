@@ -21,12 +21,12 @@ import sqlite3
 from openastromod import zonetab, geoname
 from astrochart.constants import ASPECT_CHART_TYPES, ASPECT_COLORS, ASPECT_DEFAULTS, ASPECT_DEGREES, ASPECT_IS_MAJOR, ASPECT_IS_MINOR, LIMIT, PLANET_DEFAULT_VISIBLE, PLANET_TRANSIT_HIDDEN
 from astrochart.i18n import LANGUAGES_LABEL, TRANSLATION
-from astrochart.state import app
 from astrochart.util import aspectFlag, aspectOrb, dprint
 
 """ OpenAstro Sqlite Database """
 class OpenAstroSqlite:
-	def __init__(self):
+	def __init__(self, cfg):
+		self.cfg = cfg
 		self.dbcheck=False
 		self.dbpurge="IGNORE"
 
@@ -98,7 +98,7 @@ class OpenAstroSqlite:
 
 		#check for astrocfg version
 		sql='INSERT OR IGNORE INTO astrocfg (name,value) VALUES(?,?)'
-		self.cursor.execute(sql,("version", app.cfg.version))
+		self.cursor.execute(sql,("version", self.cfg.version))
 		#get astrocfg dict
 		sql='SELECT value FROM astrocfg WHERE name="version"'
 		self.cursor.execute(sql)
@@ -106,18 +106,18 @@ class OpenAstroSqlite:
 		self.astrocfg["version"]=self.cursor.fetchone()[0]
 
 		#check for updated version 
-		if self.astrocfg['version'] != str(app.cfg.version):
-			dprint('version mismatch(%s != %s), checking table structure' % (self.astrocfg['version'], app.cfg.version))
+		if self.astrocfg['version'] != str(self.cfg.version):
+			dprint('version mismatch(%s != %s), checking table structure' % (self.astrocfg['version'], self.cfg.version))
 			#insert current version and set dbcheck to true
 			self.dbcheck = True
-			sql='INSERT OR REPLACE INTO astrocfg VALUES("version","'+str(app.cfg.version)+'")'
+			sql='INSERT OR REPLACE INTO astrocfg VALUES("version","'+str(self.cfg.version)+'")'
 			self.cursor.execute(sql)
 
 		#default astrocfg keys (if dbcheck)
 		if self.dbcheck:
 			dprint('dbcheck astrodb.astrocfg')
 			default = {
-				"version":str(app.cfg.version),
+				"version":str(self.cfg.version),
 				"use_geonames.org":"0",
 				"houses_system":"P",
 				"language":"default",
@@ -592,10 +592,10 @@ class OpenAstroSqlite:
 			dprint("installing language (%s)"%(lang))
 		return
 
-	def addHistory(self):
+	def addHistory(self, chart):
 		self.open()
 		sql = 'INSERT INTO history  (id,name,year,month,day,hour,geolon,geolat,altitude,location,timezone,countrycode) VALUES (null,?,?,?,?,?,?,?,?,?,?,?)'
-		tuple = (app.chart.name, app.chart.year, app.chart.month, app.chart.day, app.chart.hour, app.chart.geolon, app.chart.geolat, app.chart.altitude, app.chart.location, app.chart.timezone, app.chart.countrycode)
+		tuple = (chart.name, chart.year, chart.month, chart.day, chart.hour, chart.geolon, chart.geolat, chart.altitude, chart.location, chart.timezone, chart.countrycode)
 		self.cursor.execute(sql,tuple)
 		self.link.commit()
 		self.updateHistory()
@@ -1008,7 +1008,7 @@ class OpenAstroSqlite:
 
 	""" Basic Query Functions for common databases 	"""
 	def query(self, sql, tuple=None):
-		l=sqlite3.connect(app.cfg.astrodb)
+		l=sqlite3.connect(self.cfg.astrodb)
 		c=l.cursor()
 		for i in range(len(sql)):
 			if tuple == None:
@@ -1020,7 +1020,7 @@ class OpenAstroSqlite:
 		l.close()
 
 	def pquery(self, sql, tuple=None):
-		l=sqlite3.connect(app.cfg.peopledb)
+		l=sqlite3.connect(self.cfg.peopledb)
 		c=l.cursor()
 		for i in range(len(sql)):
 			if tuple == None:
@@ -1069,7 +1069,7 @@ class OpenAstroSqlite:
 		return dict
 
 	def gquery(self, sql, tuple=None):
-		self.glink = sqlite3.connect(app.cfg.geonamesdb)
+		self.glink = sqlite3.connect(self.cfg.geonamesdb)
 		self.glink.row_factory = sqlite3.Row
 		self.gcursor = self.glink.cursor()
 		if tuple:
@@ -1083,11 +1083,11 @@ class OpenAstroSqlite:
 		self.glink.close()
 
 	def open(self):
-		self.link = sqlite3.connect(app.cfg.astrodb)
+		self.link = sqlite3.connect(self.cfg.astrodb)
 		self.link.row_factory = sqlite3.Row
 		self.cursor = self.link.cursor()
 
-		self.plink = sqlite3.connect(app.cfg.peopledb)
+		self.plink = sqlite3.connect(self.cfg.peopledb)
 		self.plink.row_factory = sqlite3.Row
 		self.pcursor = self.plink.cursor()
 

@@ -23,7 +23,6 @@ from string import Template
 from gi.repository import GLib, Gio, Gtk, Gdk
 from openastromod import geoname
 from astrochart.constants import LIMIT, VERSION
-from astrochart.state import app
 from astrochart.ui.chart_types import ChartTypesMixin
 from astrochart.ui.database_dialogs import DatabaseDialogsMixin
 from astrochart.ui.event_dialog import EventDialogMixin
@@ -41,6 +40,11 @@ from astrochart.util import dprint
 class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, ConfigurationSettingsMixin, AspectSettingsMixin, PlanetSettingsMixin, LocationSettingsMixin, ChartTypesMixin, TableWindowsMixin, Gtk.ApplicationWindow):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
+		#the application, the chart shown, configuration and databases
+		self.app = self.get_application()
+		self.chart = self.app.chart
+		self.cfg = self.app.cfg
+		self.db = self.app.db
 
 		""" >>> set icon changed in GTK4 """
 
@@ -149,9 +153,9 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		zoom_action = Gio.SimpleAction.new_stateful("zoom", GLib.VariantType.new('s'), GLib.Variant.new_string('zIn'))
 		zoom_action.connect("activate", self.zoom_callback)
 		self.add_action(zoom_action)
-		app.set_accels_for_action(detailed_action_name="win.zoom::zIn", accels=["<Ctrl>plus"])
-		app.set_accels_for_action(detailed_action_name="win.zoom::z100", accels=["<Ctrl>1"])
-		app.set_accels_for_action(detailed_action_name="win.zoom::zOut", accels=["<Ctrl>minus"])
+		self.app.set_accels_for_action(detailed_action_name="win.zoom::zIn", accels=["<Ctrl>plus"])
+		self.app.set_accels_for_action(detailed_action_name="win.zoom::z100", accels=["<Ctrl>1"])
+		self.app.set_accels_for_action(detailed_action_name="win.zoom::zOut", accels=["<Ctrl>minus"])
 
 		# Menu 'Extra'
 		exportdb_action = Gio.SimpleAction.new("exportdb", None)
@@ -171,7 +175,7 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		box.append(self.transitBar)
 		scrolled_window = Gtk.ScrolledWindow()
 		# Draw svg pixbuf
-		chart_name = app.chart.makeSVG()
+		chart_name = self.chart.makeSVG()
 		#drawing_area to render SVG
 		self.image = ViewSVG(chart_name)
 		self.image.set_vexpand(True)
@@ -197,7 +201,7 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 	for geonames.org geocoder
 	"""
 	def checkInternetConnection(self):
-		if app.db.getAstrocfg('use_geonames.org') == "0":
+		if self.db.getAstrocfg('use_geonames.org') == "0":
 			self.iconn = False
 			dprint('iconn: not using geocoding!')
 			return
@@ -257,7 +261,7 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		#uüdate labels
 		#self.label = parent.db.getLabel()
 		#create history actions, last will be first
-		entries = app.db.history
+		entries = self.db.history
 		l = len(entries)
 		t_item = Template(M_ITEM)
 		items = []
@@ -302,7 +306,7 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		#becomes second item in menubar
 		menu.insert_submenu(1, self.chart_label, self.chart_menu)
 		# create 'Quick Open' actions
-		self.DB = app.db.getDatabase()
+		self.DB = self.db.getDatabase()
 		t_item = Template(M_ITEM)
 		items = []
 		for entry in self.DB:
@@ -343,44 +347,44 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 	def historydb_callback(self, action, parameter):
 		idx = parameter.get_int32()
 		action.set_state(parameter)
-		for entry in app.db.history:
+		for entry in self.db.history:
 			if entry['id'] == idx:
 				self.updateChartList(None, entry)
 				break
 
 	""" Update the chart with input list data """
 	def updateChartList(self, b, list):
-		app.chart.type = "Radix"
-		app.chart.charttype = app.chart.label["radix"]
-		app.chart.name = str(list["name"])
-		app.chart.year = int(list["year"])
-		app.chart.month = int(list["month"])
-		app.chart.day = int(list["day"])
-		app.chart.hour = float(list["hour"])
-		app.chart.geolon = float(list["geolon"])
-		app.chart.geolat = float(list["geolat"])
-		app.chart.altitude = int(list["altitude"])
-		app.chart.location = str(list["location"])
-		app.chart.timezone = float(list["timezone"])
-		app.chart.countrycode = ''
+		self.chart.type = "Radix"
+		self.chart.charttype = self.chart.label["radix"]
+		self.chart.name = str(list["name"])
+		self.chart.year = int(list["year"])
+		self.chart.month = int(list["month"])
+		self.chart.day = int(list["day"])
+		self.chart.hour = float(list["hour"])
+		self.chart.geolon = float(list["geolon"])
+		self.chart.geolat = float(list["geolat"])
+		self.chart.altitude = int(list["altitude"])
+		self.chart.location = str(list["location"])
+		self.chart.timezone = float(list["timezone"])
+		self.chart.countrycode = ''
 		if "countrycode" in list:
-			app.chart.countrycode = list["countrycode"]
+			self.chart.countrycode = list["countrycode"]
 		if "timezonestr" in list:
-			app.chart.timezonestr = list["timezonestr"]
+			self.chart.timezonestr = list["timezonestr"]
 		else:
-			app.chart.timezonestr = app.db.gnearest(app.chart.geolat,app.chart.geolon)['timezonestr']
-		app.chart.geonameid = None
+			self.chart.timezonestr = self.db.gnearest(self.chart.geolat,self.chart.geolon)['timezonestr']
+		self.chart.geonameid = None
 		if "geonameid" in list:
-			app.chart.geonameid = list['geonameid']
-		app.chart.utcToLocal()
+			self.chart.geonameid = list['geonameid']
+		self.chart.utcToLocal()
 		self.updateChart()
 
 	def updateChart(self):
-		chart_name = app.chart.makeSVG()
+		chart_name = self.chart.makeSVG()
 		self.image.setupSVG(chart_name)
 		self.image.queue_resize()
 		# date bar belongs to transit charts only
-		if app.chart.type != "Transit":
+		if self.chart.type != "Transit":
 			self.transitBar.set_visible(False)
 
 	def updateChartData(self):
@@ -401,12 +405,12 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 			else:
 				self.geoLocFound = False
 				#revert to defaults
-				lat = app.chart.geolat
-				lon = app.chart.geolon
-				loc = app.chart.location
-				cc = app.chart.countrycode
-				tzstr = app.chart.timezonestr
-				gid = app.chart.geonameid
+				lat = self.chart.geolat
+				lon = self.chart.geolon
+				loc = self.chart.location
+				cc = self.chart.countrycode
+				tzstr = self.chart.timezonestr
+				gid = self.chart.geonameid
 
 				dprint('updateChartData: %s,%s not found, reverting to defaults' % (
 					self.geoLoc.get_text(),self.geoCC.get_text()) )
@@ -423,11 +427,11 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 			tzstr = self.GEON_tzstr
 			gid = self.GEON_id
 		# calculate timezone
-		app.chart.timezonestr = tzstr
-		app.chart.geonameid = gid
+		self.chart.timezonestr = tzstr
+		self.chart.geonameid = gid
 		# aware datetime object
 		dt_input = datetime.datetime(self.dateY.get_value_as_int(), self.dateM.get_value_as_int(), self.dateD.get_value_as_int(), self.timeH.get_value_as_int(), self.timeM.get_value_as_int(), self.timeS.get_value_as_int())
-		dt = pytz.timezone(app.chart.timezonestr).localize(dt_input)
+		dt = pytz.timezone(self.chart.timezonestr).localize(dt_input)
 
 		dprint( dt.strftime('%Y-%m-%d %H:%M:%S %Z%z') )
 		dprint( 'Daylight Saving Time: %s' %((dt.dst().seconds / 3600.0)) )
@@ -435,25 +439,25 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		# naive datetime object UTC
 		dt_utc = dt.replace(tzinfo=None) - dt.utcoffset()
 		# set globals
-		app.chart.year = dt_utc.year
-		app.chart.month = dt_utc.month
-		app.chart.day = dt_utc.day
-		app.chart.hour = app.chart.decHourJoin(dt_utc.hour, dt_utc.minute, dt_utc.second)
-		app.chart.timezone = app.chart.offsetToTz(dt.utcoffset())
-		app.chart.name = self.name.get_text()
+		self.chart.year = dt_utc.year
+		self.chart.month = dt_utc.month
+		self.chart.day = dt_utc.day
+		self.chart.hour = self.chart.decHourJoin(dt_utc.hour, dt_utc.minute, dt_utc.second)
+		self.chart.timezone = self.chart.offsetToTz(dt.utcoffset())
+		self.chart.name = self.name.get_text()
 		# location
-		app.chart.geolat=lat
-		app.chart.geolon=lon
-		app.chart.location=loc
-		app.chart.countrycode=cc
+		self.chart.geolat=lat
+		self.chart.geolon=lon
+		self.chart.location=loc
+		self.chart.countrycode=cc
 		# update local time
-		app.chart.utcToLocal()
+		self.chart.utcToLocal()
 		# update labels
-		labelDar = str(app.chart.year_loc)+'-%(#1)02d-%(#2)02d' % {'#1':app.chart.month_loc,'#2':app.chart.day_loc}
+		labelDar = str(self.chart.year_loc)+'-%(#1)02d-%(#2)02d' % {'#1':self.chart.month_loc,'#2':self.chart.day_loc}
 		self.labelDate.set_text(labelDar)
-		labelTzStr = '%(#1)02d:%(#2)02d:%(#3)02d' % {'#1':app.chart.hour_loc,'#2':app.chart.minute_loc,'#3':app.chart.second_loc} + app.chart.decTzStr(app.chart.timezone)
+		labelTzStr = '%(#1)02d:%(#2)02d:%(#3)02d' % {'#1':self.chart.hour_loc,'#2':self.chart.minute_loc,'#3':self.chart.second_loc} + self.chart.decTzStr(self.chart.timezone)
 		self.labelTz.set_text(labelTzStr)
-		self.ename.set_text(app.chart.name)
+		self.ename.set_text(self.chart.name)
 		self.entry2.set_text(' %s: %s\n %s: %s\n %s: %s' % ( _('Latitude'),lat,_('Longitude'),lon,_('Location'),loc) )
 
 	""" Menu 'Zoom' """

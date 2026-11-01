@@ -37,12 +37,10 @@ def start_application(steps_after_ms=1500):
 	gi.require_version('Gtk', '4.0')
 	from gi.repository import GLib, Gio
 	from astrochart.application import AstroApplication
-	from astrochart.state import set_app
 	from openastromod import swiss
 	# the swiss ephemeris drops too long paths silently, use the repository files
 	swiss.ephe_path = os.path.join(REPO, 'swisseph')
 	app = AstroApplication()
-	set_app(app)
 	app.set_flags(app.get_flags() | Gio.ApplicationFlags.NON_UNIQUE)
 
 	def run(step):
