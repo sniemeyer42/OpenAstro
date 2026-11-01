@@ -18,7 +18,6 @@ Main window
 
 import datetime
 import pytz
-from string import Template
 from gi.repository import Adw, GLib, Gio, GObject, Gtk
 from openastromod import zonetab
 from astrochart.constants import LIMIT, VERSION
@@ -27,7 +26,7 @@ from astrochart.ui.database_dialogs import DatabaseDialog, FamousDialog, SelectE
 from astrochart.ui.event_dialog import EventDialog
 from astrochart.ui.dialog import iconButton
 from astrochart.ui.files import ChartFiles
-from astrochart.ui.menus import BEGIN_XML, CHART_XML, END_XML, EVENT_XML, E_ITEM, M_ITEM
+from astrochart.ui.menus import CHART_XML, EVENT_XML
 from astrochart.ui.chart_view import ChartView
 from astrochart.ui.panels import ChartPanels
 from astrochart.ui.settings_aspects import AspectSettingsDialog
@@ -384,106 +383,58 @@ class AstroWindow(Adw.ApplicationWindow):
 			self.unmaximize()
 
 	def updateUI(self, first_time):
+		"""
+		menus 'Chart' with the history and 'Event' with the database entries
+		(quick open); later calls replace the items of these two submenus
+		"""
 		parent = self.get_application()
 		if first_time:
-			#init menu items
+			#main menu of the application: 'Chart' and 'Event' after 'Application';
+			#the submenus stay and only their items change: GTK keeps the pages
+			#of removed submenus, a new one of the same name would stay hidden
+			menu = parent.mainMenu
 			chart_items = [ _('New'),_('Open'),_('Save'),_('Import'),
 				_('Oroboros (*.xml)'),_('Astrolog (*.dat)'),_('Skylendar (*.skif)'),
 				_('Zet8 Dbase (*.zbs)'),_('Export'),_('PNG file'),_('JPG file'),
 				_('SVG file'),_('PDF file'),_('Close') ]
-			self.chart_xml = parent.translate_menu_items(text=CHART_XML,items=chart_items)
-			self.history_label =_('History')
-			self.chart_label = _('Chart')
+			chart_builder = Gtk.Builder()
+			chart_builder.add_from_string(parent.translate_menu_items(text=CHART_XML,items=chart_items))
+			self.chart_menu = chart_builder.get_object("ChartUI")
+			self.historyMenu = Gio.Menu()
+			self.chart_menu.insert_submenu(3, _('History'), self.historyMenu)
+			menu.insert_submenu(1, _('Chart'), self.chart_menu)
 			event_items = [ _('Edit Event'),_('Open Database'),
 				_('Open Famous People Database') ]
-			self.event_xml = parent.translate_menu_items(text=EVENT_XML,items=event_items)
-			self.quick_label = _('Quick Open Database')
-			self.event_label = _('Event')
-		#main menu of the application
-		menu = parent.mainMenu
-		#uüdate labels
-		#self.label = parent.db.getLabel()
-		#create history actions, last will be first
-		entries = self.db.history
-		l = len(entries)
-		t_item = Template(M_ITEM)
-		items = []
-		if len(entries) > 0:
-			#maximal 10 entries
-			i = LIMIT
-			for entry in reversed(entries):
-				i -= 1
-				l -= 1
-				if (i < 0) or (l < 0):
-					break
-				# substitute id and name
-				item = t_item.substitute(db='historydb', idx=entry[0], label=entry[1])
-				items.append(item)
-			history_items = '\n'.join(items)
-		if first_time:
-			#generate 'Chart' menu
-			chart_builder = Gtk.Builder()
-			chart_builder.add_from_string(self.chart_xml)
-			self.chart_menu = chart_builder.get_object("ChartUI")
-			#make action for 'quickopendb'
-			history_action = Gio.SimpleAction.new_stateful(
-				"historydb",
-				GLib.VariantType.new('i'),
-				GLib.Variant.new_int32(value=0)
-			)
-			history_action.connect("activate", self.historydb_callback)
-			self.add_action(history_action)
-		else:
-			menu.remove(1)
-		if len(items) > 0:
-			history_xml = BEGIN_XML + history_items + END_XML
-		else:
-			#insert 'empty' menu item
-			history_xml = BEGIN_XML + E_ITEM + END_XML
-		update_builder = Gtk.Builder()
-		update_builder.add_from_string(history_xml)
-		history_menu = update_builder.get_object("UpdateUI")
-		if not first_time:
-			self.chart_menu.remove(3)
-		self.chart_menu.insert_submenu(3, self.history_label, history_menu)
-		#becomes second item in menubar
-		menu.insert_submenu(1, self.chart_label, self.chart_menu)
-		# create 'Quick Open' actions
-		self.DB = self.db.getDatabase()
-		t_item = Template(M_ITEM)
-		items = []
-		for entry in self.DB:
-			# substitute id and name
-			item = t_item.substitute(db='quickopendb', idx=entry['id'], label=entry['name'])
-			items.append(item)
-		quick_open_items = '\n'.join(items)
-		if first_time:
-			#generate 'Event' menu
 			event_builder = Gtk.Builder()
-			event_builder.add_from_string(self.event_xml)
+			event_builder.add_from_string(parent.translate_menu_items(text=EVENT_XML,items=event_items))
 			self.event_menu = event_builder.get_object("EventUI")
-			#make action for 'quickopendb'
-			quick_open_action = Gio.SimpleAction.new_stateful(
-				"quickopendb",
-				GLib.VariantType.new('i'),
-				GLib.Variant.new_int32(value=0)
-			)
-			quick_open_action.connect("activate", self.quickopendb_callback)
-			self.add_action(quick_open_action)
-		else:
-			menu.remove(2)
-		if len(items) > 0:
-			quick_open_xml = BEGIN_XML + quick_open_items + END_XML
-		else:
-			#insert 'empty' menu item
-			quick_open_xml = BEGIN_XML + E_ITEM + END_XML
-		update_builder = Gtk.Builder()
-		update_builder.add_from_string(quick_open_xml)
-		quick_open_menu = update_builder.get_object("UpdateUI")
-		if not first_time:
-			self.event_menu.remove(1)
-		self.event_menu.insert_submenu(1, self.quick_label, quick_open_menu)
-		menu.insert_submenu(2, self.event_label, self.event_menu)
+			self.quickMenu = Gio.Menu()
+			self.event_menu.insert_submenu(1, _('Quick Open Database'), self.quickMenu)
+			menu.insert_submenu(2, _('Event'), self.event_menu)
+			#actions of the history and quick open entries, the id as target
+			for name, callback in (('historydb', self.historydb_callback), ('quickopendb', self.quickopendb_callback)):
+				action = Gio.SimpleAction.new_stateful(name, GLib.VariantType.new('i'), GLib.Variant.new_int32(value=0))
+				action.connect("activate", callback)
+				self.add_action(action)
+		#history: the last LIMIT entries, last first
+		history = [(entry[0], entry[1]) for entry in reversed(self.db.history)][:LIMIT]
+		self.fillMenu(self.historyMenu, 'historydb', history)
+		#database entries
+		self.DB = self.db.getDatabase()
+		self.fillMenu(self.quickMenu, 'quickopendb', [(entry['id'], entry['name']) for entry in self.DB])
+
+	@staticmethod
+	def fillMenu(submenu, action, entries):
+		"""replace the items of submenu by entries (id, label) activating win.<action> with the id"""
+		submenu.remove_all()
+		for ident, label in entries:
+			#underscores of names are no mnemonics
+			item = Gio.MenuItem.new(str(label).replace('_', '__'), None)
+			item.set_action_and_target_value('win.%s' % (action), GLib.Variant.new_int32(int(ident)))
+			submenu.append_item(item)
+		if not entries:
+			#insensitive placeholder
+			submenu.append('empty', 'win.empty')
 
 	def historydb_callback(self, action, parameter):
 		idx = parameter.get_int32()

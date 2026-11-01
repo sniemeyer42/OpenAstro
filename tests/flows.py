@@ -155,12 +155,22 @@ def main():
 		win.activate_action('win.clearSelection', None)
 		check('wheel: escape clears', chart.highlight is None)
 		# ---- add to database
+		menu_button = [b for b in widgets(win, Gtk.MenuButton) if b.get_icon_name() == 'open-menu-symbolic'][0]
+		menu_button.popup()
+		menu_button.popdown()
 		win.activate_action('win.eventData', None)
 		d = find(T('Edit Event Details'))
 		before = people()
 		click(d, 'Add to Database')
 		after = people()
 		check('add to database', len(after) == len(before) + 1 and after[-1][1] == 'Flow Test', after[-1:])
+		# the quick open menu shows the new entry at once (no stale submenu page)
+		stack = widgets(menu_button.get_popover(), Gtk.Stack)[0]
+		pages = stack.get_pages()
+		names = [pages.get_item(i).get_name() for i in range(pages.get_n_items())]
+		quick = stack.get_child_by_name(T('Quick Open Database'))
+		check('quick open menu updated', len(names) == len(set(names)) and quick is not None
+			and 'Flow Test' in [l.get_label() for l in widgets(quick, Gtk.Label)], names)
 		entry_id = after[-1][0]
 		# duplicate name refused
 		win.activate_action('win.eventData', None)

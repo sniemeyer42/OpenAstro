@@ -267,23 +267,3 @@ EVENT_XML = """
   </menu>
 </interface>
 """
-
-BEGIN_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<interface>
-  <menu id="UpdateUI">
-    <section>
-"""
-E_ITEM = """      <item>
-        <attribute name="label" translatable="yes">empty</attribute>
-        <attribute name="action">win.empty</attribute>
-      </item>"""
-M_ITEM = """      <item>
-        <attribute name="label" translatable="yes">$label</attribute>
-        <attribute name="action">win.$db</attribute>
-        <attribute name="target" type="i">$idx</attribute>
-      </item>"""
-END_XML = """
-    </section>
-  </menu>
-</interface>
-"""
