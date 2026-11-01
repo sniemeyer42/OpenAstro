@@ -34,6 +34,29 @@ class TableWindowsMixin:
 	  tableExposeEvent
 	  CuspAspects
 	"""
+	def refreshTableWindows(self, changed):
+		#redraw open table windows with the changed settings of the chart
+		#types in changed (timeline: transit, cusp aspects: radix)
+		tables = []
+		if 'transit' in changed:
+			tables.append('timeline')
+		if 'radix' in changed:
+			tables.append('cuspaspects')
+		tables.sort(key=lambda t: t == getattr(self, 'tabletype', None))
+		for table in tables:
+			if table == 'timeline':
+				window = getattr(self, 'win_TMT', None)
+				if window is None or not window.get_visible():
+					continue
+				svg = self.chart.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
+			else:
+				window = getattr(self, 'win_TCA', None)
+				if window is None or not window.get_visible():
+					continue
+				svg = self.chart.makeCuspAspectsSVG(printing=None)
+			window.image.setupSVG(svg)
+			window.image.queue_resize()
+
 	def tableMonthlyTimeline_callback(self, action, parameter):
 		self.dialog = Gtk.Window(title=_("Select Month in Year"))
 		self.dialog.set_destroy_with_parent(True)

@@ -28,16 +28,16 @@ from astrochart.ui.database_dialogs import DatabaseDialogsMixin
 from astrochart.ui.event_dialog import EventDialogMixin
 from astrochart.ui.files import FilesMixin
 from astrochart.ui.menus import BEGIN_XML, CHART_XML, END_XML, EVENT_XML, E_ITEM, M_ITEM
-from astrochart.ui.settings_aspects import AspectSettingsMixin
+from astrochart.ui.settings_aspects import AspectSettingsDialog
 from astrochart.ui.settings_configuration import ConfigurationSettingsMixin
 from astrochart.ui.settings_location import LocationSettingsMixin
-from astrochart.ui.settings_planets import PlanetSettingsMixin
+from astrochart.ui.settings_planets import PlanetSettingsDialog
 from astrochart.ui.table_windows import TableWindowsMixin
 from astrochart.ui.widgets import ViewSVG
 from astrochart.util import dprint
 
 """ Application Window """
-class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, ConfigurationSettingsMixin, AspectSettingsMixin, PlanetSettingsMixin, LocationSettingsMixin, ChartTypesMixin, TableWindowsMixin, Gtk.ApplicationWindow):
+class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, ConfigurationSettingsMixin, LocationSettingsMixin, ChartTypesMixin, TableWindowsMixin, Gtk.ApplicationWindow):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		#the application, the chart shown, configuration and databases
@@ -45,6 +45,8 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		self.chart = self.app.chart
 		self.cfg = self.app.cfg
 		self.db = self.app.db
+		#open dialogs of which only one may exist, see presentDialog
+		self.dialogs = {}
 
 		""" >>> set icon changed in GTK4 """
 
@@ -185,6 +187,34 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		self.image.set_halign(Gtk.Align.CENTER)
 		scrolled_window.set_child(self.image)
 		box.append(scrolled_window)
+
+	def presentDialog(self, name, dialog_class):
+		#only one dialog of a kind, forgotten when it closes
+		dialog = self.dialogs.get(name)
+		if dialog is None:
+			dialog = dialog_class(self)
+			self.dialogs[name] = dialog
+			dialog.connect('close-request', self.onDialogCloseRequest, name)
+		dialog.present()
+		return dialog
+
+	def onDialogCloseRequest(self, dialog, name):
+		#gtk destroys the dialog after this handler
+		if self.dialogs.get(name) is dialog:
+			del self.dialogs[name]
+		return False
+
+	def setAspects_callback(self, action, parameter):
+		self.presentDialog('aspects', AspectSettingsDialog)
+
+	def setPlanets_callback(self, action, parameter):
+		self.presentDialog('planets', PlanetSettingsDialog)
+
+	def refreshChart(self):
+		#redraw the chart after changed settings, keep zoom level
+		scale = self.image.scale
+		self.updateChart()
+		self.image.scale = scale
 
 	def on_change_label_state(self, action, value):
 		action.set_state(value)
