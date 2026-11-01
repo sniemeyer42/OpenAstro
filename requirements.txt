@@ -11,16 +11,26 @@ pyswisseph>=2.10.3.2
 # Timezones / daylight saving time
 pytz
 
+# Qt 6 user interface (QtWidgets, QtSvg, QtPrintSupport), works everywhere
+# with the Qt style Fusion in the colours and icons of the desktop. On Linux
+# the package of the distribution gives the native style (Breeze on KDE):
+#   openSUSE: python313-pyside6     Fedora: python3-pyside6
+#   Debian:   python3-pyside6.qtwidgets python3-pyside6.qtsvg python3-pyside6.qtprintsupport
+# then create the venv with --system-site-packages and leave out this line.
+PySide6-Essentials>=6.7
+
+# ---------------------------------------------------------------------------
+# GTK: only the dialogs not yet ported to Qt (astrochart/ui and their tests)
+# and astroChartShow.py
 # GObject introspection: Gtk, Gdk, Adw, GdkPixbuf, Gio, GLib, Rsvg
 PyGObject>=3.50
 
 # Needed by PyGObject for gi.repository.cairo
 pycairo>=1.20
 
-# ---------------------------------------------------------------------------
 # NOT installable via pip, provide them through the system package manager:
 #
-#   GTK 4 typelib        - astroChart.py, astroChartShow.py
+#   GTK 4 typelib
 #   libadwaita typelib   - Adw 1 (version 1.7 or newer)
 #   librsvg typelib      - Rsvg 2.0
 #   GdkPixbuf typelib

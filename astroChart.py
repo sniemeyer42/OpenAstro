@@ -14,13 +14,11 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Start the OpenAstro Gtk4 program: ./astroChart.py [--local] [--purge] [--debug]
+Start the OpenAstro program: ./astroChart.py [--local]
 """
 import sys
 
-from astrochart.application import AstroApplication
+from astrochart.qt.application import main
 
 if __name__ == "__main__":
-	app = AstroApplication()
-	exit_status = app.run(sys.argv)
-	sys.exit(exit_status)
+	sys.exit(main())

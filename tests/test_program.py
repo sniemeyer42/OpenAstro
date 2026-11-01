@@ -13,8 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Run the golden chart set, the dialog flows and the GUI smoke test in fresh
-scratch homes.
+Run the golden chart set, the Qt window flows and (with a display) the flows
+and smoke test of the GTK dialogs in fresh scratch homes.
 
 	xvfb-run python3 -m unittest discover -s tests -v
 """
@@ -34,14 +34,16 @@ def run_tool(args, home):
 	env = dict(os.environ, HOME=home, PYTHONDONTWRITEBYTECODE='1')
 	return subprocess.run([sys.executable] + args, env=env, capture_output=True, text=True, timeout=600)
 
-@unittest.skipUnless(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'), 'needs a display (xvfb-run)')
-class ProgramTest(unittest.TestCase):
+class ScratchHome(unittest.TestCase):
 
 	def setUp(self):
 		self.home = tempfile.mkdtemp(prefix='openastro-test-')
 
 	def tearDown(self):
 		shutil.rmtree(self.home, ignore_errors=True)
+
+class ProgramTest(ScratchHome):
+	"""chart drawing and the Qt program, no display needed"""
 
 	def test_golden_charts(self):
 		out = os.path.join(self.home, 'golden')
@@ -56,6 +58,15 @@ class ProgramTest(unittest.TestCase):
 			ids = set(re.findall(r'id="([^"]+)"', svg))
 			refs = set(re.findall(r'xlink:href="#([^"]+)"', svg))
 			self.assertFalse(refs - ids, '%s: unresolved symbols %s' % (name, sorted(refs - ids)))
+
+	def test_qt_flows(self):
+		result = run_tool([os.path.join(HERE, 'qt_flows.py')], self.home)
+		self.assertEqual(result.returncode, 0, result.stdout[-4000:] + result.stderr[-3000:])
+		self.assertIn('0 failed', result.stdout)
+
+@unittest.skipUnless(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'), 'needs a display (xvfb-run)')
+class GtkDialogTest(ScratchHome):
+	"""dialogs of the GTK program (not yet ported to Qt)"""
 
 	def test_dialog_flows(self):
 		result = run_tool([os.path.join(HERE, 'flows.py')], self.home)

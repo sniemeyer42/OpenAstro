@@ -22,24 +22,25 @@ To preserve the great OpenAstro program by Pelle van der Scheer [1] from oblivio
 
 ### Enhancements
 The published version 1.1.59 is the last release authorized by Pelle van der Scheer and dated from roundabout 2021. Somewhat enhanced versions can be found here. Several deprecations were eliminated.<br/>
-The former Gtk3 programs 'openastro' and 'astroChartBuilder.py' have been removed; 'astroChart.py' (Gtk4) is the only program now.
+The former Gtk3 programs 'openastro' and 'astroChartBuilder.py' have been removed; 'astroChart.py' is the only program now. Its user interface moves from GTK 4 to Qt 6 (PySide6), see below.
 
 ### User interface
-The main window (GTK 4 with libadwaita) shows the chart wheel beside a side bar with the positions of the bodies (radix and transit or partner), the house cusps, the aspects sorted by orb and the data of the chart. The wheel is drawn sharp at any size and follows the window; zoom with Ctrl+plus/minus, Ctrl+0 or Ctrl+mouse wheel. In narrow windows the side bar folds away and is shown with the button in the header bar. Transit charts get a date bar above the wheel, the chart follows every change of date and time.<br/>
-The chart wheel is drawn in a modern style: a zodiac band tinted by the elements with a fine degree scale, the houses as thin lines numbered around the aspect circle, the axes AC/DC and MC/IC with their degrees, the body symbols with degree and minute (spread apart where they crowd, a line to their exact place), aspect lines coloured by their character (tension red, harmony blue, quincunx and semisextile green, quintiles purple, minor aspects dashed), the stronger the closer the aspect. Transit and partner bodies get a ring outside the zodiac. The wheel follows the light or dark style of the desktop, printing always uses the light one. The classic OpenAstro wheel (planets in or around the zodiac) can be chosen under Settings > Configuration > Chart View.<br/>
+The main window (Qt 6) has a classic menu bar and a tool bar and shows the chart wheel beside a side bar with the positions of the bodies (radix and transit or partner), the house cusps, the aspects sorted by orb and the data of the chart. The wheel is drawn sharp at any size and follows the window; zoom with Ctrl+plus/minus, Ctrl+0 or Ctrl+mouse wheel. The side bar is shown or hidden with F9 (Zoom > Lists), chart type, date and place are in the status bar. Transit charts get a date bar above the wheel, the chart follows every change of date and time. Synastry, composite and combine charts take the second event from submenus of the event database.<br/>
+Qt version, first step: the main window with menus, wheel, side bar, date bar, tables, printing and export, chart files, solar return and progression. The dialogs for event data, the event database, the famous people and the settings are not yet ported, their menu entries are disabled; until then they remain as GTK code in `astrochart/ui/`.<br/>
+The chart wheel is drawn in a modern style: a zodiac band tinted by the elements with a fine degree scale, the houses as thin lines numbered around the aspect circle, the axes AC/DC and MC/IC with their degrees, the body symbols with degree and minute (spread apart where they crowd, a line to their exact place), aspect lines coloured by their character (tension red, harmony blue, quincunx and semisextile green, quintiles purple, minor aspects dashed), the stronger the closer the aspect. Transit and partner bodies get a ring outside the zodiac. The wheel follows the light or dark colours of the desktop, printing always uses the light one. The classic OpenAstro wheel (planets in or around the zodiac) can be chosen under Settings > Configuration > Chart View.<br/>
 The wheel is interactive: hovering a body shows its sign, degree, house and aspects; clicking a body (or its row in the side bar) highlights it and its aspects, the others fade, and the side bar lists only its aspects. Click it again, click the empty wheel or press Escape to show all aspects again.<br/>
-Settings, event data, home location and the chart type dialogs are built from libadwaita rows, Cancel and OK sit in the header bar. Aspect and planet settings have a page per chart type (radix, transit, synastry).<br/>
+Settings, event data and home location dialogs (GTK, to be ported) are built from libadwaita rows, Cancel and OK sit in the header bar. Aspect and planet settings have a page per chart type (radix, transit, synastry).<br/>
 Printing (Ctrl+P) and the export to PDF, PNG, JPG and SVG use an A4 landscape page: the wheel with tables of positions, house cusps, elements and aspects. The monthly timeline (transits per day, the closer the more opaque, weekends shaded, today framed) and the cusp aspects are A4 portrait pages, printed or saved as PDF from their windows.
 
-Requirements: Python 3, PyGObject, GTK 4, libadwaita 1.7 or newer, librsvg, pyswisseph and pytz (see requirements.txt).
+Requirements: Python 3, PySide6 6.7 or newer (Qt 6 with QtSvg and QtPrintSupport), pyswisseph and pytz (see requirements.txt). From pip PySide6 draws with the Qt style Fusion in the colours and icons of the desktop; for the native style (Breeze on KDE) use the PySide6 package of the distribution (openSUSE python313-pyside6, Fedora python3-pyside6) and a venv with `--system-site-packages`. The GTK dialogs not yet ported and their tests still need PyGObject, GTK 4, libadwaita 1.7 or newer and librsvg.
 
 ### Discussion
-This program is written in python with use of PyGObject for the Gtk4 environment of Linux. Start a standalone version with:
+This program is written in python with use of PySide6 (Qt 6). Start a standalone version with:
 
 ```
 # execute once to make program executable
 chmod +x ./astroChart.py
-# start the Gtk4 OpenAstro
+# start OpenAstro
 ./astroChart.py --local
 # start and cleanup
 ./astroChart.py --local --purge
@@ -47,11 +48,12 @@ chmod +x ./astroChart.py
 ./astroChartShow.py
 ```
 Source layout: `astroChart.py` only starts the program, the code lives in the package `astrochart/`:
-- `application.py` (Gtk.Application), `config.py`, `constants.py`, `i18n.py`
+- `config.py`, `constants.py`, `i18n.py`
 - `database.py`, `database_schema.py`: settings, history and event databases
 - `chart/`: the class `Chart` (chart state, calculation) with the SVG drawing of charts and tables and the chart file import/export
-- `ui/`: main window `window.py` and one class per dialog (`AstroDialog` subclasses)
-- `tests/`: golden chart set, dialog flows and GUI smoke test, see `tests/README.md`
+- `qt/`: Qt user interface: `application.py` (QApplication), main window `window.py`, wheel `chart_view.py`, side bar `panels.py`, tables, printing and export
+- `ui/`, `application.py`: GTK program whose dialogs are not yet ported to Qt (one class per dialog, `AstroDialog` subclasses)
+- `tests/`: golden chart set, flows of the Qt window and of the GTK dialogs, GUI smoke test, see `tests/README.md`
 
 The program is localized in 25 languages in folder 'locale'. Localization for the 'AstroChart programs' is incomplete.
 

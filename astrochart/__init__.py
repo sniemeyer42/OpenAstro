@@ -13,13 +13,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-OpenAstro Gtk4 program (astroChart)
+OpenAstro program (astroChart): chart calculation and drawing (chart),
+configuration and databases; user interface in qt (PySide6)
 """
-
-import gi
-gi.require_version("Gtk", "4.0")
-gi.require_version("Gdk", "4.0")
-gi.require_version('Rsvg', '2.0')
-gi.require_version('Graphene', '1.0')
-gi.require_version('GdkPixbuf', '2.0')
-gi.require_version('Adw', '1')

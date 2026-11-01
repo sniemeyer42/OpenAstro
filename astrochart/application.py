@@ -17,6 +17,8 @@ Application: chart state, calculation and SVG
 """
 
 import xml.etree.ElementTree as ET
+#versions of the GTK libraries
+import astrochart.ui
 from gi.repository import Adw, GLib, Gio, Gtk, Gdk
 from astrochart.chart.chart import Chart
 from astrochart.config import OpenAstroCfg

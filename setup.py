@@ -31,6 +31,6 @@ setup(name='openastro',
       url='http://www.openastro.org',
       license='GPL',
       scripts=['astroChart.py'],
-      packages=['openastromod', 'astrochart', 'astrochart.chart', 'astrochart.ui'],
+      packages=['openastromod', 'astrochart', 'astrochart.chart', 'astrochart.qt', 'astrochart.ui'],
       data_files=pre_data_files
      )

@@ -16,7 +16,7 @@
 """
 Render a fixed set of charts and tables as SVG files into OUTDIR.
 
-	HOME=$(mktemp -d) xvfb-run python3 tests/golden.py OUTDIR
+	HOME=$(mktemp -d) python3 tests/golden.py OUTDIR
 
 The output is deterministic: two runs (or two versions of the program that
 should draw the same) can be compared with `diff -r OUTDIR1 OUTDIR2`.
@@ -26,11 +26,10 @@ import sys
 import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from harness import start_application
+from harness import create_chart
 
 def scenarios(app):
-	"""yield (name, svg text) for every chart of the test set"""
-	app = app.chart
+	"""yield (name, svg text) for every chart of the test set, app: the chart"""
 	#the light wheel whatever style the desktop has, the dark one is a scenario of its own
 	app.dark = False
 	if not hasattr(app, 'label'):
@@ -112,16 +111,13 @@ def scenarios(app):
 
 def main(outdir):
 	os.makedirs(outdir, exist_ok=True)
-	app, run = start_application()
-	def step(app):
-		count = 0
-		for name, svg in scenarios(app):
-			with open(os.path.join(outdir, name + '.svg'), 'w') as f:
-				f.write(svg)
-			count += 1
-		print('golden: %d files written to %s' % (count, outdir), flush=True)
-		app.quit()
-	return run(step)
+	count = 0
+	for name, svg in scenarios(create_chart()):
+		with open(os.path.join(outdir, name + '.svg'), 'w') as f:
+			f.write(svg)
+		count += 1
+	print('golden: %d files written to %s' % (count, outdir), flush=True)
+	return 0
 
 if __name__ == '__main__':
 	if len(sys.argv) != 2:
