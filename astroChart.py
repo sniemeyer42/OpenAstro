@@ -1075,9 +1075,9 @@ class OpenAstroSqlite:
 			'#000000','#666f06','#000000','#000000','#000000','#000000','#000000',
 			'#000000','#000000','orange','#FF0000','#0000FF','#000000','#000000',
 			'#000000','#000000','#000000','#000000','#000000','#000000','#000000']
-			self.value_settings_planet['visible'] = list(PLANET_DEFAULT_VISIBLE)
-			self.value_settings_planet['visible_aspect_line'] = list(PLANET_DEFAULT_VISIBLE)
-			self.value_settings_planet['visible_aspect_grid'] = list(PLANET_DEFAULT_VISIBLE)
+			self.value_settings_planet['visible'] = PLANET_DEFAULT_VISIBLE[:]
+			self.value_settings_planet['visible_aspect_line'] = PLANET_DEFAULT_VISIBLE[:]
+			self.value_settings_planet['visible_aspect_grid'] = PLANET_DEFAULT_VISIBLE[:]
 			self.value_settings_planet['element_points'] = [
 			40,40,15,15,15,10,10,
 			10,10,10,20,0,0,0,
