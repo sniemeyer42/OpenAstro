@@ -157,9 +157,9 @@ class AstroWindow(Gtk.ApplicationWindow):
 		zoom_action = Gio.SimpleAction.new_stateful("zoom", GLib.VariantType.new('s'), GLib.Variant.new_string('zIn'))
 		zoom_action.connect("activate", self.zoom_callback)
 		self.add_action(zoom_action)
-		self.app.set_accels_for_action(detailed_action_name="win.zoom::zIn", accels=["<Ctrl>plus"])
-		self.app.set_accels_for_action(detailed_action_name="win.zoom::z100", accels=["<Ctrl>1"])
-		self.app.set_accels_for_action(detailed_action_name="win.zoom::zOut", accels=["<Ctrl>minus"])
+		self.app.set_accels_for_action(detailed_action_name="win.zoom::zIn", accels=["<Ctrl>plus", "<Ctrl>equal", "<Ctrl>KP_Add"])
+		self.app.set_accels_for_action(detailed_action_name="win.zoom::z100", accels=["<Ctrl>1", "<Ctrl>0"])
+		self.app.set_accels_for_action(detailed_action_name="win.zoom::zOut", accels=["<Ctrl>minus", "<Ctrl>KP_Subtract"])
 
 		# Menu 'Extra'
 		exportdb_action = Gio.SimpleAction.new("exportdb", None)
@@ -182,11 +182,10 @@ class AstroWindow(Gtk.ApplicationWindow):
 		svg = self.chart.makeSVG()
 		self.saveChartSVG(svg)
 		#drawing_area to render SVG
-		self.image = ViewSVG(svg)
+		#chart fitted into the window, zoom makes it scroll
+		self.image = ViewSVG(svg, fit='page')
 		self.image.set_vexpand(True)
 		self.image.set_hexpand(True)
-		self.image.set_valign(Gtk.Align.CENTER)
-		self.image.set_halign(Gtk.Align.CENTER)
 		scrolled_window.set_child(self.image)
 		box.append(scrolled_window)
 
@@ -302,7 +301,7 @@ class AstroWindow(Gtk.ApplicationWindow):
 		#redraw the chart after changed settings, keep zoom level
 		scale = self.image.scale
 		self.updateChart()
-		self.image.scale = scale
+		self.image.setScale(scale)
 
 	def on_change_label_state(self, action, value):
 		action.set_state(value)
@@ -443,7 +442,8 @@ class AstroWindow(Gtk.ApplicationWindow):
 			self.transitBar.set_visible(False)
 
 	def saveChartSVG(self, svg):
-		#the chart shown is kept as file for the export and for scripts
+		#the chart shown, also kept as file for scripts
+		self.chartSVG = svg
 		with open(self.cfg.tempfilename, 'w') as f:
 			f.write(svg)
 
@@ -452,24 +452,14 @@ class AstroWindow(Gtk.ApplicationWindow):
 		""" check for zoom level and draw """
 		z_level = parameter.get_string()
 		action.set_state(parameter)
-		#action.set_state(parameter)
-		ratio = self.image.scale
+		#zoom relative to the chart fitted into the window (100%)
+		scale = {'z80': 0.8, 'z100': 1.0, 'z150': 1.5, 'z200': 2.0}
 		if z_level == 'zIn':
-			self.image.scale += 0.1
-		elif z_level == 'z80':
-			self.image.scale = 0.8
-		elif z_level == 'z100':
-			self.image.scale = 1.0
-		elif z_level == 'z150':
-			self.image.scale = 1.5
-		elif z_level == 'z200':
-			self.image.scale = 2.0
+			self.image.setScale(self.image.scale * 1.25)
 		elif z_level == 'zOut':
-			if ratio >= 0.2:
-				self.image.scale -= 0.1
-			else:
-				return
-		self.image.queue_resize()
+			self.image.setScale(self.image.scale / 1.25)
+		elif z_level in scale:
+			self.image.setScale(scale[z_level])
 
 	def about_callback(self, action, parameter):
 		about = Gtk.AboutDialog(transient_for=self, modal=True)

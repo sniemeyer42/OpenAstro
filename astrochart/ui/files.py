@@ -17,14 +17,17 @@ Menu 'Chart' (open, save, import, export, print) and database export/import,
 dialog for the timezone of imported charts with daylight saving time
 """
 
-import os
 import pytz
 from shutil import copyfile
-from gi.repository import GLib, Gio, Gtk, Rsvg
+from gi.repository import GLib, Gio, Gtk, GdkPixbuf, Rsvg
 from astrochart.ui.dialog import AstroDialog
 from astrochart.ui.event_dialog import EventDialog
 from astrochart.ui.filters import FILTER_ALL_FILES, FILTER_DAT_FILES, FILTER_JPG_FILES, FILTER_OAC_FILES, FILTER_PDF_FILES, FILTER_PNG_FILES, FILTER_SKIF_FILES, FILTER_SQL_FILES, FILTER_SVG_FILES, FILTER_TXT_FILES, FILTER_XML_FILES, FILTER_ZBS_FILES
+from astrochart.ui.widgets import renderSVG, viewBoxSize
 from astrochart.util import dprint
+
+#width in pixels of exported PNG and JPG images (about 300 dpi on A4)
+EXPORT_WIDTH = 2400
 
 class ChartFiles:
 	"""file dialogs, import, export and printing of the main window"""
@@ -153,14 +156,30 @@ class ChartFiles:
 			return
 		export_app(local_file)
 
+	def chartImage(self):
+		"""the chart shown rendered on white, EXPORT_WIDTH pixels wide"""
+		handle = Rsvg.Handle.new_from_data(self.window.chartSVG.encode('utf-8'))
+		width, height = viewBoxSize(handle)
+		return renderSVG(handle, EXPORT_WIDTH, EXPORT_WIDTH * height / width, background=(1, 1, 1))
+
 	def exportPNG(self, local_file):
-		os.system("%s %s %s" % ('magick', self.cfg.tempfilename,"'"+local_file.get_path()+"'"))
+		self.chartImage().write_to_png(local_file.get_path())
 
 	def exportJPG(self, local_file):
-		os.system("%s %s %s" % ('magick', self.cfg.tempfilename,"'"+local_file.get_path()+"'"))
+		surface = self.chartImage()
+		width, height = surface.get_width(), surface.get_height()
+		#cairo ARGB32 (little endian BGRA, opaque) to RGB
+		data = bytes(surface.get_data())
+		rgb = bytearray(width * height * 3)
+		rgb[0::3] = data[2::4]
+		rgb[1::3] = data[1::4]
+		rgb[2::3] = data[0::4]
+		pixbuf = GdkPixbuf.Pixbuf.new_from_bytes(GLib.Bytes.new(bytes(rgb)), GdkPixbuf.Colorspace.RGB, False, 8, width, height, width * 3)
+		pixbuf.savev(local_file.get_path(), 'jpeg', ['quality'], ['92'])
 
 	def exportSVG(self, local_file):
-		copyfile(self.cfg.tempfilename, local_file.get_path())
+		with open(local_file.get_path(), 'w') as f:
+			f.write(self.window.chartSVG)
 
 	def exportPDF(self, local_file):
 		#prepare printing into PDF

@@ -20,3 +20,5 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
 gi.require_version('Rsvg', '2.0')
+gi.require_version('Graphene', '1.0')
+gi.require_version('GdkPixbuf', '2.0')

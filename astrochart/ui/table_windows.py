@@ -83,11 +83,10 @@ class TableWindow(AstroDialog):
 		button.connect("clicked", lambda w: self.printTable(pdf=True))
 		button_box.append(button)
 		vbox.append(button_box)
-		self.image = ViewSVG(self.render())
+		#pages fitted to the window width, scrolling down
+		self.image = ViewSVG(self.render(), fit='width')
 		self.image.set_vexpand(True)
 		self.image.set_hexpand(True)
-		self.image.set_valign(Gtk.Align.CENTER)
-		self.image.set_halign(Gtk.Align.CENTER)
 		scrolled_window = Gtk.ScrolledWindow()
 		scrolled_window.set_child(self.image)
 		vbox.append(scrolled_window)
