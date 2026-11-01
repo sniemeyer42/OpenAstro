@@ -1152,3 +1152,31 @@ msgstr ""
 msgid "Are you sure you want to save this entry to the database?"
 msgstr ""
 
+
+#: ./astrochart/ui/panels.py ./astrochart/chart/svg_print.py
+msgid "Elements"
+msgstr ""
+
+#: ./astrochart/ui/files.py ./astrochart/ui/table_windows.py
+msgid "Error printing"
+msgstr ""
+
+#: ./astrochart/ui/panels.py ./astrochart/chart/svg_print.py
+msgid "Houses"
+msgstr ""
+
+#: ./astrochart/ui/window.py
+msgid "Lists"
+msgstr ""
+
+#: ./astrochart/ui/window.py
+msgid "Menu"
+msgstr ""
+
+#: ./astrochart/ui/panels.py ./astrochart/ui/settings_planets.py
+msgid "Partner"
+msgstr ""
+
+#: ./astrochart/ui/panels.py ./astrochart/chart/svg_print.py
+msgid "Positions"
+msgstr ""

@@ -24,6 +24,12 @@ To preserve the great OpenAstro program by Pelle van der Scheer [1] from oblivio
 The published version 1.1.59 is the last release authorized by Pelle van der Scheer and dated from roundabout 2021. Somewhat enhanced versions can be found here. Several deprecations were eliminated.<br/>
 The former Gtk3 programs 'openastro' and 'astroChartBuilder.py' have been removed; 'astroChart.py' (Gtk4) is the only program now.
 
+### User interface
+The main window (GTK 4 with libadwaita) shows the chart wheel beside a side bar with the positions of the bodies (radix and transit or partner), the house cusps, the aspects sorted by orb and the data of the chart. The wheel is drawn sharp at any size and follows the window; zoom with Ctrl+plus/minus, Ctrl+0 or Ctrl+mouse wheel. In narrow windows the side bar folds away and is shown with the button in the header bar. Transit charts get a date bar above the wheel, the chart follows every change of date and time.<br/>
+Printing (Ctrl+P) and the export to PDF, PNG, JPG and SVG use an A4 landscape page: the wheel with tables of positions, house cusps, elements and aspects.
+
+Requirements: Python 3, PyGObject, GTK 4, libadwaita 1.5 or newer, librsvg, pyswisseph and pytz (see requirements.txt).
+
 ### Discussion
 This program is written in python with use of PyGObject for the Gtk4 environment of Linux. Start a standalone version with:
 
@@ -67,7 +73,7 @@ $ ./astrolog -i ./charts/WP.dat -XS 300 Xw 1500
 ```
 
 Printing of Horoscopes<br/>
-OpenAstro stores the horoscope SVGs under '$HOME/.openastro.org/tmp/openAstroChart.svg', which can be converted easily to PDF. Look into directory 'script'. The shell script uses 'chromium --headless' mode and was found in [4]. The built-in conversion is equally effective.
+OpenAstro stores the printed page of the chart shown as SVG under '$HOME/.openastro.org/tmp/openAstroChart.svg', which can be converted easily to PDF. Look into directory 'script'. The shell script uses 'chromium --headless' mode and was found in [4]. The built-in conversion is equally effective.
 
 Data Bases<br/>
 OpenAstro makes intensive use of data bases in sqlite format 3:<br/>

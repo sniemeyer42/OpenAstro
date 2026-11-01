@@ -12,7 +12,7 @@ URL:            http://www.github.com/ekuester/OpenAstro
 Source0:        http://www.github.com/ekuester/OpenAstro/%{name}-%{version}.tar.gz
 BuildArch:      noarch
 BuildRequires:  python3-devel
-Requires:       gtk4, gtk4-devel python3-swisseph
+Requires:       gtk4, libadwaita, librsvg2, python3-gobject, python3-pytz, python3-swisseph
 #Patch0:         openastro_sqlite.patch
 
 %description

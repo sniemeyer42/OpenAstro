@@ -11,7 +11,7 @@ pyswisseph>=2.10.3.2
 # Timezones / daylight saving time
 pytz
 
-# GObject introspection: Gtk, Gdk, GdkPixbuf, Gio, GLib, Rsvg
+# GObject introspection: Gtk, Gdk, Adw, GdkPixbuf, Gio, GLib, Rsvg
 PyGObject>=3.50
 
 # Needed by PyGObject for gi.repository.cairo
@@ -20,15 +20,15 @@ pycairo>=1.20
 # ---------------------------------------------------------------------------
 # NOT installable via pip, provide them through the system package manager:
 #
-#   GTK 3 typelib    - openastro, astroChartBuilder.py
-#   GTK 4 typelib    - astroChart.py, astroChartShow.py
-#   librsvg typelib  - Rsvg 2.0
+#   GTK 4 typelib        - astroChart.py, astroChartShow.py
+#   libadwaita typelib   - Adw 1 (version 1.5 or newer)
+#   librsvg typelib      - Rsvg 2.0
 #   GdkPixbuf typelib
 #
-#   openSUSE: typelib-1_0-Gtk-3_0 typelib-1_0-Gtk-4_0
+#   openSUSE: typelib-1_0-Gtk-4_0 typelib-1_0-Adw-1
 #             typelib-1_0-Rsvg-2_0 typelib-1_0-GdkPixbuf-2_0
-#   Fedora:   gtk3 gtk4 librsvg2 gdk-pixbuf2
-#   Debian:   gir1.2-gtk-3.0 gir1.2-gtk-4.0 gir1.2-rsvg-2.0 gir1.2-gdkpixbuf-2.0
+#   Fedora:   gtk4 libadwaita librsvg2 gdk-pixbuf2
+#   Debian:   gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-rsvg-2.0 gir1.2-gdkpixbuf-2.0
 #
 # Build dependencies for PyGObject, pycairo and pyswisseph (built from source):
 #   gcc, pkg-config, python3-devel, cairo-devel, gobject-introspection-devel
