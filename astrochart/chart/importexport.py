@@ -20,7 +20,6 @@ import datetime
 import codecs
 import pytz
 from string import Template
-from gi.repository import Gtk
 from openastromod import zonetab, importfile
 from astrochart.util import dprint
 
@@ -112,11 +111,11 @@ class ImportExportMixin:
 		deg,type,min,sec = r['latitude'].split(":")
 		lat = float(deg)+( float(min) / 60.0 )+( float(sec) / 3600.0 )
 		if type == "S":
-			lat = decimal / -1.0
+			lat = -lat
 		deg,type,min,sec = r['longitude'].split(":")
 		lon = float(deg)+( float(min) / 60.0 )+( float(sec) / 3600.0 )
 		if type == "W":
-			lon = decimal / -1.0
+			lon = -lon
 		geon = self.db.gnearest(float(lat),float(lon))
 		self.timezonestr = geon['timezonestr']
 		self.geonameid = geon['geonameid']
@@ -169,68 +168,20 @@ class ImportExportMixin:
 	"""
 	 Check Timezone in case of Daylight Saving
 	"""
-	def specialTimeZone(self, tz):
-		# create a new window
-		self.win_TZ = Gtk.Window(title=_("Daylight Saving Time Detected"))
-		""" set_icon """
-		#self.win_TZ.set_icon_from_file(self.cfg.iconWindow)
-		#self.win_TZ.connect("delete_event", lambda w,e: self.win_TZ.destroy())
-		#self.win_TZ.move(150, 150)
-		#self.win_TZ.set_border_width(5)
-		self.win_TZ.set_default_size(300,100)
-		self.win_TZ.set_modal()
-		tz_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-		tz_box.set_spacing(12)
-		header = Gtk.Label(label=_("Change Timezone ?"))
-		tz_box.append(header)
-		entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		_label = Gtk.Label(label=_("Actual Timezone:"))
-		entry_box.append(_label)
-		tz_split = tz.split('/')
-		_entry = Gtk.Entry()
-		_entry.set_max_length(16)
-		_entry.set_width_chars(12)
-		_entry.set_alignment(xalign=1)
-		_entry.set_editable(False)
-		_entry.set_text(tz_split[0])
-		entry_box.append(_entry)
-		_label = Gtk.Label(label=_(" / "))
-		entry_box.append(_label)
-		tz_entry = Gtk.Entry()
-		tz_entry.set_max_length(32)
-		tz_entry.set_width_chars(24)
-		tz_entry.set_text(tz_split[1])
-		tz_entry.connect("activate", self.specialTimeZoneSubmit, tz_entry)
-		entry_box.append(tz_entry)
-		tz_box.append(entry_box)
-		hints = Gtk.Label(label=_("Change Timezone and press <Enter>"))
-		tz_box.append(hints)
-		button = Gtk.Button.new_with_mnemonic(label = _("Cancel"))
-		#button.set_can_default(True)
-		button.connect("clicked", lambda w: self.win_TZ.destroy())
-		self.win_TZ.set_child(tz_box)
-		#self.win_TZ.action_area.pack_end(child=button, expand=False, fill=False, padding=16)
-		#self.win_TZ.action_area.pack_start(button, True, True, 0)
-		self.win_TZ.present()
-		tz_entry.grab_focus()
-
-		#self.win_TZ.run()
-
-	def specialTimeZoneSubmit(self, widged, entry):
-		s = self.timezone_str
-		self.timezone_str = s[:s.find('/')+1] + entry.get_text()
-		self.win_TZ.destroy()
-
-	def importAstrolog(self, filename):
+	def readAstrolog(self, filename):
+		"""
+		first chart of an Astrolog file and the timezone string of the noted
+		continent/city nearest to its place; with daylight saving time
+		(r['daylight']) this may be a city with deviating daylight saving
+		time, the user should confirm it before setAstrolog
+		"""
 		r = importfile.getAstrolog32(filename)[0]
-		#timezone string
-		self.timezone_str = zonetab.nearest_tz(float(r['latitude']),float(r['longitude']),zonetab.timezones())[2]
-		"""
-		  Above looks for nearest noted continent/city, but sometimes
-		  this is a city with deviating daylight saving time
-		"""
-		if r['daylight']:
-			self.specialTimeZone(self.timezone_str)
+		timezone_str = zonetab.nearest_tz(float(r['latitude']),float(r['longitude']),zonetab.timezones())[2]
+		return r, timezone_str
+
+	def setAstrolog(self, r, timezone_str):
+		"""chart of an Astrolog record (readAstrolog) in the timezone timezone_str"""
+		self.timezone_str = timezone_str
 		# naive local datetime
 		naive = datetime.datetime(int(r['year']),int(r['month']),int(r['day']),int(r['hour']),int(r['minute']),int(r['second']))
 		# aware datetime object

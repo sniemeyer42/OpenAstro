@@ -13,26 +13,25 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Menu 'Settings': general configuration and language
+Dialog 'Settings > Configuration': geocoding, houses, positions, chart view,
+zodiac and language
 """
 
 import sys
 import os
 from gi.repository import Gtk
 from astrochart.i18n import LANGUAGES, LANGUAGES_LABEL
+from astrochart.ui.dialog import AstroDialog
 from astrochart.util import dprint
 
-class ConfigurationSettingsMixin:
-	"""Menu 'Settings': general configuration and language"""
+class ConfigurationDialog(AstroDialog):
+	"""general configuration and language"""
 
-	def setConfiguration_callback(self, action, parameter):
-		# create a new window
-		self.win_SC = Gtk.Window(title=_("General Configuration"))
-		""" >>> set_icon changed in GTK4 """
-
-		self.win_SC.set_default_size(364,512)
-		#data dictionary
-		data = {}
+	def __init__(self, window):
+		super().__init__(window, title=_("General Configuration"))
+		self.set_default_size(364,512)
+		#widgets of the settings
+		data = self.data = {}
 		#create a VBox
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True)
 		vbox.props.margin_start = 32
@@ -231,23 +230,21 @@ class ConfigurationSettingsMixin:
 		scrolled_window.set_vexpand(True)
 		scrolled_window.set_child(grid)
 		vbox.append(scrolled_window)
-		#self.win_SC.vbox.pack_start(scrolledwindow, True, True, 0)
 		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		button_box.set_homogeneous(True)
 		# ok button
 		button = Gtk.Button.new_with_mnemonic(label=_("OK"))
-		button.connect("clicked", self.settingsConfigurationSubmit, data)
+		button.connect("clicked", lambda w: self.submit())
 		button_box.prepend(button)
 		# cancel button
 		button = Gtk.Button.new_with_mnemonic(label=_("Cancel"))
-		button.connect("clicked", lambda w: self.win_SC.destroy())
-		#self.win_SC.action_area.pack_start(button, True, True, 0)
+		button.connect("clicked", lambda w: self.close())
 		button_box.prepend(button)
 		vbox.append(button_box)
-		self.win_SC.set_child(vbox)
-		self.win_SC.present()
+		self.set_child(vbox)
 
-	def settingsConfigurationSubmit(self, widget, data):
+	def submit(self):
+		data = self.data
 		update = False
 		if data['use_geonames.org'].get_active():
 			self.db.setAstrocfg("use_geonames.org","1")
@@ -295,11 +292,11 @@ class ConfigurationSettingsMixin:
 			active_lang = LANGUAGES[active-1]
 		if active_lang != self.db.astrocfg['language']:
 			self.confirm_language(active_lang)
-		self.updateUI(first_time=False)
+		self.window.updateUI(first_time=False)
 		# updatechart
 		if update:
-			self.updateChart()
-		self.win_SC.destroy()
+			self.window.updateChart()
+		self.close()
 		return
 
 	def confirm_language(self,lang):
@@ -309,7 +306,8 @@ class ConfigurationSettingsMixin:
 		alert_dialog.set_detail(confirm)
 		alert_dialog.set_modal(True)
 		alert_dialog.set_buttons(["Cancel", "OK"])
-		alert_dialog.choose(parent=self, cancellable=None, callback=self.on_change_language, user_data=lang)
+		#the main window is the parent, this dialog closes at once
+		alert_dialog.choose(parent=self.window, cancellable=None, callback=self.on_change_language, user_data=lang)
 
 	def on_change_language(self, source_obj, async_res, lang):
 		result = source_obj.choose_finish(async_res)

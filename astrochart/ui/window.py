@@ -22,20 +22,20 @@ from string import Template
 from gi.repository import GLib, Gio, Gtk, Gdk
 from openastromod import zonetab
 from astrochart.constants import LIMIT, VERSION
-from astrochart.ui.chart_types import ChartTypesMixin
+from astrochart.ui.chart_types import ProgressionDialog, SolarReturnDialog, TransitBar
 from astrochart.ui.database_dialogs import DatabaseDialog, FamousDialog, SelectEventDialog
 from astrochart.ui.event_dialog import EventDialog
-from astrochart.ui.files import FilesMixin
+from astrochart.ui.files import ChartFiles
 from astrochart.ui.menus import BEGIN_XML, CHART_XML, END_XML, EVENT_XML, E_ITEM, M_ITEM
 from astrochart.ui.settings_aspects import AspectSettingsDialog
-from astrochart.ui.settings_configuration import ConfigurationSettingsMixin
+from astrochart.ui.settings_configuration import ConfigurationDialog
 from astrochart.ui.settings_location import LocationDialog
 from astrochart.ui.settings_planets import PlanetSettingsDialog
-from astrochart.ui.table_windows import TableWindowsMixin
+from astrochart.ui.table_windows import CuspAspectsWindow, MonthDialog
 from astrochart.ui.widgets import ViewSVG
 
 """ Application Window """
-class AstroWindow(FilesMixin, ConfigurationSettingsMixin, ChartTypesMixin, TableWindowsMixin, Gtk.ApplicationWindow):
+class AstroWindow(Gtk.ApplicationWindow):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		#the application, the chart shown, configuration and databases
@@ -45,6 +45,10 @@ class AstroWindow(FilesMixin, ConfigurationSettingsMixin, ChartTypesMixin, Table
 		self.db = self.app.db
 		#open dialogs of which only one may exist, see presentDialog
 		self.dialogs = {}
+		#open table windows, see refreshTableWindows
+		self.tableWindows = set()
+		#file dialogs, import, export and printing
+		self.files = ChartFiles(self)
 
 		""" >>> set icon changed in GTK4 """
 
@@ -73,24 +77,24 @@ class AstroWindow(FilesMixin, ConfigurationSettingsMixin, ChartTypesMixin, Table
 		newChart_action.connect("activate", self.eventDataNew_callback)
 		self.add_action(newChart_action)
 		openChart_action = Gio.SimpleAction.new("openChart", None)
-		openChart_action.connect("activate", self.openChart_callback)
+		openChart_action.connect("activate", self.files.openChart_callback)
 		self.add_action(openChart_action)
 		saveChart_action = Gio.SimpleAction.new("saveChart", None)
-		saveChart_action.connect("activate", self.saveChart_callback)
+		saveChart_action.connect("activate", self.files.saveChart_callback)
 		self.add_action(saveChart_action)
 		 # Menu item 'Import'
 		import_action = Gio.SimpleAction.new_stateful(
 			"import", GLib.VariantType.new('s'), #submit a string type
 			GLib.Variant.new_string('importAstrolog')
 		)
-		import_action.connect("activate", self.import_callback)
+		import_action.connect("activate", self.files.import_callback)
 		self.add_action(import_action)
 		 # Menu item 'Export'
 		export_action = Gio.SimpleAction.new_stateful(
 			"export", GLib.VariantType.new('s'), #submit a string type
 			GLib.Variant.new_string('jpgfile')
 		)
-		export_action.connect("activate", self.export_callback)
+		export_action.connect("activate", self.files.export_callback)
 		self.add_action(export_action)
 		# Menu item 'Close'
 		close_action = Gio.SimpleAction.new("close", None)
@@ -159,10 +163,10 @@ class AstroWindow(FilesMixin, ConfigurationSettingsMixin, ChartTypesMixin, Table
 
 		# Menu 'Extra'
 		exportdb_action = Gio.SimpleAction.new("exportdb", None)
-		exportdb_action.connect("activate", self.exportdb_callback)
+		exportdb_action.connect("activate", self.files.exportdb_callback)
 		self.add_action(exportdb_action)
 		importdb_action = Gio.SimpleAction.new("importdb", None)
-		importdb_action.connect("activate", self.importdb_callback)
+		importdb_action.connect("activate", self.files.importdb_callback)
 		self.add_action(importdb_action)
 
 		self.updateUI(first_time=True)
@@ -171,7 +175,7 @@ class AstroWindow(FilesMixin, ConfigurationSettingsMixin, ChartTypesMixin, Table
 		box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 		self.set_child(box)
 		# date bar above chart, visible for transit charts only
-		self.transitBar = self.makeTransitBar()
+		self.transitBar = TransitBar(self)
 		box.append(self.transitBar)
 		scrolled_window = Gtk.ScrolledWindow()
 		# Draw svg pixbuf
@@ -253,15 +257,46 @@ class AstroWindow(FilesMixin, ConfigurationSettingsMixin, ChartTypesMixin, Table
 		action.set_state(parameter)
 		self.presentDialog('select-' + selected, SelectEventDialog, ctype=selected)
 
+	def specialRadix_callback(self, action, parameter):
+		self.chart.type = "Radix"
+		self.chart.charttype = self.chart.label["radix"]
+		self.chart.transit = False
+		self.updateChart()
+
+	def specialTransit_callback(self, action, parameter):
+		self.transitBar.start()
+
+	def specialSolar_callback(self, action, parameter):
+		self.presentDialog('solar', SolarReturnDialog)
+
+	def specialProgression_callback(self, action, parameter):
+		self.presentDialog('progression', ProgressionDialog)
+
 	""" Menu 'Settings' """
 	def setLocation_callback(self, action, parameter):
 		self.presentDialog('location', LocationDialog)
+
+	def setConfiguration_callback(self, action, parameter):
+		self.presentDialog('configuration', ConfigurationDialog)
 
 	def setAspects_callback(self, action, parameter):
 		self.presentDialog('aspects', AspectSettingsDialog)
 
 	def setPlanets_callback(self, action, parameter):
 		self.presentDialog('planets', PlanetSettingsDialog)
+
+	def refreshTableWindows(self, changed):
+		#redraw open table windows using the changed settings (chart types)
+		for window in list(self.tableWindows):
+			if window.settings in changed and window.get_visible():
+				window.refresh()
+
+	""" Menu 'Tables' """
+	def tableMonthlyTimeline_callback(self, action, parameter):
+		self.presentDialog('month', MonthDialog)
+
+	def tableCuspAspects_callback(self, action, parameter):
+		CuspAspectsWindow(self).present()
 
 	def refreshChart(self):
 		#redraw the chart after changed settings, keep zoom level

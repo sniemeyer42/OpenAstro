@@ -18,156 +18,117 @@ Menu 'Tables': monthly timeline and cusp aspects windows
 
 import datetime
 from gi.repository import Gio, Gtk, Rsvg
+from astrochart.ui.dialog import AstroDialog
 from astrochart.ui.filters import FILTER_ALL_FILES, FILTER_PDF_FILES
 from astrochart.ui.widgets import ViewSVG
 
-class TableWindowsMixin:
-	"""Menu 'Tables': monthly timeline and cusp aspects windows"""
+class MonthDialog(AstroDialog):
+	"""month and year of the monthly timeline"""
 
-	"""
-	 Menu 'Tables' callbacks
-	  MonthlyTimeline
-	  MonthlyTimelineShow
-	  MonthlyTimelinePrint
-	  MonthlyTimelinePrintBegin
-	  MonthlyTimelinePrintDraw
-	  tableExposeEvent
-	  CuspAspects
-	"""
-	def refreshTableWindows(self, changed):
-		#redraw open table windows with the changed settings of the chart
-		#types in changed (timeline: transit, cusp aspects: radix)
-		tables = []
-		if 'transit' in changed:
-			tables.append('timeline')
-		if 'radix' in changed:
-			tables.append('cuspaspects')
-		tables.sort(key=lambda t: t == getattr(self, 'tabletype', None))
-		for table in tables:
-			if table == 'timeline':
-				window = getattr(self, 'win_TMT', None)
-				if window is None or not window.get_visible():
-					continue
-				svg = self.chart.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
-			else:
-				window = getattr(self, 'win_TCA', None)
-				if window is None or not window.get_visible():
-					continue
-				svg = self.chart.makeCuspAspectsSVG(printing=None)
-			window.image.setupSVG(svg)
-			window.image.queue_resize()
-
-	def tableMonthlyTimeline_callback(self, action, parameter):
-		self.dialog = Gtk.Window(title=_("Select Month in Year"))
-		self.dialog.set_destroy_with_parent(True)
-		self.dialog.set_default_size(272, 128)
-		#dialog.move(64,128)
+	def __init__(self, window):
+		super().__init__(window, title=_("Select Month in Year"))
+		self.set_default_size(272, 128)
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 		vbox.set_vexpand(True)
 		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		hbox.set_homogeneous(True)
 		label_year = Gtk.Label(label=_('Year')+": ")
 		hbox.append(label_year)
-		self.tMTspinner = {}
+		self.spinner = {}
 		adjustment = Gtk.Adjustment(lower=1, upper=2400, step_increment=1, page_increment=10)
-		self.tMTspinner['Y'] = Gtk.SpinButton()
-		self.tMTspinner['Y'].props.adjustment = adjustment
-		self.tMTspinner['Y'].set_numeric(True)
-		self.tMTspinner['Y'].set_value(datetime.datetime.now().year)
-		hbox.append(self.tMTspinner['Y'])
+		self.spinner['Y'] = Gtk.SpinButton()
+		self.spinner['Y'].props.adjustment = adjustment
+		self.spinner['Y'].set_numeric(True)
+		self.spinner['Y'].set_value(datetime.datetime.now().year)
+		hbox.append(self.spinner['Y'])
 		vbox.append(hbox)
 		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		hbox.set_homogeneous(True)
 		label_month = Gtk.Label(label=_('Month')+": ")
 		hbox.append(label_month)
 		adjustment = Gtk.Adjustment(lower=1, upper=12, step_increment=1)
-		self.tMTspinner['M'] = Gtk.SpinButton()
-		self.tMTspinner['M'].props.adjustment = adjustment
-		self.tMTspinner['M'].set_numeric(True)
-		self.tMTspinner['M'].set_value(datetime.datetime.now().month)
-		hbox.append(self.tMTspinner['M'])
+		self.spinner['M'] = Gtk.SpinButton()
+		self.spinner['M'].props.adjustment = adjustment
+		self.spinner['M'].set_numeric(True)
+		self.spinner['M'].set_value(datetime.datetime.now().month)
+		hbox.append(self.spinner['M'])
 		vbox.append(hbox)
-		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		button_box.set_homogeneous(True)
-		#buttons
-		button = Gtk.Button.new_with_mnemonic(label=_('Cancel'))
-		button.connect("clicked", lambda w: self.dialog.close())
-		button_box.append(button)
-		button = Gtk.Button.new_with_mnemonic(label=_('OK'))
-		button.connect("clicked", lambda w: self.tableMonthlyTimelineShow(spinner=self.tMTspinner))
-		button_box.prepend(button)		
-		#display window
-		vbox.append(button_box)
-		self.dialog.set_child(vbox)
-		self.dialog.present()
+		vbox.append(self.buttonRow([(_('OK'), self.submit), (_('Cancel'), self.close)]))
+		self.set_child(vbox)
 
-	def tableMonthlyTimelineShow(self, spinner):
-		self.dialog.close()
-		self.tabletype="timeline"
-		self.tMT_year = spinner['Y'].get_value_as_int()
-		self.tMT_month = spinner['M'].get_value_as_int()
-		svg = self.chart.makeTimelineSVG(printing=None,y=self.tMT_year,m=self.tMT_month)
-			#generate window
-		self.win_TMT = Gtk.Window()
-		self.win_TMT.set_title("OpenAstro.org Monthly Timeline")
-		""" >>> set_icon """
-		#self.win_TMT.set_icon_from_file(self.cfg.iconWindow)
-		self.win_TMT.set_default_size(1024, 732)
+	def submit(self):
+		self.close()
+		TimelineWindow(self.window, self.spinner['Y'].get_value_as_int(), self.spinner['M'].get_value_as_int()).present()
+
+class TableWindow(AstroDialog):
+	"""
+	window with a table of the chart (SVG pages), print and PDF export;
+	settings is the chart type of the settings it uses ('radix', 'transit'),
+	open table windows are redrawn when these settings change
+	"""
+
+	settings = 'radix'
+
+	def __init__(self, window, title, size, pdfname):
+		super().__init__(window, title=title)
+		self.pdfname = pdfname
+		self.set_default_size(*size)
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+		vbox.set_vexpand(True)
 		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		button = Gtk.Button.new_with_mnemonic(label=_('Print'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(self.chart.pages,pdf=False,window=self.win_TMT,name="Timeline-%s.pdf"%(self.chart.name)))
+		button.connect("clicked", lambda w: self.printTable(pdf=False))
 		button_box.append(button)
 		button = Gtk.Button.new_with_mnemonic(label=_('Save as PDF'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(self.chart.pages,pdf=True,window=self.win_TMT,name="Timeline-%s.pdf"%(self.chart.name)))
+		button.connect("clicked", lambda w: self.printTable(pdf=True))
 		button_box.append(button)
 		vbox.append(button_box)
-		self.win_TMT.image = ViewSVG(svg)
-		self.win_TMT.image.set_vexpand(True)
-		self.win_TMT.image.set_hexpand(True)
-		self.win_TMT.image.set_valign(Gtk.Align.CENTER)
-		self.win_TMT.image.set_halign(Gtk.Align.CENTER)
+		self.image = ViewSVG(self.render())
+		self.image.set_vexpand(True)
+		self.image.set_hexpand(True)
+		self.image.set_valign(Gtk.Align.CENTER)
+		self.image.set_halign(Gtk.Align.CENTER)
 		scrolled_window = Gtk.ScrolledWindow()
-		scrolled_window.set_child(self.win_TMT.image)
+		scrolled_window.set_child(self.image)
 		vbox.append(scrolled_window)
-		self.win_TMT.set_child(vbox)
-		self.win_TMT.present()
+		self.set_child(vbox)
+		#the main window redraws the open table windows
+		window.tableWindows.add(self)
+		self.connect('close-request', lambda w: window.tableWindows.discard(self) or False)
 
-	def tablesChartPrint(self, pages, pdf, window, name):
-		settings = None
-		window.print_op = Gtk.PrintOperation()
-		window.print_op.set_unit(Gtk.Unit.MM)
-		if settings != None: 
-			window.print_op.set_print_settings(settings)
-		window.print_op.connect("begin_print", self.tablesChartPrintBegin, self.chart.pages)
-		window.print_op.connect("draw_page", self.tablesChartPrintDraw)
-		res = None
+	def render(self, printing=None):
+		"""SVG document of the table, sets self.chart.pages"""
+		raise NotImplementedError
+
+	def refresh(self):
+		self.image.setupSVG(self.render())
+		self.image.queue_resize()
+
+	def printTable(self, pdf):
+		self.print_op = Gtk.PrintOperation()
+		self.print_op.set_unit(Gtk.Unit.MM)
+		self.print_op.connect("begin_print", self.printBegin)
+		self.print_op.connect("draw_page", self.printDraw)
 		if pdf:
-			initial_name = name
 			gio_filters = Gio.ListStore.new(Gtk.FileFilter)
 			gio_filters.append(item=FILTER_ALL_FILES)
 			gio_filters.append(item=FILTER_PDF_FILES)
-			self.file_to_save(filters=gio_filters, name=initial_name, export_app=self.tablesChartPDF)
-		else:
-			res = window.print_op.run(Gtk.PrintOperationAction.PRINT_DIALOG, window)		
+			self.window.files.file_to_save(filters=gio_filters, name=self.pdfname, export_app=self.exportPDF)
+			return
+		res = self.print_op.run(Gtk.PrintOperationAction.PRINT_DIALOG, self)
 		if res == Gtk.PrintOperationResult.ERROR:
-			error_dialog = Gtk.MessageDialog(window,0,Gtk.MESSAGE_ERROR,Gtk.ButtonS_CLOSE,"Error printing:\n")
-			error_dialog.set_destroy_with_parent(True)
-			error_dialog.connect("response", lambda w,id: w.destroy())
-			error_dialog.show()
-		elif res == Gtk.PrintOperationResult.APPLY:
-			settings = window.print_op.get_print_settings()
+			alert_dialog = Gtk.AlertDialog()
+			alert_dialog.set_message(_("Error printing"))
+			alert_dialog.show(self)
 
-	def tablesChartPDF(self, local_file):
-		if (self.tabletype == "timeline"):
-			window = self.win_TMT
-		elif (self.tabletype == "cuspaspects"):
-			window = self.win_TCA
-		window.print_op.set_export_filename(local_file.get_path())
-		res = window.print_op.run(Gtk.PrintOperationAction.EXPORT, window)
-		window.close()
+	def exportPDF(self, local_file):
+		self.print_op.set_export_filename(local_file.get_path())
+		self.print_op.run(Gtk.PrintOperationAction.EXPORT, self)
+		self.close()
 
-	def tablesChartPrintBegin(self, operation, context, pages):
+	def printBegin(self, operation, context):
+		#number of pages of the table
+		self.render()
 		operation.set_n_pages(self.chart.pages)
 		operation.set_use_full_page(False)
 		ps = Gtk.PageSetup()
@@ -175,7 +136,7 @@ class TableWindowsMixin:
 		ps.set_paper_size(Gtk.PaperSize(Gtk.PAPER_NAME_A4))
 		operation.set_default_page_setup(ps)
 
-	def tablesChartPrintDraw(self, operation, context, page_nr):
+	def printDraw(self, operation, context, page_nr):
 		cr = Gtk.PrintContext.get_cairo_context(context)
 		#print options
 		printing={}
@@ -184,13 +145,8 @@ class TableWindowsMixin:
 		printing['height']=Gtk.PrintContext.get_height(context)
 		printing['dpi_x']=Gtk.PrintContext.get_dpi_x(context)
 		printing['dpi_y']=Gtk.PrintContext.get_dpi_y(context)
-		#draw svg
-		if(self.tabletype == "timeline"):
-			#draw svg for printing
-			svg = Rsvg.Handle.new_from_data(self.chart.makeTimelineSVG(printing=printing,y=self.tMT_year,m=self.tMT_month).encode('utf-8'))
-		elif(self.tabletype == "cuspaspects"):
-			#draw svg for printing
-			svg = Rsvg.Handle.new_from_data(self.chart.makeCuspAspectsSVG(printing=printing).encode('utf-8'))
+		#draw svg for printing
+		svg = Rsvg.Handle.new_from_data(self.render(printing).encode('utf-8'))
 		viewport = Rsvg.Rectangle()
 		viewport.x = 0
 		viewport.y = 0
@@ -198,49 +154,24 @@ class TableWindowsMixin:
 		viewport.height = Gtk.PrintContext.get_height(context)
 		svg.render_document(cr, viewport)
 
-	def tableExposeEvent(self, drawing, context):
-		if (self.tabletype == "timeline"):
-			svg = self.svg_TMT
-		elif (self.tabletype == "cuspaspects"):
-			svg = self.svg_TCA
-		if svg is not None:
-			w = svg.get_property("width")
-			h = svg.get_property("height")
-			drawing.set_size_request(w, h)
-			# prepare viewport for display
-			viewport = Rsvg.Rectangle()
-			viewport.x=0
-			viewport.y=0
-			viewport.width = w
-			viewport.height = h
-			svg.render_document(context, viewport)
+class TimelineWindow(TableWindow):
+	"""transits of a month, uses the transit settings"""
 
-	def tableCuspAspects_callback(self, action, parameter):
-		self.tabletype="cuspaspects"
-		svg = self.chart.makeCuspAspectsSVG(printing=None)
-		#generate window
-		self.win_TCA = Gtk.Window()
-		self.win_TCA.set_title("OpenAstro.org Cusp Aspects")
-		""" >>> set_icon """
-		#self.win_TCA.set_icon_from_file(self.cfg.iconWindow)
-		self.win_TCA.set_default_size(924,732)
-		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-		vbox.set_vexpand(True)
-		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		button = Gtk.Button.new_with_mnemonic(label=_('Print'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=False,window=self.win_TCA,name="CuspAspects-%s.pdf"%(self.chart.name)))
-		hbox.append(button)
-		button = Gtk.Button.new_with_mnemonic(label=_('Save as PDF'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=True,window=self.win_TCA,name="CuspAspects-%s.pdf"%(self.chart.name)))
-		hbox.append(button)
-		vbox.append(hbox)
-		self.win_TCA.image = ViewSVG(svg)
-		self.win_TCA.image.set_vexpand(True)
-		self.win_TCA.image.set_hexpand(True)
-		self.win_TCA.image.set_valign(Gtk.Align.CENTER)
-		self.win_TCA.image.set_halign(Gtk.Align.CENTER)
-		scrolled_window = Gtk.ScrolledWindow()
-		scrolled_window.set_child(self.win_TCA.image)
-		vbox.append(scrolled_window)
-		self.win_TCA.set_child(vbox)
-		self.win_TCA.present()
+	settings = 'transit'
+
+	def __init__(self, window, year, month):
+		self.year = year
+		self.month = month
+		super().__init__(window, "OpenAstro.org Monthly Timeline", (1024, 732), "Timeline-%s.pdf" % (window.chart.name))
+
+	def render(self, printing=None):
+		return self.chart.makeTimelineSVG(printing=printing, y=self.year, m=self.month)
+
+class CuspAspectsWindow(TableWindow):
+	"""aspects of the planets to the house cusps, uses the radix settings"""
+
+	def __init__(self, window):
+		super().__init__(window, "OpenAstro.org Cusp Aspects", (924, 732), "CuspAspects-%s.pdf" % (window.chart.name))
+
+	def render(self, printing=None):
+		return self.chart.makeCuspAspectsSVG(printing=printing)

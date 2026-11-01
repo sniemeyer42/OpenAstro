@@ -13,7 +13,8 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Menu 'Chart Types': radix, transit (date bar), solar return, progression
+Chart types: date bar of transit charts, dialogs of solar return and
+secondary progression
 """
 
 import datetime
@@ -22,43 +23,18 @@ import pytz
 from gi.repository import GLib, Gtk
 from openastromod import zonetab
 from astrochart.constants import TRANSIT_YEAR_MAX, TRANSIT_YEAR_MIN
+from astrochart.ui.dialog import AstroDialog
 
-class ChartTypesMixin:
-	"""Menu 'Chart Types': radix, transit (date bar), solar return, progression"""
+class TransitBar(Gtk.Box):
+	"""date bar for transit charts, the chart is updated on the fly"""
 
-	"""
-	 'Chart Types' Menu Items Callbacks
-	  specialRadix
-	  specialTransit
-	  makeTransitBar
-	  setTransitNow
-	  setTransitDate
-	  transitSpinChanged
-	  transitSpinOutput
-	  transitRedraw
-	  specialSolar
-	  specialProgression
-	"""
-	def specialRadix_callback(self, action, parameter):
-		self.chart.type = "Radix"
-		self.chart.charttype = self.chart.label["radix"]
-		self.chart.transit = False
-		self.updateChart()
-
-	def specialTransit_callback(self, action, parameter):
-		#transit at home location, nearest timezone if home has none
-		self.chart.t_timezonestr = self.chart.home_timezonestr
-		if self.chart.t_timezonestr not in pytz.all_timezones_set:
-			self.chart.t_timezonestr = zonetab.nearest_tz(float(self.chart.home_geolat), float(self.chart.home_geolon), zonetab.timezones())[2]
-		self.transitZone.set_tooltip_text('%s (%s)' % (self.chart.home_location, self.chart.t_timezonestr))
-		self.transitBar.set_visible(True)
-		self.setTransitNow()
-
-	""" Date bar for transit charts, chart is updated on the fly """
-	def makeTransitBar(self):
+	def __init__(self, window):
+		super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+		self.window = window
+		self.chart = window.chart
 		self.transitSpinLock = False
 		self.transitRedrawPending = False
-		bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+		bar = self
 		bar.props.margin_start = 12
 		bar.props.margin_end = 12
 		bar.props.margin_top = 6
@@ -94,7 +70,15 @@ class ChartTypesMixin:
 		button.connect("clicked", lambda w: self.setTransitNow())
 		bar.append(button)
 		bar.set_visible(False)
-		return bar
+
+	def start(self):
+		#transit at home location, nearest timezone if home has none
+		self.chart.t_timezonestr = self.chart.home_timezonestr
+		if self.chart.t_timezonestr not in pytz.all_timezones_set:
+			self.chart.t_timezonestr = zonetab.nearest_tz(float(self.chart.home_geolat), float(self.chart.home_geolon), zonetab.timezones())[2]
+		self.transitZone.set_tooltip_text('%s (%s)' % (self.chart.home_location, self.chart.t_timezonestr))
+		self.set_visible(True)
+		self.setTransitNow()
 
 	def setTransitNow(self):
 		now = datetime.datetime.now(pytz.timezone(self.chart.t_timezonestr))
@@ -152,21 +136,15 @@ class ChartTypesMixin:
 	def transitRedraw(self):
 		self.transitRedrawPending = False
 		#keep zoom level while scrolling through the dates
-		scale = self.image.scale
-		self.updateChart()
-		self.image.scale = scale
+		self.window.refreshChart()
 		return False
 
-	def specialSolar_callback(self, action, parameter):
-		# create a new window
-		self.win_SS = Gtk.Window()
-		""" >>> set_icon """
-		#self.win_SS.set_icon_from_file(self.cfg.iconWindow)
-		self.win_SS.set_title(_("Select year for Solar Return"))
-		#self.win_SS.connect("delete_event", lambda w,e: self.win_SS.destroy())
-		#self.win_SS.move(150,150)
-		#self.win_SS.set_border_width(5)
-		self.win_SS.set_size_request(300,100)
+class SolarReturnDialog(AstroDialog):
+	"""year of the solar return"""
+
+	def __init__(self, window):
+		super().__init__(window, title=_("Select year for Solar Return"))
+		self.set_size_request(300,100)
 		#create a grid
 		grid = Gtk.Grid()
 		grid.set_column_spacing(8)
@@ -187,31 +165,27 @@ class ChartTypesMixin:
 		grid.attach(spinner['Y'], 1, 1, 1, 1)
 		#ok button
 		button = Gtk.Button.new_with_mnemonic(label = _("OK"))
-		button.connect("clicked", self.specialSolarSubmit, spinner)
+		button.connect("clicked", lambda w: self.submit(spinner))
 		#button.set_can_default(True)
 		grid.attach(button, 0, 2, 1, 1)
-		#self.win_SS.action_area.pack_start(button, True, True, 0)
-		#button.grab_default()
 		#cancel button
 		button = Gtk.Button.new_with_mnemonic(label = _("Cancel"))
-		button.connect("clicked", lambda w: self.win_SS.destroy())
+		button.connect("clicked", lambda w: self.close())
 		grid.attach(button, 1, 2, 1, 1)
-		#self.win_SS.action_area.pack_start(button, True, True, 0)
-		self.win_SS.set_child(grid)
-		self.win_SS.present()
+		self.set_child(grid)
 
-	def specialSolarSubmit(self, widget, spinner):
+	def submit(self, spinner):
 		y = spinner['Y'].get_value_as_int()
 		self.chart.localToSolar(y)
-		self.win_SS.close()
-		self.updateChart()
+		self.close()
+		self.window.updateChart()
 
-	def specialProgression_callback(self, action, parameter):
-		# create a new window
-		self.win_SSP = Gtk.Window()
-		""" set_icon """
-		self.win_SSP.set_title(_("Enter Date"))
-		self.win_SSP.set_size_request(320,180)
+class ProgressionDialog(AstroDialog):
+	"""date of the secondary progression"""
+
+	def __init__(self, window):
+		super().__init__(window, title=_("Enter Date"))
+		self.set_size_request(320,180)
 		#create a grid
 		grid = Gtk.Grid()
 		grid.set_column_spacing(8)
@@ -267,17 +241,16 @@ class ChartTypesMixin:
 		button_box.set_homogeneous(True)
 		button_box.set_vexpand(False)
 		button = Gtk.Button.new_with_mnemonic(label = _("OK"))
-		button.connect("clicked", self.specialSecondaryProgressionSubmit, spinner)
+		button.connect("clicked", lambda w: self.submit(spinner))
 		button_box.prepend(button)
 		#cancel button
 		button = Gtk.Button.new_with_mnemonic(label = _("Cancel"))
-		button.connect("clicked", lambda w: self.win_SSP.destroy())
+		button.connect("clicked", lambda w: self.close())
 		button_box.append(button)
 		grid.attach(button_box, 0, 3, 5, 1)
-		self.win_SSP.set_child(grid)
-		self.win_SSP.present()
+		self.set_child(grid)
 
-	def specialSecondaryProgressionSubmit(self, widget, spinner):
+	def submit(self, spinner):
 		y = spinner['Y'].get_value_as_int()
 		mon = spinner['M'].get_value_as_int()
 		d = spinner['D'].get_value_as_int()
@@ -285,5 +258,5 @@ class ChartTypesMixin:
 		m = spinner['m'].get_value_as_int()
 		dt = datetime.datetime(y, mon, d, h, m)
 		self.chart.localToSecondaryProgression(dt)
-		self.win_SSP.destroy()
-		self.updateChart()
+		self.close()
+		self.window.updateChart()
