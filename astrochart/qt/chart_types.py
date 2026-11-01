@@ -18,120 +18,29 @@ progression and of the month of the timeline
 """
 
 import datetime
-import calendar
-import pytz
-from PySide6.QtCore import QDateTime, QDate, QTime, QTimer
-from PySide6.QtWidgets import (QDateTimeEdit, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QInputDialog,
-	QLabel, QPushButton, QSpinBox, QWidget)
-from astrochart.constants import TRANSIT_YEAR_MAX, TRANSIT_YEAR_MIN
+from PySide6.QtCore import QDateTime, QDate, QTime
+from PySide6.QtWidgets import QDateTimeEdit, QDialog, QDialogButtonBox, QFormLayout, QInputDialog, QLabel, QPushButton
+from astrochart.qt.date_bar import DateBar
 
-class TwoDigitSpinBox(QSpinBox):
-	"""day, month, hour and minute with two digits"""
-
-	def textFromValue(self, value):
-		return '%02d' % value
-
-class TransitBar(QWidget):
-	"""date bar for transit charts, the chart is updated on the fly"""
+class TransitBar(DateBar):
+	"""date bar of transit charts at the home location, the chart is updated on the fly"""
 
 	def __init__(self, window):
-		super().__init__()
-		self.window = window
-		self.chart = window.chart
-		self.transitSpinLock = False
-		self.transitDate = None
-		#fast scrolling through the dates is gathered into one redraw
-		self.redrawTimer = QTimer(self)
-		self.redrawTimer.setSingleShot(True)
-		self.redrawTimer.setInterval(0)
-		self.redrawTimer.timeout.connect(self.transitRedraw)
-		bar = QHBoxLayout(self)
-		bar.setContentsMargins(8, 4, 8, 4)
-		bar.addWidget(QLabel(_("Transit") + ":"))
-		#bounds exceed the valid values by one page, so that stepping
-		#beyond the last day, month, hour or minute carries over
-		spinners = [
-			('D', _("Day"), -6, 38, 7),
-			('M', _("Month"), -2, 15, 3),
-			('Y', _("Year"), TRANSIT_YEAR_MIN, TRANSIT_YEAR_MAX, 10),
-			('h', _("Hour"), -6, 29, 6),
-			('m', _("Min"), -15, 74, 15) ]
-		self.transitSpin = {}
-		for key, label, lower, upper, page in spinners:
-			spinner = QSpinBox() if key == 'Y' else TwoDigitSpinBox()
-			spinner.setRange(lower, upper)
-			spinner.setAccelerated(True)
-			spinner.setToolTip(label)
-			spinner.valueChanged.connect(lambda value, key=key: self.transitSpinChanged(key, value))
-			self.transitSpin[key] = spinner
-			caption = QLabel(label)
-			caption.setBuddy(spinner)
-			bar.addWidget(caption)
-			bar.addWidget(spinner)
-		#timezone of transit
-		self.transitZone = QLabel()
-		bar.addWidget(self.transitZone)
-		bar.addStretch(1)
+		super().__init__(window, _("Transit"))
 		button = QPushButton(_("Here and Now"))
-		button.clicked.connect(self.setTransitNow)
-		bar.addWidget(button)
-		self.setVisible(False)
+		button.clicked.connect(lambda: self.setMoment(self.now()))
+		self.bar.addWidget(button)
 
 	def start(self):
 		#transit at home location, nearest timezone if home has none
 		self.chart.t_timezonestr = self.chart.homeTimezone()
-		self.transitZone.setToolTip('%s (%s)' % (self.chart.home_location, self.chart.t_timezonestr))
+		self.homeZone()
+		self.zone.setToolTip('%s (%s)' % (self.chart.home_location, self.chart.t_timezonestr))
 		self.setVisible(True)
-		self.setTransitNow()
+		self.setMoment(self.now())
 
-	def setTransitNow(self):
-		now = datetime.datetime.now(pytz.timezone(self.chart.t_timezonestr))
-		self.setTransitDate(now.replace(tzinfo=None, second=0, microsecond=0))
-
-	def setTransitDate(self, dt):
-		""" Set transit to local datetime dt, show it in the date bar and redraw """
-		#stay within the range of the ephemeris files
-		if dt.year < TRANSIT_YEAR_MIN or dt.year > TRANSIT_YEAR_MAX:
-			dt = self.transitDate
-		self.transitDate = dt
-		#show carried over values
-		self.transitSpinLock = True
-		self.transitSpin['D'].setValue(dt.day)
-		self.transitSpin['M'].setValue(dt.month)
-		self.transitSpin['Y'].setValue(dt.year)
-		self.transitSpin['h'].setValue(dt.hour)
-		self.transitSpin['m'].setValue(dt.minute)
-		self.transitSpinLock = False
-		dt_aware = self.chart.localToTransit(dt)
-		self.transitZone.setText(dt_aware.tzname() + self.chart.decTzStr(self.chart.t_timezone))
-		if not self.redrawTimer.isActive():
-			self.redrawTimer.start()
-
-	def transitSpinChanged(self, key, value):
-		if self.transitSpinLock:
-			return
-		dt = self.transitDate
-		if key == 'Y' or key == 'M':
-			if key == 'Y':
-				year, month = value, dt.month
-			else:
-				#month 13 is january of next year, month 0 december of last year
-				year, month = divmod(dt.year * 12 + value - 1, 12)
-				month += 1
-			#keep day within month, e.g. 31st of january + 1 month = 28th of february
-			day = min(dt.day, calendar.monthrange(year, month)[1])
-			dt = dt.replace(year=year, month=month, day=day)
-		elif key == 'D':
-			dt += datetime.timedelta(days=value - dt.day)
-		elif key == 'h':
-			dt += datetime.timedelta(hours=value - dt.hour)
-		elif key == 'm':
-			dt += datetime.timedelta(minutes=value - dt.minute)
-		self.setTransitDate(dt)
-
-	def transitRedraw(self):
-		#keep zoom level while scrolling through the dates
-		self.window.refreshChart()
+	def apply(self, moment):
+		self.chart.localToTransit(moment)
 
 def askSolarReturn(window):
 	"""year of the solar return"""

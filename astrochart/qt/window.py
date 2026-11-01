@@ -65,8 +65,6 @@ class MainWindow(QMainWindow):
 		self.transitBar = TransitBar(self)
 		self.nowBar = HereAndNowBar(self)
 		self.image = ChartView(self.chartSVGs(), self.chart, self.selectBody)
-		#mouse wheel over the chart 'Here and Now': earlier or later
-		self.image.on_wheel = lambda event: not self.nowBar.isHidden() and self.nowBar.wheel(event)
 		self.image.viewport().setBackgroundRole(QPalette.ColorRole.Window)
 		chartArea = QWidget()
 		layout = QVBoxLayout(chartArea)
@@ -99,8 +97,7 @@ class MainWindow(QMainWindow):
 		self.updateTitle()
 		self.panels.update()
 		#the chart at the start: 'Here and Now', following the clock
-		self.nowBar.setIcons(themeIcon('mark-location', 'find-location', 'gps'), themeIcon('chronometer', 'clock', 'appointment-soon'),
-			themeIcon('go-previous'), themeIcon('go-next'))
+		self.nowBar.setIcons(themeIcon('mark-location', 'find-location', 'gps'), themeIcon('chronometer', 'clock', 'appointment-soon'))
 		self.nowBar.start()
 
 	""" Actions, menus and tool bar """

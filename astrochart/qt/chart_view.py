@@ -35,24 +35,13 @@ def involves(aspect, side, ident):
 		(aspect['second']['id'], aspect['second']['transit']) == (ident, transit)
 
 class ChartView(SvgView):
-	"""
-	wheel of chart (calculated and drawn), on_select(side, id) or
-	on_select(None, None); on_wheel(event) may take the mouse wheel (True
-	if it did), Ctrl + mouse wheel always zooms
-	"""
+	"""wheel of chart (calculated and drawn), on_select(side, id) or on_select(None, None)"""
 
 	def __init__(self, svg, chart, on_select, parent=None):
 		super().__init__(svg, fit='page', parent=parent)
 		self.chart = chart
 		self.on_select = on_select
-		self.on_wheel = None
 		self.viewport().setMouseTracking(True)
-
-	def wheelEvent(self, event):
-		if not event.modifiers() & Qt.KeyboardModifier.ControlModifier and self.on_wheel is not None and self.on_wheel(event):
-			event.accept()
-			return
-		super().wheelEvent(event)
 
 	def wheelPoint(self, x, y):
 		"""viewport point in coordinates of the wheel template"""

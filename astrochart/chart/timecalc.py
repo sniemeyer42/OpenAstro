@@ -126,8 +126,8 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 	  daylight saving time is regarded for every date
 	"""
 	def localToTransit(self, dt):
-		#aware datetime object
-		dt_aware = pytz.timezone(self.t_timezonestr).localize(dt)
+		#aware datetime object (a naive one is the local time of the transit timezone)
+		dt_aware = dt if dt.tzinfo is not None else pytz.timezone(self.t_timezonestr).localize(dt)
 		#naive utc datetime object
 		dt_utc = dt_aware.replace(tzinfo=None) - dt_aware.utcoffset()
 		self.t_year = dt_utc.year
