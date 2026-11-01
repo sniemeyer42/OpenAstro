@@ -17,7 +17,7 @@ for a in range(len(f)):
 
 pre_data_files += [
 	('share/applications', ['astrochart.desktop']),
-	('share/openastro.org', ['data/famous.sql','data/geonames.sql','about.xpm', 'openastro-svg-wheel.xml','openastro-svg-symbols.xml','openastro-svg-table.xml', 'COMMENTS', 'LICENSE', 'VERSION']),
+	('share/openastro.org', ['data/famous.sql','data/geonames.sql','about.xpm', 'openastro-svg-wheel.xml','openastro-svg-symbols.xml', 'COMMENTS', 'LICENSE', 'VERSION']),
 	('share/openastro.org/icons', ['icons/openastro.svg']),
 	('share/openastro.org/icons/aspects', glob.glob('icons/aspects/*.svg')),
 	('share/swisseph', glob.glob('swisseph/*.*'))

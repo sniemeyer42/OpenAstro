@@ -13,17 +13,57 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-SVG of the tables: monthly timeline and cusp aspects
+SVG of the tables (A4 portrait pages): monthly timeline of the transits and
+the aspects of the bodies to the house cusps
 """
 
-import math
 import datetime
-from string import Template
+from xml.sax.saxutils import escape
 from openastromod import swiss as ephemeris
-from astrochart.constants import ASPECT_DEGREES
+from astrochart.chart.svg_print import FONT, INK, GREY, rule, symbol, text
+
+#page in units of 0.25 mm: A4 portrait 210 x 297 mm, pages stacked with a gap
+PAGE_WIDTH = 840
+PAGE_HEIGHT = 1188
+PAGE_GAP = 10
+MARGIN = 36
+ZEBRA = '#f4f4f6'
+ACCENT = '#3584e4'
+
+def document(pages, printing, symbols, content, title):
+	"""
+	SVG of pages stacked vertically; printing (pagenum, width, height) shows
+	one page at the size of the printed page
+	"""
+	height = pages * (PAGE_HEIGHT + PAGE_GAP) - PAGE_GAP
+	if printing is None:
+		size = 'width="%s" height="%s" viewBox="0 0 %s %s"' % (PAGE_WIDTH, height, PAGE_WIDTH, height)
+	else:
+		size = 'width="%s" height="%s" viewBox="0 %s %s %s"' % (printing['width'], printing['height'],
+			printing['pagenum'] * (PAGE_HEIGHT + PAGE_GAP), PAGE_WIDTH, PAGE_HEIGHT)
+	paper = ''.join('<rect x="0" y="%s" width="%s" height="%s" style="fill: white;"/>\n' % (
+		p * (PAGE_HEIGHT + PAGE_GAP), PAGE_WIDTH, PAGE_HEIGHT) for p in range(pages))
+	return ('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'
+		'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" %s>\n'
+		'<title>%s</title>\n%s\n%s<g style="font-family: %s;">\n%s</g>\n</svg>\n') % (
+		size, escape(str(title)), symbols, paper, FONT, content)
 
 class TablesSVGMixin:
-	"""SVG of the tables: monthly timeline and cusp aspects"""
+	"""tables of the radix chart: monthly timeline and cusp aspects"""
+
+	def tableHeader(self, top, title, subtitle, page=0, pages=1):
+		"""title, subtitle, page number and footer of a table page"""
+		out = text(MARGIN, top + MARGIN + 22, title, 22, weight='bold')
+		out += text(MARGIN, top + MARGIN + 44, subtitle, 12, GREY)
+		if pages > 1:
+			out += text(PAGE_WIDTH - MARGIN, top + MARGIN + 22, '%d / %d' % (page + 1, pages), 12, GREY, anchor='end')
+		out += text(PAGE_WIDTH - MARGIN, top + PAGE_HEIGHT - 16, 'OpenAstro.org', 10, GREY, anchor='end')
+		return out
+
+	def radixLine(self):
+		"""name, local date and place of the radix for table headers"""
+		return '%s  ·  %s-%02d-%02d %02d:%02d%s  ·  %s' % (self.name, self.year_loc, self.month_loc, self.day_loc,
+			self.hour_loc, self.minute_loc, self.decTzStr(self.timezone), self.location)
 
 	""" make graphic for monthly timeline """
 	def makeTimelineSVG(self,printing,y,m):
@@ -41,8 +81,6 @@ class TablesSVGMixin:
 		for d in range(delta.days):
 			cdate = startdate + datetime.timedelta(days=d)
 			tmoddata = ephemeris.ephData(cdate.year,cdate.month,cdate.day,cdate.hour, self.geolon,self.geolat,self.altitude,self.planets,self.zodiac,self.db.astrocfg)
-			#planets_sign,planets_degree,planets_degree_ut,planets_retrograde,houses_degree
-			#houses_sign,houses_degree_ut
 			for i in range(len(self.planets)):
 				start=self.planets_degree_ut[i]
 				#every radix planet against every transit planet (not symmetric)
@@ -62,234 +100,122 @@ class TablesSVGMixin:
 							#aspect grid dictionary
 							s="%02d%02d%02d"%(i,z,x)
 							astypes[s]=(i,x,z)
-
-							if s not in retrogrid:
-								retrogrid[s]={}
-							retrogrid[s][d]=tmoddata.planets_retrograde[x]
-
-							if s not in atgrid:
-								atgrid[s]={}
-							atgrid[s][d]=orb
-		#sort
-		keys = list(astypes.keys())
-		keys.sort()
-		#at least one page (all transit aspects may be hidden)
-		self.pages = max(1, int(math.ceil(len(keys)/65.0)))
-		out = ""
-		#make numbers of days in month
-		dx=[80]
-		skipdays = [9,19]
-		for d in range(delta.days):
-			if d in skipdays:
-				dx.append(dx[-1]+40)
-			else:
-				dx.append(dx[-1]+20)	
+							retrogrid.setdefault(s, {})[d]=tmoddata.planets_retrograde[x]
+							atgrid.setdefault(s, {})[d]=orb
+		keys = sorted(astypes.keys())
+		days = delta.days
+		#layout: label column, a column per day, rows on as many pages as needed
+		row = 16.0
+		top = MARGIN + 96
+		per_page = int((PAGE_HEIGHT - top - MARGIN - 24) // row)
+		self.pages = max(1, -(-len(keys) // per_page))
+		label = 70.0
+		column = (PAGE_WIDTH - 2 * MARGIN - label) / days
+		x0 = MARGIN + label
+		local = [datetime.date(y, m, 1) + datetime.timedelta(days=d) for d in range(days)]
+		today = datetime.date.today()
+		title = '%s  ·  %s' % (datetime.date(y, m, 1).strftime('%B %Y'), self.name)
+		out = []
 		for p in range(self.pages):
-			if p == 0:
-				ystart = 10
-			else:
-				ystart = (1188 * p) + 62
-			pagelen = (len(keys)+1)-p*65
-			if pagelen > 65:
-				pagelen = 66
-			ylen = ((len(keys)+1)-p*65)*16	
-			for a in range(delta.days):
-				out += '<text x="%s" y="%s" style="fill: %s; font-size: 10">%02d</text>\n'%(
-					dx[a],ystart,self.colors['paper_0'],a+1)
-				out += '<line x1="%s" y1="%s" x2="%s" y2="%s" style="stroke: %s; stroke-width: .5; stroke-opacity:1;"/>\n'%(
-					dx[a]-5,ystart,dx[a]-5,ystart+pagelen*16,self.colors['paper_0'])	
-				#skipdays line
-				if a in skipdays:
-					out += '<line x1="%s" y1="%s" x2="%s" y2="%s" style="stroke: %s; stroke-width: .5; stroke-opacity:1;"/>\n'%(
-						dx[a]-5+20,ystart,dx[a]-5+20,ystart+pagelen*16,self.colors['paper_0'])						
-			#last line
-			out += '<line x1="%s" y1="%s" x2="%s" y2="%s" style="stroke: %s; stroke-width: .5; stroke-opacity:1;"/>\n'%(
-					dx[-1]-5,ystart,dx[-1]-5,ystart+pagelen*16,self.colors['paper_0'])
-		#get the number of total aspects
-		c = 0
-		for m in range(len(keys)):
-			i,x,z = astypes[keys[m]]
-			c += 1
-			pagenum = int(math.ceil(c/65.0))
-			pagey = (pagenum - 1) * 200
-			y = (c*16) + pagey
-			#horizontal lines
-			out += '<line x1="%s" y1="%s" x2="%s" y2="%s" style="stroke: %s; stroke-width: .5; stroke-opacity:1;"/>\n'%(
-				0,y-1,dx[skipdays[0]]+15,y-1,self.colors['paper_0'])
-			for s in range(len(skipdays)):
-				if s is len(skipdays)-1:
-					out += '<line x1="%s" y1="%s" x2="%s" y2="%s" style="stroke: %s; stroke-width: .5; stroke-opacity:1;"/>\n'%(
-						dx[skipdays[s]+1]-5,y-1,dx[-1],y-1,self.colors['paper_0'])
-				else:
-					out += '<line x1="%s" y1="%s" x2="%s" y2="%s" style="stroke: %s; stroke-width: .5; stroke-opacity:1;"/>\n'%(
-						dx[skipdays[s]+1]-5,y-1,dx[skipdays[s+1]]+15,y-1,self.colors['paper_0'])
-			#outer planet (symbol ids of the shared table template are the
-			#database names with spaces, as in makeCuspAspectsSVG)
-			out += '<g transform="translate(0,%s)"><g transform="scale(.5)"><use x="0" y="0" xlink:href="#%s" /></g></g>\n'%(
-				y,self.planets[x]['name'])
-			#aspect
-			out += '<g><use x="20" y="%s" xlink:href="#orb%s" /></g>\n'%(
-				y,aspects[z]['degree'])
-			#inner planet
-			out += '<g transform="translate(40,%s)"><g transform="scale(.5)"><use x="0" y="0" xlink:href="#%s" /></g></g>\n'%(y,
-				self.planets[i]['name'])
-			for d in range(delta.days):					
-				if d in atgrid[keys[m]]:
-					orb = atgrid[keys[m]][d]
-					#opacity from .8 (exact) to .1 (at the orb of the aspect)
-					maxorb = aspects[z]['orb']
-					if maxorb > 0:
-						op = .8-.7*(orb/maxorb)
-					else:
-						op = .8
-					if op > 1:
-						op = 1
-					#orb label fitting the day cell: one decimal (truncated) below 10 degrees
-					if orb < 10:
-						strop = '%.1f' % (math.floor(orb*10)/10.0)
-					else:
-						strop = '%d' % (int(orb))
-					out += '<rect x="%s" y="%s" width="20" height="16" style="fill: %s; fill-opacity:%s;" />'%(dx[d]-5,y-1,self.colors["aspect_%s" %(aspects[z]['degree'])],op)
-					#check for retrograde outer planet
-					if retrogrid[keys[m]][d]:
-						out += '<g transform="translate(%s,%s)"><g transform="scale(.3)">\
-							<use x="0" y="0" xlink:href="#retrograde" style="fill:%s; fill-opacity:.8;" /></g></g>\n'%(dx[d]+10,y+10,self.colors['paper_0'],)							
-					out += '<text x="%s" y="%s" style="fill: %s; font-size: 10">%s</text>\n'%(
-						dx[d],y+9,self.colors['paper_0'],strop)
-				else:
-					out += ""
-		#template
-		td = {}
-		td['paper_color_0']=self.colors["paper_0"]
-		td['paper_color_1']=self.colors["paper_1"]
-		for i in range(len(self.planets)):
-			td['planets_color_%s'%(i)]=self.colors["planet_%s"%(i)]
-		for i in range(12):
-			td['zodiac_color_%s'%(i)]=self.colors["zodiac_icon_%s" %(i)]
-		for deg in ASPECT_DEGREES:
-			td['orb_color_%s'%(deg)]=self.colors["aspect_%s" %(deg)]
-		td['stringTitle'] = "%s Timeline for %s"%(
-			startdate.strftime("%B %Y"),self.name)
-		self.pagesY = (1188 * self.pages)+10 #ten is buffer between self.pages
-		if printing is None:
-			td['svgWidth'] = 1050
-			td['svgHeight'] = (td['svgWidth']/840.0)* self.pagesY
-			td['viewbox'] = "0 0 840 %s" %(self.pagesY) 
-		else:
-			# add buffer of ten between self.pages
-			self.pagesY += 10
-			td['svgWidth'] = printing['width']
-			td['svgHeight'] = printing['height']
-			td['viewbox'] = "0 %s 840 1188" %( printing['pagenum']*(1188+10) )
-		td['data'] = out
-		#self.pages rectangles
-		pagesRect,x,y,w,h="",0,0,840,1188
-		for p in range(self.pages):
-			if p == 0:
-				offset=0
-			else:
-				offset=10
-			pagesRect += '<rect x="%s" y="%s" width="%s" height="%s" style="fill: %s;" />'%(x,y+(p*1188)+offset,w,h,self.colors['paper_1'],)
-		td['pagesRect'] = pagesRect
-		#read and write template
-		f=open(self.cfg.xml_svg_table)
-		template=Template(f.read()).substitute(td)
-		f.close()
-		#svg document as text
-		return template
+			oy = p * (PAGE_HEIGHT + PAGE_GAP)
+			rows = keys[p * per_page:(p + 1) * per_page]
+			out.append(self.tableHeader(oy, title, '%s  ·  %s' % (_('Transit'), self.radixLine()), p, self.pages))
+			head = oy + top - 34
+			bottom = oy + top + row * len(rows)
+			#days: weekday and number, weekends shaded, today framed
+			for d, day in enumerate(local):
+				x = x0 + d * column
+				if day.weekday() >= 5:
+					out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" style="fill: %s;"/>\n' % (x, head, column, bottom - head, ZEBRA))
+				out.append(text(x + column / 2, oy + top - 22, day.strftime('%a')[:2], 8, GREY, anchor='middle'))
+				out.append(text(x + column / 2, oy + top - 8, day.day, 11, INK, weight='bold' if day == today else 'normal', anchor='middle'))
+				if day == today:
+					out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="3" style="fill: none; stroke: %s; stroke-width: 1.5;"/>\n' % (
+						x + 0.5, head, column - 1, bottom - head, ACCENT))
+			out.append(rule(MARGIN, oy + top, PAGE_WIDTH - MARGIN))
+			for k, key in enumerate(rows):
+				i, x, z = astypes[key]
+				ry = oy + top + k * row
+				if k % 2:
+					out.append('<rect x="%s" y="%.1f" width="%s" height="%s" style="fill: %s;"/>\n' % (MARGIN, ry, label, row, ZEBRA))
+				#transit body, aspect, radix body
+				out.append(symbol(self.svgSafeHref(self.planets[x]['name']), MARGIN + 2, ry + 1.5, 13))
+				out.append(symbol('orb%s' % aspects[z]['degree'], MARGIN + 25, ry + 3.5, 9))
+				out.append(symbol(self.svgSafeHref(self.planets[i]['name']), MARGIN + 42, ry + 1.5, 13))
+				orbs = atgrid[key]
+				exact = min(orbs, key=orbs.get)
+				maxorb = aspects[z]['orb']
+				color = self.colors["aspect_%s" % (aspects[z]['degree'])]
+				for d, orb in orbs.items():
+					#opacity from .85 (exact) to .15 (at the orb of the aspect)
+					opacity = .85 - .7 * (orb / maxorb) if maxorb > 0 else .85
+					cx = x0 + d * column
+					style = 'fill: %s; fill-opacity: %.2f;' % (color, max(.15, min(.85, opacity)))
+					if d == exact:
+						style += ' stroke: %s; stroke-width: 1;' % (INK)
+					out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="2.5" style="%s"/>\n' % (cx + 1, ry + 1.5, column - 2, row - 3, style))
+					#orb fitting the day cell: one decimal (truncated) below 10 degrees
+					value = '%.1f' % (int(orb * 10) / 10.0) if orb < 10 else '%d' % (int(orb))
+					out.append(text(cx + column / 2, ry + row - 4.5, value, 7.5, INK, weight='bold' if d == exact else 'normal', anchor='middle'))
+					if retrogrid[key][d]:
+						out.append(text(cx + column - 2, ry + 7, '℞', 5.5, GREY, anchor='end'))
+			out.append(rule(MARGIN, bottom, PAGE_WIDTH - MARGIN))
+		return document(self.pages, printing, self.symbolDefinitions(), ''.join(out), title)
 
 	""" make graphic for cusp aspects """
 	def makeCuspAspectsSVG(self, printing):
 		#cusp aspects belong to the radix, self.aspects may hold the transit set
 		aspects = self.db.getSettingsAspect('radix')
-		#data
-		out='<g transform="scale(1.5)">'
-		xindent=50
-		yindent=200
-		box=14
-		style='stroke:%s; stroke-width: 1px; stroke-opacity:.6; fill:none' % (self.colors['paper_0'],)
-		textstyle="font-size: 11px; color: %s" % (self.colors['paper_0'],)
-		#draw cusps
-		for cusp in range(len(self.houses_degree_ut)):
-				x = xindent - box
-				y = yindent - (box*(cusp+1))
-				out += '<text x="%s" y="%s" style="%s">%s</text>\n'%(x-30, y+box-5, textstyle, self.label['cusp']+" "+str(cusp+1))
-		# add some space
-		xindent += 32
-		revr=range(len(self.planets))
-		for a in revr:
-			if 23 <= a <= 26:
-				continue; #skip asc/dsc/mc/ic
-			if a == 11 or a == 13 or a == 21 or a == 22:
-				continue; #skip ?,?,intp. apogee, intp. perigee
-			start=self.planets_degree_ut[a]
-			#first planet 
-			out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n' %(xindent,yindent,box,box,style)
-			out += '<use transform="scale(0.4)" x="%s" \
-					y="%s" xlink:href="#%s" />\n'%((xindent+2)*2.5,(yindent+1)*2.5, self.planets[a]['name'])
-			yorb=yindent - box
-			for b in range(12):
-				end=self.houses_degree_ut[b]
-				diff=self.degreeDiff(start,end)
-				out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n'%(xindent,yorb,box,box,style)
-				z = self.matchAspect(float(diff), aspects)
-				if z is not None and aspects[z]['visible_grid'] == 1:
-					out += '<use x="%s" y="%s" xlink:href="#orb%s" />\n'%(xindent,yorb+1,aspects[z]['degree'])
-				yorb=yorb-box
-			xindent += box
-		#add cusp to cusp
-		xindent = 50
-		yindent = 400
-		#draw cusps
-		for cusp in range(len(self.houses_degree_ut)):
-				x = xindent - box
-				y = yindent - (box*(cusp+1))
-				out += '<text x="%s" y="%s" style="%s">%s</text>\n'%(x-30, y+box-5, textstyle, self.label['cusp']+" "+str(cusp+1))
-		#add some space
-		xindent += 32
-		for a in range(12):
-			start=self.houses_degree_ut[a]
-			#first planet 
-			out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n' %(xindent,yindent,box,box,style)
-			out += '<text x="%s" y="%s" style="%s">%s</text>\n'%((xindent+2), (yindent+box-4), textstyle, ""+str(a+1))
-			yorb=yindent - box
-			for b in range(12):
-				end=self.houses_degree_ut[b]
-				diff=self.degreeDiff(start,end)
-				out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n'%(xindent,yorb,box,box,style)
-				z = self.matchAspect(float(diff), aspects)
-				if z is not None and aspects[z]['visible_grid'] == 1:
-					out += '<use x="%s" y="%s" xlink:href="#orb%s" />\n'%(xindent,yorb+1,aspects[z]['degree'])
-				yorb=yorb-box
-			xindent += box	
-		out += "</g>"
-		#template
-		td = {}
-		td['paper_color_0']=self.colors["paper_0"]
-		td['paper_color_1']=self.colors["paper_1"]
-		for i in range(len(self.planets)):
-			td['planets_color_%s'%(i)]=self.colors["planet_%s"%(i)]
-		for i in range(12):
-			td['zodiac_color_%s'%(i)]=self.colors["zodiac_icon_%s" %(i)]
-		for deg in ASPECT_DEGREES:
-			td['orb_color_%s'%(deg)]=self.colors["aspect_%s" %(deg)]
-		td['stringTitle'] = "Cusp Aspects for %s"%(self.name)
-		self.pages=1
-		#ten is buffer between self.pages
-		self.pagesY = (1188 * self.pages)+10
-		if printing is None:
-			td['svgWidth'] = 1050
-			td['svgHeight'] = (td['svgWidth']/840.0)* self.pagesY
-			td['viewbox'] = "0 0 840 %s" %( self.pagesY ) 
-		else:
-			td['svgWidth'] = printing['width']
-			td['svgHeight'] = printing['height']
-			td['viewbox'] = "0 %s 840 1188" %( printing['pagenum']*(1188+10) )
-		td['data'] = out
-		td['pagesRect'] = '<rect x="0" y="0" width="840" height="1188" style="fill: %s;" />' % (self.colors['paper_1'],)
-		#read and write template
-		f=open(self.cfg.xml_svg_table)
-		template=Template(f.read()).substitute(td)
-		f.close()
-		#svg document as text
-		return template
+		bodies = self.db.getSettingsPlanet('radix')
+		#shown bodies, the angles are cusps themselves
+		rows = [i for i in range(len(bodies)) if bodies[i]['visible'] == 1 and not 23 <= i <= 26]
+		self.pages = 1
+		title = '%s  ·  %s' % (_('Cusp Aspects'), self.name)
+		label = 170.0
+		column = (PAGE_WIDTH - 2 * MARGIN - label) / 12.0
+		top = MARGIN + 96
+		height = min(28.0, (PAGE_HEIGHT - top - MARGIN - 110) / (len(rows) + 12 + 2))
+		out = [self.tableHeader(0, title, self.radixLine())]
+
+		def cuspHeader(y, columns):
+			#number and sign of the cusps
+			for c in range(columns):
+				x = MARGIN + label + c * column
+				out.append(text(x + column / 2 - 6, y, c + 1, 12, INK, weight='bold', anchor='middle'))
+				out.append(symbol(self.zodiac[self.houses_sign[c]], x + column / 2 + 2, y - 11, 13))
+			out.append(rule(MARGIN, y + 6, PAGE_WIDTH - MARGIN))
+
+		def cell(x, y, start, end):
+			#aspect symbol and orb
+			diff = float(self.degreeDiff(start, end))
+			z = self.matchAspect(diff, aspects)
+			if z is not None and aspects[z]['visible_grid'] == 1:
+				size = min(16.0, height * 0.6)
+				out.append(symbol('orb%s' % aspects[z]['degree'], x + column / 2 - size / 2, y + 2, size))
+				orb = abs(diff - aspects[z]['degree'])
+				out.append(text(x + column / 2, y + height - 2, '%.1f°' % orb, min(8.0, height * 0.32), GREY, anchor='middle'))
+
+		#bodies to the cusps
+		y = top
+		cuspHeader(y - 8, 12)
+		for k, i in enumerate(rows):
+			ry = y + k * height
+			if k % 2:
+				out.append('<rect x="%s" y="%.1f" width="%s" height="%.1f" style="fill: %s;"/>\n' % (MARGIN, ry, PAGE_WIDTH - 2 * MARGIN, height, ZEBRA))
+			size = min(16.0, height * 0.7)
+			out.append(symbol(self.svgSafeHref(bodies[i]['name']), MARGIN + 2, ry + (height - size) / 2, size))
+			out.append(text(MARGIN + size + 8, ry + height / 2 + 4, bodies[i]['label'], min(12.0, height * 0.5)))
+			for c in range(12):
+				cell(MARGIN + label + c * column, ry, self.planets_degree_ut[i], self.houses_degree_ut[c])
+		y += len(rows) * height + 60
+		#cusps among each other
+		out.append(text(MARGIN, y - 30, _('Houses'), 16, weight='bold'))
+		cuspHeader(y - 8, 11)
+		for k in range(1, 12):
+			ry = y + (k - 1) * height
+			if k % 2 == 0:
+				out.append('<rect x="%s" y="%.1f" width="%s" height="%.1f" style="fill: %s;"/>\n' % (MARGIN, ry, PAGE_WIDTH - 2 * MARGIN, height, ZEBRA))
+			out.append(text(MARGIN + 2, ry + height / 2 + 4, '%s %s' % (self.label['cusp'], k + 1), min(12.0, height * 0.5)))
+			for c in range(k):
+				cell(MARGIN + label + c * column, ry, self.houses_degree_ut[k], self.houses_degree_ut[c])
+		return document(self.pages, printing, self.symbolDefinitions(), ''.join(out), title)

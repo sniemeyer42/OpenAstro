@@ -53,24 +53,20 @@ class TableWindow(AstroDialog):
 		super().__init__(window, title=title)
 		self.pdfname = pdfname
 		self.set_default_size(*size)
-		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-		vbox.set_vexpand(True)
-		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-		button = Gtk.Button.new_with_mnemonic(label=_('Print'))
+		#print and PDF export in the header bar
+		button = Gtk.Button(icon_name='document-print-symbolic', tooltip_text=_('Print'))
 		button.connect("clicked", lambda w: self.printTable(pdf=False))
-		button_box.append(button)
+		self.headerBar.pack_start(button)
 		button = Gtk.Button.new_with_mnemonic(label=_('Save as PDF'))
 		button.connect("clicked", lambda w: self.printTable(pdf=True))
-		button_box.append(button)
-		vbox.append(button_box)
+		self.headerBar.pack_start(button)
 		#pages fitted to the window width, scrolling down
 		self.image = ViewSVG(self.render(), fit='width')
 		self.image.set_vexpand(True)
 		self.image.set_hexpand(True)
 		scrolled_window = Gtk.ScrolledWindow()
 		scrolled_window.set_child(self.image)
-		vbox.append(scrolled_window)
-		self.set_child(vbox)
+		self.set_child(scrolled_window)
 		#the main window redraws the open table windows
 		window.tableWindows.add(self)
 		self.connect('close-request', lambda w: window.tableWindows.discard(self) or False)
@@ -141,7 +137,7 @@ class TimelineWindow(TableWindow):
 	def __init__(self, window, year, month):
 		self.year = year
 		self.month = month
-		super().__init__(window, "OpenAstro.org Monthly Timeline", (1024, 732), "Timeline-%s.pdf" % (window.chart.name))
+		super().__init__(window, _("Monthly Timeline"), (1024, 760), "Timeline-%s.pdf" % (window.chart.name))
 
 	def render(self, printing=None):
 		return self.chart.makeTimelineSVG(printing=printing, y=self.year, m=self.month)
@@ -150,7 +146,7 @@ class CuspAspectsWindow(TableWindow):
 	"""aspects of the planets to the house cusps, uses the radix settings"""
 
 	def __init__(self, window):
-		super().__init__(window, "OpenAstro.org Cusp Aspects", (924, 732), "CuspAspects-%s.pdf" % (window.chart.name))
+		super().__init__(window, _("Cusp Aspects"), (900, 760), "CuspAspects-%s.pdf" % (window.chart.name))
 
 	def render(self, printing=None):
 		return self.chart.makeCuspAspectsSVG(printing=printing)

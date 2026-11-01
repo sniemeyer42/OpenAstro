@@ -254,7 +254,7 @@ def main():
 		win.activate_action('win.tableMonthlyTimeline', None)
 		d = find(T('Select Month in Year'))
 		click(d, 'OK')
-		tw = find('OpenAstro.org Monthly Timeline')
+		tw = find(T('Monthly Timeline'))
 		check('timeline window', tw is not None)
 		if tw:
 			tw.close()

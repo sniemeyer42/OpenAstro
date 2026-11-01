@@ -60,7 +60,6 @@ class OpenAstroCfg:
 		self.tempfilename = os.path.join(self.tmpdir,"openAstroChart.svg")
 		self.xml_svg_wheel = os.path.join(DATADIR, 'openastro-svg-wheel.xml')
 		self.xml_svg_symbols = os.path.join(DATADIR, 'openastro-svg-symbols.xml')
-		self.xml_svg_table = os.path.join(DATADIR, 'openastro-svg-table.xml')
 		#sqlite databases		
 		self.astrodb = os.path.join(self.astrodir, 'astrodb.sql')
 		self.peopledb = os.path.join(self.astrodir, 'peopledb.sql')

@@ -19,7 +19,7 @@ SVG of a chart: calculation, template, zodiac, houses and rings
 import math
 from string import Template
 from openastromod import swiss as ephemeris
-from astrochart.constants import RADIUS, WHEEL_MARGIN
+from astrochart.constants import ASPECT_DEGREES, RADIUS, WHEEL_MARGIN
 
 class ChartSVGMixin:
 	"""SVG of a chart: calculation, template, zodiac, houses and rings"""
@@ -33,6 +33,28 @@ class ChartSVGMixin:
 		td['wheelCenter'] = str(RADIUS)
 		td['wheelRadius'] = str(RADIUS+WHEEL_MARGIN)
 		return Template(self.loadTemplate(self.cfg.xml_svg_wheel)).substitute(td)
+
+	def colorData(self):
+		"""template data of the symbol colours (paper, planets, zodiac signs, aspects)"""
+		td = {}
+		#paper_color_X
+		td['paper_color_0']=self.colors["paper_0"]
+		td['paper_color_1']=self.colors["paper_1"]
+		#planets_color_X
+		for i in range(len(self.planets)):
+			td['planets_color_%s'%(i)]=self.colors["planet_%s"%(i)]
+		#zodiac_color_X
+		for i in range(12):
+			td['zodiac_color_%s'%(i)]=self.colors["zodiac_icon_%s" %(i)]
+		#orb_color_X
+		for degree in ASPECT_DEGREES:
+			td['orb_color_%s'%(degree)]=self.colors["aspect_%s" %(degree)]
+		return td
+
+	def symbolDefinitions(self):
+		"""the symbol definitions with the colours of the chart"""
+		with open(self.cfg.xml_svg_symbols) as f:
+			return Template(f.read()).substitute(self.colorData())
 
 	def loadTemplate(self, path):
 		"""template text with the shared symbol definitions inserted"""
@@ -218,18 +240,8 @@ class ChartSVGMixin:
 			td['c3'] = 'cx="' + str(r) + '" cy="' + str(r) + '" r="' + str(r-self.c3) + '"'
 			td['c3style'] = 'fill: %s; fill-opacity:.8; stroke: %s; stroke-width: 1px'%(self.colors['paper_1'],self.colors['zodiac_radix_ring_0'])
 			td['makeAspects'] = self.makeAspects( r , (r-self.c3))
-		#paper_color_X
-		td['paper_color_0']=self.colors["paper_0"]
-		td['paper_color_1']=self.colors["paper_1"]
-		#planets_color_X
-		for i in range(len(self.planets)):
-			td['planets_color_%s'%(i)]=self.colors["planet_%s"%(i)]
-		#zodiac_color_X
-		for i in range(12):
-			td['zodiac_color_%s'%(i)]=self.colors["zodiac_icon_%s" %(i)]
-		#orb_color_X
-		for i in range(len(self.aspects)):
-			td['orb_color_%s'%(self.aspects[i]['degree'])]=self.colors["aspect_%s" %(self.aspects[i]['degree'])]
+		#colours of the symbols
+		td.update(self.colorData())
 		#functions
 		td['makeZodiac'] = self.makeZodiac( r )
 		td['makeHouses'] = self.makeHouses( r )
