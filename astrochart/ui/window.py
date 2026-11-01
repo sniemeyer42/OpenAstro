@@ -23,7 +23,7 @@ from gi.repository import GLib, Gio, Gtk, Gdk
 from openastromod import zonetab
 from astrochart.constants import LIMIT, VERSION
 from astrochart.ui.chart_types import ChartTypesMixin
-from astrochart.ui.database_dialogs import DatabaseDialogsMixin
+from astrochart.ui.database_dialogs import DatabaseDialog, FamousDialog, SelectEventDialog
 from astrochart.ui.event_dialog import EventDialog
 from astrochart.ui.files import FilesMixin
 from astrochart.ui.menus import BEGIN_XML, CHART_XML, END_XML, EVENT_XML, E_ITEM, M_ITEM
@@ -35,7 +35,7 @@ from astrochart.ui.table_windows import TableWindowsMixin
 from astrochart.ui.widgets import ViewSVG
 
 """ Application Window """
-class AstroWindow(FilesMixin, DatabaseDialogsMixin, ConfigurationSettingsMixin, ChartTypesMixin, TableWindowsMixin, Gtk.ApplicationWindow):
+class AstroWindow(FilesMixin, ConfigurationSettingsMixin, ChartTypesMixin, TableWindowsMixin, Gtk.ApplicationWindow):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		#the application, the chart shown, configuration and databases
@@ -233,6 +233,26 @@ class AstroWindow(FilesMixin, DatabaseDialogsMixin, ConfigurationSettingsMixin, 
 	def eventData_callback(self, action, parameter):
 		self.presentDialog('event', EventDialog)
 
+	def openDatabase_callback(self, action, parameter):
+		self.presentDialog('database', DatabaseDialog)
+
+	def openDataFamous_callback(self, action, parameter):
+		self.presentDialog('famous', FamousDialog)
+
+	def quickopendb_callback(self, action, parameter):
+		idx = parameter.get_int32()
+		action.set_state(parameter)
+		for entry in self.DB:
+			if entry['id'] == idx:
+				self.updateChartList(None, entry)
+				break
+
+	""" Menu 'Chart Types': synastry, composite and combine with a database entry """
+	def chartType_callback(self, action, parameter):
+		selected = parameter.get_string()
+		action.set_state(parameter)
+		self.presentDialog('select-' + selected, SelectEventDialog, ctype=selected)
+
 	""" Menu 'Settings' """
 	def setLocation_callback(self, action, parameter):
 		self.presentDialog('location', LocationDialog)
@@ -373,30 +393,9 @@ class AstroWindow(FilesMixin, DatabaseDialogsMixin, ConfigurationSettingsMixin, 
 				break
 
 	""" Update the chart with input list data """
-	def updateChartList(self, b, list):
-		self.chart.type = "Radix"
-		self.chart.charttype = self.chart.label["radix"]
-		self.chart.name = str(list["name"])
-		self.chart.year = int(list["year"])
-		self.chart.month = int(list["month"])
-		self.chart.day = int(list["day"])
-		self.chart.hour = float(list["hour"])
-		self.chart.geolon = float(list["geolon"])
-		self.chart.geolat = float(list["geolat"])
-		self.chart.altitude = int(list["altitude"])
-		self.chart.location = str(list["location"])
-		self.chart.timezone = float(list["timezone"])
-		self.chart.countrycode = ''
-		if "countrycode" in list:
-			self.chart.countrycode = list["countrycode"]
-		if "timezonestr" in list:
-			self.chart.timezonestr = list["timezonestr"]
-		else:
-			self.chart.timezonestr = self.db.gnearest(self.chart.geolat,self.chart.geolon)['timezonestr']
-		self.chart.geonameid = None
-		if "geonameid" in list:
-			self.chart.geonameid = list['geonameid']
-		self.chart.utcToLocal()
+	def updateChartList(self, b, record):
+		#radix chart of a database or history record
+		self.chart.setEvent(record)
 		self.updateChart()
 
 	def updateChart(self):

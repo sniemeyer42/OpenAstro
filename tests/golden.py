@@ -47,12 +47,9 @@ def scenarios(app):
 		app.type = 'Radix'; app.charttype = app.label['radix']
 		app.transit = False; app.synastry = False
 
-	def partner():
-		app.t_name = 'Partner'
-		app.t_year, app.t_month, app.t_day, app.t_hour = 1985, 3, 20, 8.0
-		app.t_geolon, app.t_geolat, app.t_altitude = 9.99, 53.55, 25
-		app.t_location = 'Hamburg, Germany'
-		app.t_timezone = 1.0
+	# second event as record of the event database
+	partner = {'name': 'Partner', 'year': 1985, 'month': 3, 'day': 20, 'hour': 8.0,
+		'geolon': 9.99, 'geolat': 53.55, 'altitude': 25, 'location': 'Hamburg, Germany', 'timezone': 1.0}
 
 	def chart(printing=None):
 		return app.makeSVG(printing=printing)
@@ -66,28 +63,13 @@ def scenarios(app):
 	app.t_geolon, app.t_geolat, app.t_altitude, app.t_timezone = 13.4, 52.52, 25, 1.0
 	app.charttype = 'Transit (2026-10-15 13:00)'
 	yield 'transit', chart()
-	natal(); partner()
-	app.type = 'Transit'; app.transit = True; app.synastry = True
-	app.charttype = '%s (%s)' % (app.label['synastry'], app.t_name)
+	natal(); app.setSynastry(partner)
 	yield 'synastry', chart()
-	natal(); partner()
-	app.type = 'Composite'; app.charttype = 'Composite (Partner)'
+	natal(); app.setComposite(partner)
+	app.charttype = 'Composite (Partner)'
 	yield 'composite', chart()
-	# combine: midpoint in time and space as in the database selection
-	natal(); partner()
-	h, m, s = app.decHour(app.hour); dt1 = datetime.datetime(app.year, app.month, app.day, h, m, s)
-	h, m, s = app.decHour(app.t_hour); dt2 = datetime.datetime(app.t_year, app.t_month, app.t_day, h, m, s)
-	combine = dt1 + (dt2 - dt1) // 2
-	app.type = 'Combine'
-	app.c_geolon = (app.geolon + app.t_geolon) / 2.0
-	app.c_geolat = (app.geolat + app.t_geolat) / 2.0
-	app.c_altitude = (app.t_altitude + app.altitude) / 2.0
-	app.c_year, app.c_month, app.c_day = combine.year, combine.month, combine.day
-	app.c_hour = app.decHourJoin(combine.hour, combine.minute, combine.second)
-	app.charttype = '%s (%s)' % (app.label['combine'], app.t_name)
-	app.year, app.month, app.day, app.hour = app.c_year, app.c_month, app.c_day, app.c_hour
-	app.geolat, app.geolon = app.c_geolat, app.c_geolon
-	app.utcToLocal()
+	# combine: midpoint in time and space
+	natal(); app.setCombine(partner)
 	yield 'combine', chart()
 	natal(); app.makeSVG(); app.localToSolar(2026)
 	yield 'solar', chart()
@@ -103,7 +85,7 @@ def scenarios(app):
 		app.db.setSettingsPlanet(ctype, [{'id': i, 'visible': 1, 'visible_transit': 1} for i in range(n)])
 	natal(); app.makeSVG()
 	yield 'radix_all', chart()
-	natal(); partner(); app.type = 'Transit'; app.transit = True; app.synastry = True
+	natal(); app.setSynastry(partner)
 	yield 'synastry_all', chart()
 
 def main(outdir):
