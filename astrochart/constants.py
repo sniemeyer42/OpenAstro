@@ -32,7 +32,6 @@ OFFSET = 64
 RATIO = math.sqrt(2)
 VERSION = "1.1.111"
 
-APPLICATION_ID = "org.openastro.AstroApp"
 #maximal number of items of history
 LIMIT=10
 #years of transit date bar, the included swiss ephemeris files

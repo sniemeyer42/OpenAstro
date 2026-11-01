@@ -12,7 +12,7 @@ URL:            http://www.github.com/ekuester/OpenAstro
 Source0:        http://www.github.com/ekuester/OpenAstro/%{name}-%{version}.tar.gz
 BuildArch:      noarch
 BuildRequires:  python3-devel
-Requires:       gtk4, libadwaita >= 1.7, librsvg2, python3-gobject, python3-pytz, python3-swisseph
+Requires:       python3-pyside6, python3-pytz, python3-swisseph
 #Patch0:         openastro_sqlite.patch
 
 %description
@@ -34,7 +34,7 @@ Name[de_CH]=Astrologie für alle
 Name[de_DE]=Astrologie für alle
 Comment=Astrology Program by Pelle van der Scheer
 GenericName=Open Source Astrology
-Categories=Graphics;2DGraphics;GTK;
+Categories=Graphics;2DGraphics;Qt;
 Exec=astroChart.py
 Icon=openastro
 StartupNotify=true

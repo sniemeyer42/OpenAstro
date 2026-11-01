@@ -13,5 +13,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Qt user interface (PySide6): main window with menu bar, chart wheel, lists
+Qt user interface (PySide6): main window with menu bar, chart wheel, lists,
+tables, printing and export, dialogs of event data and settings
 """

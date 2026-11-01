@@ -16,7 +16,7 @@
 Common start of the test programs: the program runs with --local from the
 repository, HOME must point to a scratch directory (the program writes
 ~/.openastro.org). The chart alone and the Qt program (offscreen) need no
-display; the GTK program needs one (Xvfb works, see tests/README.md).
+display.
 """
 import os
 import sys
@@ -74,33 +74,4 @@ def start_qt(steps_after_ms=300):
 			app.exit(0)
 		QTimer.singleShot(steps_after_ms, wrapper)
 		return app.exec()
-	return app, run
-
-def start_application(steps_after_ms=1500):
-	"""
-	GTK program (its dialogs are not yet ported to Qt): import and create the
-	application, returns (app, run) where run(step) calls step(app) once the
-	main loop runs and quits afterwards
-	"""
-	prepare()
-	import gi
-	gi.require_version('Gtk', '4.0')
-	from gi.repository import GLib, Gio
-	from astrochart.application import AstroApplication
-	app = AstroApplication()
-	app.set_flags(app.get_flags() | Gio.ApplicationFlags.NON_UNIQUE)
-
-	def run(step):
-		def wrapper():
-			try:
-				step(app)
-			except Exception:
-				traceback.print_exc()
-				app.exit_code = 1
-				app.quit()
-			return False
-		app.exit_code = 0
-		GLib.timeout_add(steps_after_ms, wrapper)
-		app.run([sys.argv[0], '--local'])
-		return app.exit_code
 	return app, run

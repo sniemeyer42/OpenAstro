@@ -13,15 +13,14 @@
 #    You should have received a copy of the GNU General Public License
 #    along with OpenAstro.org.  If not, see <http://www.gnu.org/licenses/>.
 """
-Run the golden chart set, the Qt window flows and (with a display) the flows
-and smoke test of the GTK dialogs in fresh scratch homes.
+Run the golden chart set and the flows of the Qt program in fresh scratch
+homes, no display needed.
 
-	xvfb-run python3 -m unittest discover -s tests -v
+	python3 -m unittest discover -s tests -v
 """
 import os
 import re
 import sys
-import json
 import shutil
 import tempfile
 import unittest
@@ -63,26 +62,6 @@ class ProgramTest(ScratchHome):
 		result = run_tool([os.path.join(HERE, 'qt_flows.py')], self.home)
 		self.assertEqual(result.returncode, 0, result.stdout[-4000:] + result.stderr[-3000:])
 		self.assertIn('0 failed', result.stdout)
-
-@unittest.skipUnless(os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'), 'needs a display (xvfb-run)')
-class GtkDialogTest(ScratchHome):
-	"""dialogs of the GTK program (not yet ported to Qt)"""
-
-	def test_dialog_flows(self):
-		result = run_tool([os.path.join(HERE, 'flows.py')], self.home)
-		self.assertEqual(result.returncode, 0, result.stdout[-4000:] + result.stderr[-3000:])
-
-	def test_gui_smoke(self):
-		out = os.path.join(self.home, 'smoke.json')
-		result = run_tool([os.path.join(HERE, 'smoke.py'), out], self.home)
-		self.assertEqual(result.returncode, 0, result.stdout[-3000:] + result.stderr[-3000:])
-		with open(out) as f:
-			data = json.load(f)
-		self.assertEqual(data['exceptions'], [])
-		for r in data['results']:
-			if r['step'].split()[0] in ('radix', 'transit', 'zoom', 'maximize'):
-				continue
-			self.assertTrue(r['new'], '%s opened no window' % r['step'])
 
 if __name__ == '__main__':
 	unittest.main()

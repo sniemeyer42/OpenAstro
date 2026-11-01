@@ -19,29 +19,5 @@ pytz
 # then create the venv with --system-site-packages and leave out this line.
 PySide6-Essentials>=6.7
 
-# ---------------------------------------------------------------------------
-# GTK: only the dialogs not yet ported to Qt (astrochart/ui and their tests)
-# and astroChartShow.py
-# GObject introspection: Gtk, Gdk, Adw, GdkPixbuf, Gio, GLib, Rsvg
-PyGObject>=3.50
-
-# Needed by PyGObject for gi.repository.cairo
-pycairo>=1.20
-
-# NOT installable via pip, provide them through the system package manager:
-#
-#   GTK 4 typelib
-#   libadwaita typelib   - Adw 1 (version 1.7 or newer)
-#   librsvg typelib      - Rsvg 2.0
-#   GdkPixbuf typelib
-#
-#   openSUSE: typelib-1_0-Gtk-4_0 typelib-1_0-Adw-1
-#             typelib-1_0-Rsvg-2_0 typelib-1_0-GdkPixbuf-2_0
-#   Fedora:   gtk4 libadwaita librsvg2 gdk-pixbuf2
-#   Debian:   gir1.2-gtk-4.0 gir1.2-adw-1 gir1.2-rsvg-2.0 gir1.2-gdkpixbuf-2.0
-#
-# Build dependencies for PyGObject, pycairo and pyswisseph (built from source):
-#   gcc, pkg-config, python3-devel, cairo-devel, gobject-introspection-devel
-#   (Debian: build-essential pkg-config python3-dev libcairo2-dev
-#            libgirepository-2.0-dev)
-# ---------------------------------------------------------------------------
+# Build dependencies of pyswisseph (built from source if there is no wheel):
+#   gcc, python3-devel (Debian: build-essential python3-dev)

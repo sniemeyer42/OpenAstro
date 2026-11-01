@@ -3,14 +3,14 @@ from oblivion, find it here slightly modified and adapted.
 The former separate files from 'openastro-data' are now fully integrated.
 Now working with pyswisseph-2.10.3
 
-The programs are written in python with use of pyGtk
-for the Gnome GTK3 resp. GTK4 environment of Linux.
+The program is written in python with use of PySide6 (Qt 6).
 
-Look at four programs:
+Former programs:
 1) openastro v1.1.70 Gtk3 final Gtk3
 2) astroChartBuilder.py v1.1.90 Gtk3
-3) astroChartShow.py Gtk44 - a simple SVG Viewer
+3) astroChartShow.py Gtk4 - a simple SVG Viewer
 4) astroChart.py v1.1.111 - Gtk4
+Now astroChart.py alone, with a Qt 6 user interface.
 
 In continuation:
 Erich Küster, Krefeld / Northrhine-Westfalia / Germany
