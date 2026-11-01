@@ -16,12 +16,13 @@
 Base class of the windows beside the main window
 """
 
-from gi.repository import Gtk
+from gi.repository import Adw, Gtk
 
-class AstroDialog(Gtk.Window):
+class AstroDialog(Adw.Window):
 	"""
 	window of the program beside the main window: knows the main window
-	(self.window), the chart shown, configuration and databases
+	(self.window), the chart shown, configuration and databases; it has a
+	header bar with the title, set_child sets the content below it
 	"""
 
 	def __init__(self, window, **properties):
@@ -31,6 +32,12 @@ class AstroDialog(Gtk.Window):
 		self.chart = window.chart
 		self.cfg = window.cfg
 		self.db = window.db
+		self.toolbarView = Adw.ToolbarView()
+		self.toolbarView.add_top_bar(Adw.HeaderBar())
+		self.set_content(self.toolbarView)
+
+	def set_child(self, child):
+		self.toolbarView.set_content(child)
 
 	def buttonRow(self, buttons):
 		"""homogeneous row of buttons, buttons is a list of (label, callback)"""

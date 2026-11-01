@@ -17,7 +17,7 @@ Application: chart state, calculation and SVG
 """
 
 import xml.etree.ElementTree as ET
-from gi.repository import GLib, Gio, Gtk, Gdk
+from gi.repository import Adw, GLib, Gio, Gtk, Gdk
 from astrochart.chart.chart import Chart
 from astrochart.config import OpenAstroCfg
 from astrochart.constants import APPLICATION_ID, OFFSET, RATIO
@@ -25,7 +25,7 @@ from astrochart.database import OpenAstroSqlite
 from astrochart.ui.menus import MENU_XML
 from astrochart.ui.window import AstroWindow
 
-class AstroApplication(Gtk.Application):
+class AstroApplication(Adw.Application):
 	def __init__(self, *args, **kwargs):
 		super().__init__(
 			*args,
@@ -70,7 +70,7 @@ class AstroApplication(Gtk.Application):
 		)
 
 	def do_startup(self):
-		Gtk.Application.do_startup(self)
+		Adw.Application.do_startup(self)
 
 		quit_action = Gio.SimpleAction.new("quit", None)
 		quit_action.connect("activate", self.on_quit)
@@ -101,8 +101,8 @@ class AstroApplication(Gtk.Application):
 		menu_xml = self.translate_menu_items(text=MENU_XML,items=menu_items)
 		builder = Gtk.Builder()
 		builder.add_from_string(menu_xml)
-		self.menubar = builder.get_object("MenuBar")
-		self.set_menubar(self.menubar)
+		#main menu of the window (menu button of the header bar)
+		self.mainMenu = builder.get_object("MenuBar")
 		# allow only a single window and raise any existing ones
 		if self.window is None:
 			# Windows are associated with the application

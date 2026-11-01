@@ -19,7 +19,7 @@ Main window
 import datetime
 import pytz
 from string import Template
-from gi.repository import GLib, Gio, Gtk, Gdk
+from gi.repository import Adw, GLib, Gio, Gtk
 from openastromod import zonetab
 from astrochart.constants import LIMIT, VERSION
 from astrochart.ui.chart_types import ProgressionDialog, SolarReturnDialog, TransitBar
@@ -35,7 +35,7 @@ from astrochart.ui.table_windows import CuspAspectsWindow, MonthDialog
 from astrochart.ui.widgets import ViewSVG
 
 """ Application Window """
-class AstroWindow(Gtk.ApplicationWindow):
+class AstroWindow(Adw.ApplicationWindow):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		#the application, the chart shown, configuration and databases
@@ -50,9 +50,6 @@ class AstroWindow(Gtk.ApplicationWindow):
 		#file dialogs, import, export and printing
 		self.files = ChartFiles(self)
 
-		""" >>> set icon changed in GTK4 """
-
-		self.props.show_menubar = True
 		#belonges in the windows group and hence have the 'win' prefix
 		max_action = Gio.SimpleAction.new_stateful(
 			"maximize", None, GLib.Variant.new_boolean(False)
@@ -171,9 +168,26 @@ class AstroWindow(Gtk.ApplicationWindow):
 
 		self.updateUI(first_time=True)
 
+		# header bar: chart name and data as title, main actions, menus
+		header = Adw.HeaderBar()
+		self.windowTitle = Adw.WindowTitle()
+		header.set_title_widget(self.windowTitle)
+		for icon, action, tooltip in (
+			('document-new-symbolic', 'win.newChart', _('New')),
+			('document-edit-symbolic', 'win.eventData', _('Edit Event')),
+			('x-office-address-book-symbolic', 'win.openDatabase', _('Open Database'))):
+			button = Gtk.Button(icon_name=icon, action_name=action, tooltip_text=tooltip)
+			header.pack_start(button)
+		menu_button = Gtk.MenuButton(icon_name='open-menu-symbolic', menu_model=self.app.mainMenu, tooltip_text=_('Menu'))
+		menu_button.set_primary(True)
+		header.pack_end(menu_button)
+		header.pack_end(Gtk.MenuButton(label=_('Chart Types'), menu_model=self.chartTypesMenu()))
+		toolbar_view = Adw.ToolbarView()
+		toolbar_view.add_top_bar(header)
 		# display astrological chart
 		box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-		self.set_child(box)
+		toolbar_view.set_content(box)
+		self.set_content(toolbar_view)
 		# date bar above chart, visible for transit charts only
 		self.transitBar = TransitBar(self)
 		box.append(self.transitBar)
@@ -188,6 +202,32 @@ class AstroWindow(Gtk.ApplicationWindow):
 		self.image.set_hexpand(True)
 		scrolled_window.set_child(self.image)
 		box.append(scrolled_window)
+		self.updateTitle()
+
+	def chartTypesMenu(self):
+		#chart types for the menu button of the header bar
+		menu = Gio.Menu()
+		section = Gio.Menu()
+		section.append(_('Radix Chart'), 'win.specialRadix')
+		section.append(_('Transit Chart'), 'win.specialTransit')
+		menu.append_section(None, section)
+		section = Gio.Menu()
+		for label, target in ((_('Synastry Chart'), 'Synastry'), (_('Composite Chart'), 'Composite'), (_('Combine Chart'), 'Combine')):
+			section.append(label, 'win.chartType::' + target)
+		menu.append_section(None, section)
+		section = Gio.Menu()
+		section.append(_('Solar Return'), 'win.specialSolar')
+		section.append(_('Solar Progression'), 'win.specialProgression')
+		menu.append_section(None, section)
+		return menu
+
+	def updateTitle(self):
+		#chart name, type, local date and place in the header bar
+		chart = self.chart
+		date = '%s-%02d-%02d %02d:%02d' % (chart.year_loc, chart.month_loc, chart.day_loc, chart.hour_loc, chart.minute_loc)
+		self.windowTitle.set_title(str(chart.name))
+		self.windowTitle.set_subtitle('%s  ·  %s  ·  %s' % (chart.charttype, date, chart.location))
+		self.set_title('%s - OpenAstro' % (chart.name))
 
 	def presentDialog(self, name, dialog_class, **arguments):
 		#only one dialog of a kind, forgotten when it closes
@@ -330,8 +370,8 @@ class AstroWindow(Gtk.ApplicationWindow):
 			self.event_xml = parent.translate_menu_items(text=EVENT_XML,items=event_items)
 			self.quick_label = _('Quick Open Database')
 			self.event_label = _('Event')
-		#get menubar of application
-		menu = parent.get_menubar()
+		#main menu of the application
+		menu = parent.mainMenu
 		#uüdate labels
 		#self.label = parent.db.getLabel()
 		#create history actions, last will be first
@@ -415,8 +455,6 @@ class AstroWindow(Gtk.ApplicationWindow):
 			self.event_menu.remove(1)
 		self.event_menu.insert_submenu(1, self.quick_label, quick_open_menu)
 		menu.insert_submenu(2, self.event_label, self.event_menu)
-		if first_time:
-			self.props.show_menubar = True
 
 	def historydb_callback(self, action, parameter):
 		idx = parameter.get_int32()
@@ -437,6 +475,7 @@ class AstroWindow(Gtk.ApplicationWindow):
 		self.saveChartSVG(svg)
 		self.image.setupSVG(svg)
 		self.image.queue_resize()
+		self.updateTitle()
 		# date bar belongs to transit charts only
 		if self.chart.type != "Transit":
 			self.transitBar.set_visible(False)
@@ -462,24 +501,19 @@ class AstroWindow(Gtk.ApplicationWindow):
 			self.image.setScale(scale[z_level])
 
 	def about_callback(self, action, parameter):
-		about = Gtk.AboutDialog(transient_for=self, modal=True)
-		about.set_logo(Gdk.Texture.new_from_filename('about.xpm'));
-		about.set_program_name("Gtk4 OpenAstro.org - Open Source Astrology")
-		about.set_size_request(480, -1)
-		about.set_version('Gtk4 Version ' + VERSION)
-		about.set_authors(["Pelle van der Scheer, Amsterdam / The Netherlands"])
-		documenters = ["Erich Küster, Krefeld / Nortrhine-Westfalia / Germany"]
+		about = Adw.AboutDialog()
+		about.set_application_name("OpenAstro.org - Open Source Astrology")
+		about.set_application_icon("openastro")
+		about.set_version(VERSION)
+		about.set_developers(["Pelle van der Scheer, Amsterdam / The Netherlands"])
+		about.set_documenters(["Erich Küster, Krefeld / Nortrhine-Westfalia / Germany"])
 		about.set_copyright("Copyright © 2012-2026 Pelle van der Scheer. All rights reserved.")
-		with open('COMMENTS', "r") as f:
-			comments = f.read()
-		about.set_comments(comments)
-		with open('LICENSE', "r") as f:
-			license = f.read()
-		about.set_license(license)
-		about.set_website("https://pygobject.gnome.org/tutorials/gtk4.html");
-		about.set_website_label("GTK4 — PyGObject")
-		# show the aboutdialog
-		about.present()
+		with open(self.cfg.comments, "r") as f:
+			about.set_comments(f.read())
+		with open(self.cfg.license, "r") as f:
+			about.set_license(f.read())
+		about.set_website("https://github.com/ekuester/OpenAstro")
+		about.present(self)
 
 	# a callback function to destroy the aboutdialog
 	def on_close(self, action, parameter):
