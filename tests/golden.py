@@ -54,13 +54,8 @@ def scenarios(app):
 		app.t_location = 'Hamburg, Germany'
 		app.t_timezone = 1.0
 
-	def read(path):
-		with open(path) as f:
-			return f.read()
-
 	def chart(printing=None):
-		app.makeSVG(printing=printing)
-		return read(app.cfg.tempfilename if printing is None else app.cfg.tempfilenameprint)
+		return app.makeSVG(printing=printing)
 
 	natal(); app.makeSVG()
 	yield 'radix', chart()
@@ -99,10 +94,8 @@ def scenarios(app):
 	natal(); app.makeSVG(); app.localToSecondaryProgression(datetime.datetime(2026, 10, 15, 12, 0))
 	yield 'progression', chart()
 	natal(); app.makeSVG()
-	app.makeTimelineSVG(None, 2026, 10)
-	yield 'timeline', read(app.cfg.tempfilenametable)
-	app.makeCuspAspectsSVG(None)
-	yield 'cuspaspects', read(app.cfg.tempfilenametable)
+	yield 'timeline', app.makeTimelineSVG(None, 2026, 10)
+	yield 'cuspaspects', app.makeCuspAspectsSVG(None)
 	# every body visible
 	n = len(app.db.getSettingsPlanet())
 	app.db.setSettingsPlanet('radix', [{'id': i, 'visible': 1, 'visible_aspect_line': 1, 'visible_aspect_grid': 1} for i in range(n)])

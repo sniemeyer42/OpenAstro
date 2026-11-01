@@ -195,12 +195,8 @@ class TablesSVGMixin:
 		f=open(self.cfg.xml_svg_table)
 		template=Template(f.read()).substitute(td)
 		f.close()
-		if printing is None:
-			f=open(self.cfg.tempfilenametable,"w")
-		else:
-			f=open(self.cfg.tempfilenametableprint,"w")
-		f.write(template)
-		f.close()
+		#svg document as text
+		return template
 
 	""" make graphic for cusp aspects """
 	def makeCuspAspectsSVG(self, printing):
@@ -295,10 +291,5 @@ class TablesSVGMixin:
 		f=open(self.cfg.xml_svg_table)
 		template=Template(f.read()).substitute(td)
 		f.close()
-		if printing is None:
-			f=open(self.cfg.tempfilenametable,"w")
-		else:
-			f=open(self.cfg.tempfilenametableprint,"w")
-		f.write(template)
-		f.close()
-		return self.cfg.tempfilenametable
+		#svg document as text
+		return template

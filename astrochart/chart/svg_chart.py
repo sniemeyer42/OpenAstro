@@ -353,16 +353,11 @@ class ChartSVGMixin:
 		template=Template(f.read()).substitute(td)
 		f.close()
 		if printing is None:
-			f=open(self.cfg.tempfilename,"w")
 			dprint("Creating SVG: lat="+str(self.geolat)+' lon='+str(self.geolon)+' loc='+self.location)
 		else:
-			f=open(self.cfg.tempfilenameprint,"w")
 			dprint("Printing SVG: lat="+str(self.geolat)+' lon='+str(self.geolon)+'loc='+self.location)
-		#write template
-		f.write(template)
-		f.close()
-		#return filename
-		return self.cfg.tempfilename
+		#svg document as text
+		return template
 
 	""" Draw transit ring """
 	def transitRing( self , r ):

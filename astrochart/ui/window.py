@@ -175,9 +175,10 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		box.append(self.transitBar)
 		scrolled_window = Gtk.ScrolledWindow()
 		# Draw svg pixbuf
-		chart_name = self.chart.makeSVG()
+		svg = self.chart.makeSVG()
+		self.saveChartSVG(svg)
 		#drawing_area to render SVG
-		self.image = ViewSVG(chart_name)
+		self.image = ViewSVG(svg)
 		self.image.set_vexpand(True)
 		self.image.set_hexpand(True)
 		self.image.set_valign(Gtk.Align.CENTER)
@@ -380,12 +381,18 @@ class AstroWindow(FilesMixin, EventDialogMixin, DatabaseDialogsMixin, Configurat
 		self.updateChart()
 
 	def updateChart(self):
-		chart_name = self.chart.makeSVG()
-		self.image.setupSVG(chart_name)
+		svg = self.chart.makeSVG()
+		self.saveChartSVG(svg)
+		self.image.setupSVG(svg)
 		self.image.queue_resize()
 		# date bar belongs to transit charts only
 		if self.chart.type != "Transit":
 			self.transitBar.set_visible(False)
+
+	def saveChartSVG(self, svg):
+		#the chart shown is kept as file for the export and for scripts
+		with open(self.cfg.tempfilename, 'w') as f:
+			f.write(svg)
 
 	def updateChartData(self):
 		# check for internet connection

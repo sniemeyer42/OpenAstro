@@ -83,7 +83,7 @@ class TableWindowsMixin:
 		self.tabletype="timeline"
 		self.tMT_year = spinner['Y'].get_value_as_int()
 		self.tMT_month = spinner['M'].get_value_as_int()
-		self.chart.makeTimelineSVG(printing=None,y=self.tMT_year,m=self.tMT_month)
+		svg = self.chart.makeTimelineSVG(printing=None,y=self.tMT_year,m=self.tMT_month)
 			#generate window
 		self.win_TMT = Gtk.Window()
 		self.win_TMT.set_title("OpenAstro.org Monthly Timeline")
@@ -99,7 +99,7 @@ class TableWindowsMixin:
 		button.connect("clicked", lambda w: self.tablesChartPrint(self.chart.pages,pdf=True,window=self.win_TMT,name="Timeline-%s.pdf"%(self.chart.name)))
 		button_box.append(button)
 		vbox.append(button_box)
-		self.win_TMT.image = ViewSVG(self.cfg.tempfilenametable)
+		self.win_TMT.image = ViewSVG(svg)
 		self.win_TMT.image.set_vexpand(True)
 		self.win_TMT.image.set_hexpand(True)
 		self.win_TMT.image.set_valign(Gtk.Align.CENTER)
@@ -163,13 +163,11 @@ class TableWindowsMixin:
 		printing['dpi_y']=Gtk.PrintContext.get_dpi_y(context)
 		#draw svg
 		if(self.tabletype == "timeline"):
-			self.chart.makeTimelineSVG(printing=printing,y=self.tMT_year,m=self.tMT_month)
 			#draw svg for printing
-			svg = Rsvg.Handle.new_from_file(self.cfg.tempfilenametableprint)
+			svg = Rsvg.Handle.new_from_data(self.chart.makeTimelineSVG(printing=printing,y=self.tMT_year,m=self.tMT_month).encode('utf-8'))
 		elif(self.tabletype == "cuspaspects"):
-			self.chart.makeCuspAspectsSVG(printing=printing)
 			#draw svg for printing
-			svg = Rsvg.Handle.new_from_file(self.cfg.tempfilenametableprint)
+			svg = Rsvg.Handle.new_from_data(self.chart.makeCuspAspectsSVG(printing=printing).encode('utf-8'))
 		viewport = Rsvg.Rectangle()
 		viewport.x = 0
 		viewport.y = 0
@@ -196,7 +194,7 @@ class TableWindowsMixin:
 
 	def tableCuspAspects_callback(self, action, parameter):
 		self.tabletype="cuspaspects"
-		self.chart.makeCuspAspectsSVG(printing=None)
+		svg = self.chart.makeCuspAspectsSVG(printing=None)
 		#generate window
 		self.win_TCA = Gtk.Window()
 		self.win_TCA.set_title("OpenAstro.org Cusp Aspects")
@@ -213,7 +211,7 @@ class TableWindowsMixin:
 		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=True,window=self.win_TCA,name="CuspAspects-%s.pdf"%(self.chart.name)))
 		hbox.append(button)
 		vbox.append(hbox)
-		self.win_TCA.image = ViewSVG(self.cfg.tempfilenametable)
+		self.win_TCA.image = ViewSVG(svg)
 		self.win_TCA.image.set_vexpand(True)
 		self.win_TCA.image.set_hexpand(True)
 		self.win_TCA.image.set_valign(Gtk.Align.CENTER)

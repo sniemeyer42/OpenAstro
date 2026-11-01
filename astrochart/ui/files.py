@@ -198,8 +198,7 @@ class FilesMixin:
 		printing['dpi_x']=context.get_dpi_x()
 		printing['dpi_y']=context.get_dpi_y()
 		#make printing svg
-		self.chart.makeSVG(printing=printing)
-		svg = Rsvg.Handle.new_from_file(self.cfg.tempfilenameprint)
+		svg = Rsvg.Handle.new_from_data(self.chart.makeSVG(printing=printing).encode('utf-8'))
 		#render SVG into cairo context
 		if svg is not None:
 			cr = Gtk.PrintContext.get_cairo_context(context)

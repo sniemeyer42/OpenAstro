@@ -546,7 +546,8 @@ class DatabaseDialogsMixin:
 			self.chart.utcToLocal()
 		# synastry is drawn as transit chart, but has no transit date
 		self.transitBar.set_visible(False)
-		chart_name = self.chart.makeSVG()
-		self.image.setupSVG(chart_name)
+		svg = self.chart.makeSVG()
+		self.saveChartSVG(svg)
+		self.image.setupSVG(svg)
 		self.image.queue_resize()
 		self.win_OD.close()

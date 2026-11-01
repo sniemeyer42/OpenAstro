@@ -212,13 +212,13 @@ class AspectSettingsMixin:
 				window = getattr(self, 'win_TMT', None)
 				if window is None or not window.get_visible():
 					continue
-				self.chart.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
+				svg = self.chart.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
 			else:
 				window = getattr(self, 'win_TCA', None)
 				if window is None or not window.get_visible():
 					continue
-				self.chart.makeCuspAspectsSVG(printing=None)
-			window.image.setupSVG(self.cfg.tempfilenametable)
+				svg = self.chart.makeCuspAspectsSVG(printing=None)
+			window.image.setupSVG(svg)
 			window.image.queue_resize()
 
 	def settingsAspectsClose(self, window):

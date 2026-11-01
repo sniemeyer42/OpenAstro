@@ -16,16 +16,16 @@
 Widgets: SVG view, list item of the event database
 """
 
-from gi.repository import Gtk, Gdk, GObject
+from gi.repository import GLib, Gtk, Gdk, GObject
 
 class ViewSVG(Gtk.Widget):
-	def __init__(self, path, *args, **kwargs):
+	def __init__(self, svg, *args, **kwargs):
 		super().__init__(*args, **kwargs)
-		# loads now SVG files, Pixbuf not needed anymore
-		self.setupSVG(path)
+		# svg document as text, Pixbuf not needed anymore
+		self.setupSVG(svg)
 
-	def setupSVG(self, path):
-		self.texture = Gdk.Texture.new_from_filename(path)
+	def setupSVG(self, svg):
+		self.texture = Gdk.Texture.new_from_bytes(GLib.Bytes.new(svg.encode('utf-8')))
 		self.scale = 1
 
 	def do_snapshot(self, snapshot):
