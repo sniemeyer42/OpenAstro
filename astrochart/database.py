@@ -595,7 +595,7 @@ class OpenAstroSqlite:
 	def addHistory(self):
 		self.open()
 		sql = 'INSERT INTO history  (id,name,year,month,day,hour,geolon,geolat,altitude,location,timezone,countrycode) VALUES (null,?,?,?,?,?,?,?,?,?,?,?)'
-		tuple = (app.name, app.year, app.month, app.day, app.hour, app.geolon, app.geolat, app.altitude, app.location, app.timezone, app.countrycode)
+		tuple = (app.chart.name, app.chart.year, app.chart.month, app.chart.day, app.chart.hour, app.chart.geolon, app.chart.geolat, app.chart.altitude, app.chart.location, app.chart.timezone, app.chart.countrycode)
 		self.cursor.execute(sql,tuple)
 		self.link.commit()
 		self.updateHistory()

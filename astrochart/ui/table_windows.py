@@ -84,7 +84,7 @@ class TableWindowsMixin:
 		self.tabletype="timeline"
 		self.tMT_year = spinner['Y'].get_value_as_int()
 		self.tMT_month = spinner['M'].get_value_as_int()
-		app.makeTimelineSVG(printing=None,y=self.tMT_year,m=self.tMT_month)
+		app.chart.makeTimelineSVG(printing=None,y=self.tMT_year,m=self.tMT_month)
 			#generate window
 		self.win_TMT = Gtk.Window()
 		self.win_TMT.set_title("OpenAstro.org Monthly Timeline")
@@ -94,10 +94,10 @@ class TableWindowsMixin:
 		vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
 		button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		button = Gtk.Button.new_with_mnemonic(label=_('Print'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(app.pages,pdf=False,window=self.win_TMT,name="Timeline-%s.pdf"%(app.name)))
+		button.connect("clicked", lambda w: self.tablesChartPrint(app.chart.pages,pdf=False,window=self.win_TMT,name="Timeline-%s.pdf"%(app.chart.name)))
 		button_box.append(button)
 		button = Gtk.Button.new_with_mnemonic(label=_('Save as PDF'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(app.pages,pdf=True,window=self.win_TMT,name="Timeline-%s.pdf"%(app.name)))
+		button.connect("clicked", lambda w: self.tablesChartPrint(app.chart.pages,pdf=True,window=self.win_TMT,name="Timeline-%s.pdf"%(app.chart.name)))
 		button_box.append(button)
 		vbox.append(button_box)
 		self.win_TMT.image = ViewSVG(app.cfg.tempfilenametable)
@@ -117,7 +117,7 @@ class TableWindowsMixin:
 		window.print_op.set_unit(Gtk.Unit.MM)
 		if settings != None: 
 			window.print_op.set_print_settings(settings)
-		window.print_op.connect("begin_print", self.tablesChartPrintBegin, app.pages)
+		window.print_op.connect("begin_print", self.tablesChartPrintBegin, app.chart.pages)
 		window.print_op.connect("draw_page", self.tablesChartPrintDraw)
 		res = None
 		if pdf:
@@ -146,7 +146,7 @@ class TableWindowsMixin:
 		window.close()
 
 	def tablesChartPrintBegin(self, operation, context, pages):
-		operation.set_n_pages(app.pages)
+		operation.set_n_pages(app.chart.pages)
 		operation.set_use_full_page(False)
 		ps = Gtk.PageSetup()
 		ps.set_orientation(Gtk.PageOrientation.PORTRAIT)
@@ -164,11 +164,11 @@ class TableWindowsMixin:
 		printing['dpi_y']=Gtk.PrintContext.get_dpi_y(context)
 		#draw svg
 		if(self.tabletype == "timeline"):
-			app.makeTimelineSVG(printing=printing,y=self.tMT_year,m=self.tMT_month)
+			app.chart.makeTimelineSVG(printing=printing,y=self.tMT_year,m=self.tMT_month)
 			#draw svg for printing
 			svg = Rsvg.Handle.new_from_file(app.cfg.tempfilenametableprint)
 		elif(self.tabletype == "cuspaspects"):
-			app.makeCuspAspectsSVG(printing=printing)
+			app.chart.makeCuspAspectsSVG(printing=printing)
 			#draw svg for printing
 			svg = Rsvg.Handle.new_from_file(app.cfg.tempfilenametableprint)
 		viewport = Rsvg.Rectangle()
@@ -197,7 +197,7 @@ class TableWindowsMixin:
 
 	def tableCuspAspects_callback(self, action, parameter):
 		self.tabletype="cuspaspects"
-		app.makeCuspAspectsSVG(printing=None)
+		app.chart.makeCuspAspectsSVG(printing=None)
 		#generate window
 		self.win_TCA = Gtk.Window()
 		self.win_TCA.set_title("OpenAstro.org Cusp Aspects")
@@ -208,10 +208,10 @@ class TableWindowsMixin:
 		vbox.set_vexpand(True)
 		hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
 		button = Gtk.Button.new_with_mnemonic(label=_('Print'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=False,window=self.win_TCA,name="CuspAspects-%s.pdf"%(app.name)))
+		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=False,window=self.win_TCA,name="CuspAspects-%s.pdf"%(app.chart.name)))
 		hbox.append(button)
 		button = Gtk.Button.new_with_mnemonic(label=_('Save as PDF'))
-		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=True,window=self.win_TCA,name="CuspAspects-%s.pdf"%(app.name)))
+		button.connect("clicked", lambda w: self.tablesChartPrint(pages=1,pdf=True,window=self.win_TCA,name="CuspAspects-%s.pdf"%(app.chart.name)))
 		hbox.append(button)
 		vbox.append(hbox)
 		self.win_TCA.image = ViewSVG(app.cfg.tempfilenametable)

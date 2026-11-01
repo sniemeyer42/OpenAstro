@@ -111,8 +111,8 @@ class PlanetSettingsMixin:
 			self.planetsNotebook.append_page(scrolled_window, Gtk.Label(label=titles[ctype]))
 		vbox.append(self.planetsNotebook)
 		#open the page of the chart shown
-		if app.type == "Transit":
-			if app.synastry:
+		if app.chart.type == "Transit":
+			if app.chart.synastry:
 				self.planetsNotebook.set_current_page(ASPECT_CHART_TYPES.index('synastry'))
 			else:
 				self.planetsNotebook.set_current_page(ASPECT_CHART_TYPES.index('transit'))

@@ -30,6 +30,7 @@ from harness import start_application
 
 def scenarios(app):
 	"""yield (name, svg text) for every chart of the test set"""
+	app = app.chart
 	if not hasattr(app, 'label'):
 		app.label = app.db.getLabel()
 

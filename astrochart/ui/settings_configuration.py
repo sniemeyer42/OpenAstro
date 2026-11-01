@@ -96,10 +96,10 @@ class ConfigurationSettingsMixin:
 		grid.attach(Gtk.Label(label=_('Position Calculation')), 0, 3, 1, 1)
 		grid.attach(data['postype'], 0, 4, 1, 1)
 		postype={
-			"geo":app.label["apparent_geocentric"]+" "+_("(default)"),
-			"truegeo":app.label["true_geocentric"],
-			"topo":app.label["topocentric"],
-			"helio":app.label["heliocentric"]
+			"geo":app.chart.label["apparent_geocentric"]+" "+_("(default)"),
+			"truegeo":app.chart.label["true_geocentric"],
+			"topo":app.chart.label["topocentric"],
+			"helio":app.chart.label["heliocentric"]
 		}
 		self.postype_list=["geo","truegeo","topo","helio"]
 		postypes = Gtk.StringList()

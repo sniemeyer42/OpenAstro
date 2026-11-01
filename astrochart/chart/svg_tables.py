@@ -21,7 +21,6 @@ import datetime
 from string import Template
 from openastromod import swiss as ephemeris
 from astrochart.constants import ASPECT_DEGREES
-from astrochart.state import app
 
 class TablesSVGMixin:
 	"""SVG of the tables: monthly timeline and cusp aspects"""
@@ -205,39 +204,39 @@ class TablesSVGMixin:
 
 	""" make graphic for cusp aspects """
 	def makeCuspAspectsSVG(self, printing):
-		#cusp aspects belong to the radix, app.aspects may hold the transit set
-		aspects = app.db.getSettingsAspect('radix')
+		#cusp aspects belong to the radix, self.aspects may hold the transit set
+		aspects = self.db.getSettingsAspect('radix')
 		#data
 		out='<g transform="scale(1.5)">'
 		xindent=50
 		yindent=200
 		box=14
-		style='stroke:%s; stroke-width: 1px; stroke-opacity:.6; fill:none' % (app.colors['paper_0'],)
-		textstyle="font-size: 11px; color: %s" % (app.colors['paper_0'],)
+		style='stroke:%s; stroke-width: 1px; stroke-opacity:.6; fill:none' % (self.colors['paper_0'],)
+		textstyle="font-size: 11px; color: %s" % (self.colors['paper_0'],)
 		#draw cusps
-		for cusp in range(len(app.houses_degree_ut)):
+		for cusp in range(len(self.houses_degree_ut)):
 				x = xindent - box
 				y = yindent - (box*(cusp+1))
-				out += '<text x="%s" y="%s" style="%s">%s</text>\n'%(x-30, y+box-5, textstyle, app.label['cusp']+" "+str(cusp+1))
+				out += '<text x="%s" y="%s" style="%s">%s</text>\n'%(x-30, y+box-5, textstyle, self.label['cusp']+" "+str(cusp+1))
 		# add some space
 		xindent += 32
-		revr=range(len(app.planets))
+		revr=range(len(self.planets))
 		for a in revr:
 			if 23 <= a <= 26:
 				continue; #skip asc/dsc/mc/ic
 			if a == 11 or a == 13 or a == 21 or a == 22:
 				continue; #skip ?,?,intp. apogee, intp. perigee
-			start=app.planets_degree_ut[a]
+			start=self.planets_degree_ut[a]
 			#first planet 
 			out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n' %(xindent,yindent,box,box,style)
 			out += '<use transform="scale(0.4)" x="%s" \
-					y="%s" xlink:href="#%s" />\n'%((xindent+2)*2.5,(yindent+1)*2.5, app.planets[a]['name'])
+					y="%s" xlink:href="#%s" />\n'%((xindent+2)*2.5,(yindent+1)*2.5, self.planets[a]['name'])
 			yorb=yindent - box
 			for b in range(12):
-				end=app.houses_degree_ut[b]
-				diff=app.degreeDiff(start,end)
+				end=self.houses_degree_ut[b]
+				diff=self.degreeDiff(start,end)
 				out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n'%(xindent,yorb,box,box,style)
-				z = app.matchAspect(float(diff), aspects)
+				z = self.matchAspect(float(diff), aspects)
 				if z is not None and aspects[z]['visible_grid'] == 1:
 					out += '<use x="%s" y="%s" xlink:href="#orb%s" />\n'%(xindent,yorb+1,aspects[z]['degree'])
 				yorb=yorb-box
@@ -246,23 +245,23 @@ class TablesSVGMixin:
 		xindent = 50
 		yindent = 400
 		#draw cusps
-		for cusp in range(len(app.houses_degree_ut)):
+		for cusp in range(len(self.houses_degree_ut)):
 				x = xindent - box
 				y = yindent - (box*(cusp+1))
-				out += '<text x="%s" y="%s" style="%s">%s</text>\n'%(x-30, y+box-5, textstyle, app.label['cusp']+" "+str(cusp+1))
+				out += '<text x="%s" y="%s" style="%s">%s</text>\n'%(x-30, y+box-5, textstyle, self.label['cusp']+" "+str(cusp+1))
 		#add some space
 		xindent += 32
 		for a in range(12):
-			start=app.houses_degree_ut[a]
+			start=self.houses_degree_ut[a]
 			#first planet 
 			out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n' %(xindent,yindent,box,box,style)
 			out += '<text x="%s" y="%s" style="%s">%s</text>\n'%((xindent+2), (yindent+box-4), textstyle, ""+str(a+1))
 			yorb=yindent - box
 			for b in range(12):
-				end=app.houses_degree_ut[b]
-				diff=app.degreeDiff(start,end)
+				end=self.houses_degree_ut[b]
+				diff=self.degreeDiff(start,end)
 				out += '<rect x="%s" y="%s" width="%s" height="%s" style="%s"/>\n'%(xindent,yorb,box,box,style)
-				z = app.matchAspect(float(diff), aspects)
+				z = self.matchAspect(float(diff), aspects)
 				if z is not None and aspects[z]['visible_grid'] == 1:
 					out += '<use x="%s" y="%s" xlink:href="#orb%s" />\n'%(xindent,yorb+1,aspects[z]['degree'])
 				yorb=yorb-box
@@ -270,15 +269,15 @@ class TablesSVGMixin:
 		out += "</g>"
 		#template
 		td = {}
-		td['paper_color_0']=app.colors["paper_0"]
-		td['paper_color_1']=app.colors["paper_1"]
-		for i in range(len(app.planets)):
-			td['planets_color_%s'%(i)]=app.colors["planet_%s"%(i)]
+		td['paper_color_0']=self.colors["paper_0"]
+		td['paper_color_1']=self.colors["paper_1"]
+		for i in range(len(self.planets)):
+			td['planets_color_%s'%(i)]=self.colors["planet_%s"%(i)]
 		for i in range(12):
-			td['zodiac_color_%s'%(i)]=app.colors["zodiac_icon_%s" %(i)]
+			td['zodiac_color_%s'%(i)]=self.colors["zodiac_icon_%s" %(i)]
 		for deg in ASPECT_DEGREES:
-			td['orb_color_%s'%(deg)]=app.colors["aspect_%s" %(deg)]
-		td['stringTitle'] = "Cusp Aspects for %s"%(app.name)
+			td['orb_color_%s'%(deg)]=self.colors["aspect_%s" %(deg)]
+		td['stringTitle'] = "Cusp Aspects for %s"%(self.name)
 		self.pages=1
 		#ten is buffer between self.pages
 		self.pagesY = (1188 * self.pages)+10
@@ -291,7 +290,7 @@ class TablesSVGMixin:
 			td['svgHeight'] = printing['height']
 			td['viewbox'] = "0 %s 840 1188" %( printing['pagenum']*(1188+10) )
 		td['data'] = out
-		td['pagesRect'] = '<rect x="0" y="0" width="840" height="1188" style="fill: %s;" />' % (app.colors['paper_1'],)
+		td['pagesRect'] = '<rect x="0" y="0" width="840" height="1188" style="fill: %s;" />' % (self.colors['paper_1'],)
 		#read and write template
 		f=open(self.cfg.xml_svg_table)
 		template=Template(f.read()).substitute(td)

@@ -46,14 +46,14 @@ class FilesMixin:
 				local_file = file_dialog.open_finish(gio_task)
 			except GLib.Error:
 				return
-			app.importOAC(local_file)
+			app.chart.importOAC(local_file)
 			self.eventData(edit=False)
 		elif gio_task.get_name() == 'gtk_file_dialog_save':
 			try:
 				local_file = file_dialog.save_finish(gio_task)
 			except GLib.Error:
 				return
-			app.exportOAC(local_file)
+			app.chart.exportOAC(local_file)
 
 		"""
 		print(f'File name: {local_file.get_basename()}')
@@ -88,16 +88,16 @@ class FilesMixin:
 		#select file formats
 		if selected == 'importOroboros':
 			gio_filters.append(item=FILTER_XML_FILES)
-			self.file_to_open(filters=gio_filters, name='', import_app=app.importOroboros)
+			self.file_to_open(filters=gio_filters, name='', import_app=app.chart.importOroboros)
 		elif selected == 'importAstrolog':
 			gio_filters.append(item=FILTER_DAT_FILES)
-			self.file_to_open(filters=gio_filters, name='', import_app=app.importAstrolog)
+			self.file_to_open(filters=gio_filters, name='', import_app=app.chart.importAstrolog)
 		elif selected == 'importSkylendar':
 			gio_filters.append(item=FILTER_SKIF_FILES)
-			self.file_to_open(filters=gio_filters, name='', import_app=app.importSkylendar)
+			self.file_to_open(filters=gio_filters, name='', import_app=app.chart.importSkylendar)
 		elif selected == 'importZet8':
 			gio_filters.append(item=FILTER_ZBS_FILES)
-			self.file_to_open(filters=gio_filters, name='', import_app=app.importZet8)
+			self.file_to_open(filters=gio_filters, name='', import_app=app.chart.importZet8)
 
 		dprint('Dialog closed, no files selected')
 
@@ -199,7 +199,7 @@ class FilesMixin:
 		printing['dpi_x']=context.get_dpi_x()
 		printing['dpi_y']=context.get_dpi_y()
 		#make printing svg
-		app.makeSVG(printing=printing)
+		app.chart.makeSVG(printing=printing)
 		svg = Rsvg.Handle.new_from_file(app.cfg.tempfilenameprint)
 		#render SVG into cairo context
 		if svg is not None:

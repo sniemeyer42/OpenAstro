@@ -22,7 +22,6 @@ import pytz
 from string import Template
 from gi.repository import Gtk
 from openastromod import zonetab, importfile
-from astrochart.state import app
 from astrochart.util import dprint
 
 class ImportExportMixin:
@@ -174,7 +173,7 @@ class ImportExportMixin:
 		# create a new window
 		self.win_TZ = Gtk.Window(title=_("Daylight Saving Time Detected"))
 		""" set_icon """
-		#self.win_TZ.set_icon_from_file(app.cfg.iconWindow)
+		#self.win_TZ.set_icon_from_file(self.cfg.iconWindow)
 		#self.win_TZ.connect("delete_event", lambda w,e: self.win_TZ.destroy())
 		#self.win_TZ.move(150, 150)
 		#self.win_TZ.set_border_width(5)
@@ -334,7 +333,7 @@ class ImportExportMixin:
 				else:
 					i=p.find("w")
 					data[-1]['longitude'] = ( float(p[:i])+(float(p[i+1:])/60.0) ) / -1.0
-		self.db.importZet8(app.cfg.peopledb , data)
+		self.db.importZet8(self.cfg.peopledb , data)
 
 		dprint('importZet8: database with %s entries: %s' % (len(data),filename))
 

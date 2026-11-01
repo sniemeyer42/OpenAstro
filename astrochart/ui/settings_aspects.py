@@ -102,8 +102,8 @@ class AspectSettingsMixin:
 			self.aspectsNotebook.append_page(scrolled_window, Gtk.Label(label=titles[ctype]))
 		vbox.append(self.aspectsNotebook)
 		#open the page of the chart shown
-		if app.type == "Transit":
-			if app.synastry:
+		if app.chart.type == "Transit":
+			if app.chart.synastry:
 				self.aspectsNotebook.set_current_page(ASPECT_CHART_TYPES.index('synastry'))
 			else:
 				self.aspectsNotebook.set_current_page(ASPECT_CHART_TYPES.index('transit'))
@@ -213,12 +213,12 @@ class AspectSettingsMixin:
 				window = getattr(self, 'win_TMT', None)
 				if window is None or not window.get_visible():
 					continue
-				app.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
+				app.chart.makeTimelineSVG(printing=None, y=self.tMT_year, m=self.tMT_month)
 			else:
 				window = getattr(self, 'win_TCA', None)
 				if window is None or not window.get_visible():
 					continue
-				app.makeCuspAspectsSVG(printing=None)
+				app.chart.makeCuspAspectsSVG(printing=None)
 			window.image.setupSVG(app.cfg.tempfilenametable)
 			window.image.queue_resize()
 

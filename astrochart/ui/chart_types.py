@@ -41,17 +41,17 @@ class ChartTypesMixin:
 	  specialProgression
 	"""
 	def specialRadix_callback(self, action, parameter):
-		app.type = "Radix"
-		app.charttype = app.label["radix"]
-		app.transit = False
+		app.chart.type = "Radix"
+		app.chart.charttype = app.chart.label["radix"]
+		app.chart.transit = False
 		self.updateChart()
 
 	def specialTransit_callback(self, action, parameter):
 		#transit at home location, nearest timezone if home has none
-		app.t_timezonestr = app.home_timezonestr
-		if app.t_timezonestr not in pytz.all_timezones_set:
-			app.t_timezonestr = zonetab.nearest_tz(float(app.home_geolat), float(app.home_geolon), zonetab.timezones())[2]
-		self.transitZone.set_tooltip_text('%s (%s)' % (app.home_location, app.t_timezonestr))
+		app.chart.t_timezonestr = app.chart.home_timezonestr
+		if app.chart.t_timezonestr not in pytz.all_timezones_set:
+			app.chart.t_timezonestr = zonetab.nearest_tz(float(app.chart.home_geolat), float(app.chart.home_geolon), zonetab.timezones())[2]
+		self.transitZone.set_tooltip_text('%s (%s)' % (app.chart.home_location, app.chart.t_timezonestr))
 		self.transitBar.set_visible(True)
 		self.setTransitNow()
 
@@ -98,7 +98,7 @@ class ChartTypesMixin:
 		return bar
 
 	def setTransitNow(self):
-		now = datetime.datetime.now(pytz.timezone(app.t_timezonestr))
+		now = datetime.datetime.now(pytz.timezone(app.chart.t_timezonestr))
 		self.setTransitDate(now.replace(tzinfo=None, second=0, microsecond=0))
 
 	""" Set transit to local datetime dt, show it in the date bar and redraw """
@@ -115,8 +115,8 @@ class ChartTypesMixin:
 		self.transitSpin['h'].set_value(dt.hour)
 		self.transitSpin['m'].set_value(dt.minute)
 		self.transitSpinLock = False
-		dt_aware = app.localToTransit(dt)
-		self.transitZone.set_text(dt_aware.tzname() + app.decTzStr(app.t_timezone))
+		dt_aware = app.chart.localToTransit(dt)
+		self.transitZone.set_text(dt_aware.tzname() + app.chart.decTzStr(app.chart.t_timezone))
 		#fast scrolling through the dates is gathered into one redraw
 		if not self.transitRedrawPending:
 			self.transitRedrawPending = True
@@ -203,7 +203,7 @@ class ChartTypesMixin:
 
 	def specialSolarSubmit(self, widget, spinner):
 		y = spinner['Y'].get_value_as_int()
-		app.localToSolar(y)
+		app.chart.localToSolar(y)
 		self.win_SS.close()
 		self.updateChart()
 
@@ -285,6 +285,6 @@ class ChartTypesMixin:
 		h = spinner['h'].get_value_as_int()
 		m = spinner['m'].get_value_as_int()
 		dt = datetime.datetime(y, mon, d, h, m)
-		app.localToSecondaryProgression(dt)
+		app.chart.localToSecondaryProgression(dt)
 		self.win_SSP.destroy()
 		self.updateChart()
