@@ -85,8 +85,10 @@ class ChartDataMixin:
 	def aspectRows(self):
 		"""
 		aspects of the aspect list or grid sorted by orb: bodies (id, symbol,
-		label), transit or partner side of the second body, aspect, orb;
-		radix charts use the grid settings of bodies and aspects
+		label, transit or partner side), aspect, orb; transits are read
+		'transit body - aspect - radix body', so the transit body comes
+		first, synastries name the radix body first; radix charts use the
+		grid settings of bodies and aspects
 		"""
 		rows = []
 		def body(i, side):
@@ -97,7 +99,11 @@ class ChartDataMixin:
 			return {'degree': a['degree'], 'name': a['name'], 'orb': abs(diff - a['degree'])}
 		if self.type == "Transit":
 			for item in getattr(self, 'atgrid', []):
-				rows.append(dict(aspect(item['aid'], item['diff']), first=body(item['p1'], False), second=body(item['p2'], True)))
+				radix, other = body(item['p1'], False), body(item['p2'], True)
+				if self.synastry:
+					rows.append(dict(aspect(item['aid'], item['diff']), first=radix, second=other))
+				else:
+					rows.append(dict(aspect(item['aid'], item['diff']), first=other, second=radix))
 		else:
 			for i in range(len(self.planets)):
 				if self.planets[i]['visible_aspect_grid'] != 1:

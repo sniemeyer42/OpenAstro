@@ -221,6 +221,12 @@ def main():
 		click(sd, 'Select for Synastry')
 		check('synastry chart', chart.type == 'Transit' and chart.synastry and chart.t_name == 'Flow Test', (chart.type, chart.synastry, getattr(chart, 't_name', None)))
 		check('synastry lists: partner side', chart.bodyRows(transit=True) and all(a['second']['transit'] for a in chart.aspectRows()))
+		# ---- transit chart: read 'transit body - aspect - radix body'
+		win.activate_action('win.specialTransit', None)
+		win.transitBar.transitRedraw()
+		rows = chart.aspectRows()
+		check('transit aspects: transit body first', chart.type == 'Transit' and not chart.synastry and rows
+			and all(a['first']['transit'] and not a['second']['transit'] for a in rows), len(rows))
 		# ---- delete
 		win.activate_action('win.openDatabase', None)
 		od = find(T('Open Database Entry'))
