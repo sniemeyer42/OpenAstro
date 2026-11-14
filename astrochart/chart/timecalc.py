@@ -16,6 +16,7 @@
 Date, time and coordinate conversions, solar return, progression, transit dates
 """
 
+import calendar
 import datetime
 import pytz
 from openastromod import swiss as ephemeris
@@ -40,57 +41,62 @@ class TimeCalcMixin:
 		# print some info
 		dprint('utcToLocal: '+str(utc)+' => '+str(loc)+self.decTzStr(self.timezone))
 
-	def localToSolar(self, newyear):
-		solaryearsecs = 31556925.51 # 365 days, 5 hours, 48 minutes, 45.51 seconds
-		dprint("localToSolar: from %s to %s" %(self.year,newyear))
-		h,m,s = self.decHour(self.hour)
-		dt_original = datetime.datetime(self.year,self.month,self.day,h,m,s)
-		dt_new = datetime.datetime(newyear,self.month,self.day,h,m,s)
+	def solarReturnMoment(self, newyear):
+		"""solar return of the base event in newyear, as a naive UTC datetime;
+		independent of the positions calculated for the current view"""
+		planets = self.db.getSettingsPlanet('radix')
+		def sun(moment):
+			hour = self.decHourJoin(moment.hour, moment.minute, moment.second)
+			data = ephemeris.ephData(moment.year, moment.month, moment.day, hour,
+				self.geolon, self.geolat, self.altitude, planets, self.zodiac, self.db.astrocfg)
+			return data.planets_degree_ut[0]
 
-		dprint("localToSolar: first sun %s" % (self.planets_degree_ut[0]) )
+		h, m, s = self.decHour(self.hour)
+		original = datetime.datetime(self.year, self.month, self.day, h, m, s)
+		target = ephemeris.ephData(self.year, self.month, self.day, self.hour,
+			self.geolon, self.geolat, self.altitude, planets, self.zodiac, self.db.astrocfg).planets_degree_ut[0]
+		#February 29 also has a solar return in a non-leap year.
+		day = min(self.day, calendar.monthrange(newyear, self.month)[1])
+		moment = original.replace(year=newyear, day=day)
+		def difference():
+			#The signed angle also works across the 0/360 degree boundary.
+			return (target - sun(moment) + 180.0) % 360.0 - 180.0
+		#Keep the established mean-year, second and millisecond corrections.
+		moment += datetime.timedelta(seconds=int(difference() / 360.0 * 31556925.51))
+		moment += datetime.timedelta(seconds=int(difference() / 0.000011408))
+		moment += datetime.timedelta(milliseconds=int(difference() / 0.000000011408))
+		#The chart state stores whole seconds, shared by both solar views.
+		return moment.replace(microsecond=0)
 
-		mdata = ephemeris.ephData(newyear, self.month, self.day, self.hour, self.geolon, self.geolat, self.altitude, self.planets, self.zodiac, self.db.astrocfg)
-		dprint("localToSolar: second sun %s" % (mdata.planets_degree_ut[0]) )
-		sundiff = self.planets_degree_ut[0] - mdata.planets_degree_ut[0]
-		dprint("localToSolar: sundiff %s" %(sundiff))
-		sundelta = ( sundiff / 360.0 ) * solaryearsecs
-		dprint("localToSolar: sundelta %s" % (sundelta))
-		dt_delta = datetime.timedelta(seconds=int(sundelta))
-		dt_new = dt_new + dt_delta
-		mdata = ephemeris.ephData(dt_new.year, dt_new.month, dt_new.day, self.decHourJoin(dt_new.hour, dt_new.minute, dt_new.second), self.geolon, self.geolat, self.altitude, self.planets, self.zodiac, self.db.astrocfg)
-
-		dprint("localToSolar: new sun %s" % (mdata.planets_degree_ut[0]))
-
-		#get precise
-		step = 0.000011408 # 1 seconds in degrees
-		sundiff = self.planets_degree_ut[0] - mdata.planets_degree_ut[0]
-		sundelta = sundiff / step
-		dt_delta = datetime.timedelta(seconds=int(sundelta))
-		dt_new = dt_new + dt_delta
-		mdata = ephemeris.ephData(dt_new.year, dt_new.month, dt_new.day, self.decHourJoin(dt_new.hour, dt_new.minute, dt_new.second), self.geolon, self.geolat, self.altitude, self.planets, self.zodiac, self.db.astrocfg)
-
-		dprint("localToSolar: new sun #2 %s" % (mdata.planets_degree_ut[0]))
-
-		step = 0.000000011408 # 1 milli seconds in degrees
-		sundiff = self.planets_degree_ut[0] - mdata.planets_degree_ut[0]
-		sundelta = sundiff / step
-		dt_delta = datetime.timedelta(milliseconds=int(sundelta))
-		dt_new = dt_new + dt_delta
-		mdata = ephemeris.ephData(dt_new.year, dt_new.month, dt_new.day, self.decHourJoin(dt_new.hour, dt_new.minute, dt_new.second), self.geolon, self.geolat, self.altitude, self.planets, self.zodiac, self.db.astrocfg)
-
-		dprint("localToSolar: new sun #3 %s" % (mdata.planets_degree_ut[0]))
-
-		self.s_year = dt_new.year
-		self.s_month = dt_new.month
-		self.s_day = dt_new.day
-		self.s_hour = self.decHourJoin(dt_new.hour,dt_new.minute,dt_new.second)
-		self.s_geolon = self.geolon
-		self.s_geolat = self.geolat
-		self.s_altitude = self.altitude
-		self.type = "Solar"
-		self.charttype = "%s (%s-%02d-%02d %02d:%02d:%02d UTC)" % (self.label["solar"], self.s_year, self.s_month, self.s_day, dt_new.hour, dt_new.minute, dt_new.second)
-		self.transit = False
-		return
+	def localToSolar(self, newyear, overlay=False):
+		"""solar return alone, or as the outer ring over the unchanged radix"""
+		moment = self.solarReturnMoment(newyear)
+		self.solar_year = newyear
+		self.solar_return = bool(overlay)
+		self.synastry = False
+		self.transit = bool(overlay)
+		if overlay:
+			self.type = "Transit"
+			self.t_year, self.t_month, self.t_day = moment.year, moment.month, moment.day
+			self.t_hour = self.decHourJoin(moment.hour, moment.minute, moment.second)
+			self.t_geolon, self.t_geolat, self.t_altitude = self.geolon, self.geolat, self.altitude
+			self.t_location = self.location
+			self.t_name = _("Solar Return")
+			self.t_timezonestr = self.timezonestr
+			if self.t_timezonestr in pytz.all_timezones_set:
+				zone = pytz.timezone(self.t_timezonestr)
+				self.t_timezone = self.offsetToTz(pytz.utc.localize(moment).astimezone(zone).utcoffset())
+			else:
+				#Older chart files may contain only a numeric timezone offset.
+				self.t_timezone = self.timezone
+		else:
+			self.type = "Solar"
+			self.s_year, self.s_month, self.s_day = moment.year, moment.month, moment.day
+			self.s_hour = self.decHourJoin(moment.hour, moment.minute, moment.second)
+			self.s_geolon, self.s_geolat, self.s_altitude = self.geolon, self.geolat, self.altitude
+		self.charttype = "%s (%s-%02d-%02d %02d:%02d:%02d UTC)" % (
+			self.label["solar"], moment.year, moment.month, moment.day, moment.hour, moment.minute, moment.second)
+		return moment
 
 	"""
 	 Secondary Progression
@@ -118,6 +124,9 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		self.type = "SecondaryProgression"
 		self.charttype="%s (%s-%02d-%02d %02d:%02d)" % (self.label["secondary_progressions"], dt.year, dt.month, dt.day, dt.hour, dt.minute)
 		self.transit = False
+		self.synastry = False
+		self.solar_return = False
+		self.solar_year = None
 		return
 
 	"""
@@ -142,6 +151,8 @@ dt_utc.year, dt_utc.month, dt_utc.day,self.decHourJoin(dt_utc.hour,dt_utc.minute
 		self.charttype = "%s (%s-%02d-%02d %02d:%02d)" % (self.label["transit"], dt.year, dt.month, dt.day, dt.hour, dt.minute)
 		self.transit = True
 		self.synastry = False
+		self.solar_return = False
+		self.solar_year = None
 		return dt_aware
 
 	""" Convert latitude and longitude floats to string """

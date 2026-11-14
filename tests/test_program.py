@@ -49,7 +49,7 @@ class ProgramTest(ScratchHome):
 		result = run_tool([os.path.join(HERE, 'golden.py'), out], self.home)
 		self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 		files = sorted(os.listdir(out))
-		self.assertEqual(len(files), 27, files)
+		self.assertEqual(len(files), 31, files)
 		for name in files:
 			with open(os.path.join(out, name)) as f:
 				svg = f.read()
@@ -62,6 +62,11 @@ class ProgramTest(ScratchHome):
 		result = run_tool([os.path.join(HERE, 'qt_flows.py')], self.home)
 		self.assertEqual(result.returncode, 0, result.stdout[-4000:] + result.stderr[-3000:])
 		self.assertIn('0 failed', result.stdout)
+
+	def test_transit_solar_flows(self):
+		result = run_tool([os.path.join(HERE, 'transit_solar_flows.py')], self.home)
+		self.assertEqual(result.returncode, 0, result.stdout[-5000:] + result.stderr[-3000:])
+		self.assertIn('transit and solar flows passed', result.stdout)
 
 if __name__ == '__main__':
 	unittest.main()

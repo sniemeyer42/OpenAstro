@@ -19,7 +19,7 @@ progression and of the month of the timeline
 
 import datetime
 from PySide6.QtCore import QDateTime, QDate, QTime
-from PySide6.QtWidgets import QDateTimeEdit, QDialog, QDialogButtonBox, QFormLayout, QInputDialog, QLabel, QPushButton
+from PySide6.QtWidgets import QComboBox, QDateTimeEdit, QDialog, QDialogButtonBox, QFormLayout, QLabel, QPushButton, QSpinBox
 from astrochart.qt.date_bar import DateBar
 
 class TransitBar(DateBar):
@@ -37,17 +37,44 @@ class TransitBar(DateBar):
 		self.homeZone()
 		self.zone.setToolTip('%s (%s)' % (self.chart.home_location, self.chart.t_timezonestr))
 		self.setVisible(True)
-		self.setMoment(self.now())
+		self.setMoment(self.now() if self.moment is None else self.moment.astimezone(self.zoneInfo))
 
 	def apply(self, moment):
 		self.chart.localToTransit(moment)
 
+class SolarReturnDialog(QDialog):
+	"""year and presentation of the solar return of the current radix"""
+
+	def __init__(self, window):
+		super().__init__(window)
+		self.setWindowTitle(_("Solar Return"))
+		layout = QFormLayout(self)
+		chart = window.chart
+		active = chart.type == 'Solar' or chart.solar_return
+		self.year = QSpinBox()
+		self.year.setRange(1, 2600)
+		self.year.setValue(chart.solar_year if active and chart.solar_year is not None else datetime.datetime.now().year)
+		layout.addRow(_("Select year for Solar Return") + ':', self.year)
+		self.view = QComboBox()
+		self.view.addItem(_("Own chart"))
+		self.view.addItem(_("Overlay on radix"))
+		self.view.setCurrentIndex(1 if chart.solar_return else 0)
+		layout.addRow(_("Display") + ':', self.view)
+		buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+		buttons.accepted.connect(self.accept)
+		buttons.rejected.connect(self.reject)
+		layout.addRow(buttons)
+		self.year.setFocus()
+
+	def value(self):
+		return self.year.value(), self.view.currentIndex() == 1
+
 def askSolarReturn(window):
-	"""year of the solar return"""
-	year, ok = QInputDialog.getInt(window, _("Solar Return"), _("Select year for Solar Return"),
-		datetime.datetime.now().year, 1, 2600)
-	if ok:
-		window.chart.localToSolar(year)
+	"""choose the year and whether to show the solar alone or over its radix"""
+	dialog = SolarReturnDialog(window)
+	if dialog.exec() == QDialog.DialogCode.Accepted:
+		year, overlay = dialog.value()
+		window.chart.localToSolar(year, overlay=overlay)
 		window.updateChart()
 
 class DateDialog(QDialog):

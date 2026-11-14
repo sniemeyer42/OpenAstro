@@ -21,6 +21,9 @@ diff -r /tmp/golden-old /tmp/golden-new
 # database, famous people, home location, configuration, aspects, planets,
 # font size of the lists, light and dark
 HOME=$(mktemp -d) python3 tests/qt_flows.py
+
+# retained transit dates, radix replacement and both solar return views
+HOME=$(mktemp -d) python3 tests/transit_solar_flows.py
 ```
 
 To watch the Qt program instead of running it offscreen, set

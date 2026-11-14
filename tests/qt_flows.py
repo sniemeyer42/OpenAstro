@@ -57,7 +57,7 @@ def main():
 	from PySide6.QtCore import QDate, QPoint, QPointF, Qt, QTime
 	from PySide6.QtGui import QColor, QImage, QPalette, QWheelEvent
 	from PySide6.QtTest import QTest
-	from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFileDialog, QInputDialog, QMessageBox
+	from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFileDialog, QMessageBox
 	from astrochart.constants import ASPECT_DEFAULTS, RADIUS, WHEEL_MARGIN
 	from astrochart.qt import chart_types, files
 	Button = QDialogButtonBox.StandardButton
@@ -197,7 +197,11 @@ def main():
 		trigger(submenu(types, T('Combine Chart')), 'Flow Test')
 		check('combine with database entry', 'Flow Test' in chart.charttype, chart.charttype)
 		# ---- solar return, progression (input dialogs answered)
-		QInputDialog.getInt = staticmethod(lambda *a, **k: (2026, True))
+		def solarAnswer(dialog):
+			dialog.year.setValue(2026)
+			dialog.view.setCurrentIndex(0)
+			return QDialog.DialogCode.Accepted
+		chart_types.SolarReturnDialog.exec = solarAnswer
 		win.solarAction.trigger()
 		check('solar return', '2026' in chart.charttype, chart.charttype)
 		chart_types.DateDialog.exec = lambda self: QDialog.DialogCode.Accepted

@@ -89,8 +89,29 @@ class Chart(TimeCalcMixin, ChartSVGMixin, ModernWheelMixin, PlanetsSVGMixin, Asp
 		# Make locals
 		self.utcToLocal()
 		self.type = "Radix"
+		self.transit = False
 		# synastry is drawn as type Transit, flag selects the synastry aspect set
 		self.synastry = False
+		#solar return over the radix uses the transit ring and aspect set
+		self.solar_return = False
+		self.solar_year = None
+
+	def setRadix(self):
+		"""show the base event alone, clearing all second-event modes"""
+		self.type = "Radix"
+		self.charttype = self.label["radix"]
+		self.transit = False
+		self.synastry = False
+		self.solar_return = False
+		self.solar_year = None
+
+	def secondSideLabel(self):
+		"""name of the partner, solar return or ordinary transit ring"""
+		if self.synastry:
+			return _('Partner')
+		if self.solar_return:
+			return _('Solar Return')
+		return _('Transit')
 
 	def homeTimezone(self):
 		"""timezone of the home location, the nearest one if home has none"""
@@ -107,10 +128,7 @@ class Chart(TimeCalcMixin, ChartSVGMixin, ModernWheelMixin, PlanetsSVGMixin, Asp
 		if utc is None:
 			utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None, second=0, microsecond=0)
 		local = pytz.utc.localize(utc).astimezone(zone)
-		self.type = "Radix"
-		self.charttype = self.label["radix"]
-		self.transit = False
-		self.synastry = False
+		self.setRadix()
 		self.name = _("Here and Now")
 		self.location = self.home_location
 		self.geolat = float(self.home_geolat)
@@ -151,6 +169,8 @@ class Chart(TimeCalcMixin, ChartSVGMixin, ModernWheelMixin, PlanetsSVGMixin, Asp
 		self.charttype="%s (%s)" % (self.label["synastry"],self.t_name)
 		self.transit=True
 		self.synastry=True
+		self.solar_return=False
+		self.solar_year=None
 
 	def setComposite(self, record):
 		"""composite chart with the partner record"""
@@ -159,6 +179,8 @@ class Chart(TimeCalcMixin, ChartSVGMixin, ModernWheelMixin, PlanetsSVGMixin, Asp
 		self.charttype="%s (%s)" % (self.label["composite"],self.t_name)
 		self.transit=False
 		self.synastry=False
+		self.solar_return=False
+		self.solar_year=None
 
 	def setCombine(self, record):
 		"""combine chart: midpoint in time and space of chart and partner record"""
@@ -188,6 +210,8 @@ class Chart(TimeCalcMixin, ChartSVGMixin, ModernWheelMixin, PlanetsSVGMixin, Asp
 		self.charttype = "%s (%s)" % (self.label["combine"],self.t_name)
 		self.transit = False
 		self.synastry = False
+		self.solar_return = False
+		self.solar_year = None
 		#set new date for printing in svg
 		self.year = self.c_year
 		self.month = self.c_month
@@ -204,8 +228,7 @@ class Chart(TimeCalcMixin, ChartSVGMixin, ModernWheelMixin, PlanetsSVGMixin, Asp
 
 	def setEvent(self, record):
 		"""radix chart of a record of the event database or the history"""
-		self.type = "Radix"
-		self.charttype = self.label["radix"]
+		self.setRadix()
 		self.name = str(record["name"])
 		self.year = int(record["year"])
 		self.month = int(record["month"])

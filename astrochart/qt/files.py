@@ -93,8 +93,7 @@ class ChartFiles:
 	def openChart(self):
 		path = openFileName(self.window, _('Open'), fileFilter('OAC', '*.oac'), fileFilter('TXT', '*.txt'))
 		if path:
-			self.chart.importOAC(path)
-			self.window.updateChart()
+			self.window.replaceEvent(lambda: self.chart.importOAC(path))
 
 	def saveChart(self):
 		path = saveFileName(self.window, 'AstroChart.oac', fileFilter('OAC', '*.oac'), fileFilter('TXT', '*.txt'))
@@ -111,8 +110,8 @@ class ChartFiles:
 		if kind == 'Astrolog':
 			self.importAstrolog(path)
 			return
-		{'Oroboros': self.chart.importOroboros, 'Skylendar': self.chart.importSkylendar, 'Zet8': self.chart.importZet8}[kind](path)
-		self.window.updateChart()
+		load = {'Oroboros': self.chart.importOroboros, 'Skylendar': self.chart.importSkylendar, 'Zet8': self.chart.importZet8}[kind]
+		self.window.replaceEvent(lambda: load(path))
 
 	def importAstrolog(self, path):
 		#with daylight saving time the user confirms the timezone
@@ -123,8 +122,7 @@ class ChartFiles:
 			timezone_str, ok = QInputDialog.getItem(self.window, _("Change Timezone ?"), _("Actual Timezone:"), zones, current, False)
 			if not ok:
 				return
-		self.chart.setAstrolog(record, timezone_str)
-		self.window.updateChart()
+		self.window.replaceEvent(lambda: self.chart.setAstrolog(record, timezone_str))
 
 	def chartImage(self):
 		"""the printed page of the chart on white, EXPORT_WIDTH pixels wide"""

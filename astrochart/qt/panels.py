@@ -194,7 +194,7 @@ class ChartPanels(QTabWidget):
 		chart = self.chart
 		sides = [('radix', _('Radix'), chart.bodyRows())]
 		if chart.type == "Transit":
-			sides.append(('transit', _('Partner') if chart.synastry else _('Transit'), chart.bodyRows(transit=True)))
+			sides.append(('transit', chart.secondSideLabel(), chart.bodyRows(transit=True)))
 		number = numericFont(tree.font())
 		self.positionItems = {}
 		for side, title, rows in sides:

@@ -46,6 +46,7 @@ class EventDialog(AstroDialog):
 		super().__init__(window, _("Edit Event Details"), parent)
 		self.setMinimumWidth(460)
 		self.on_save = on_save
+		self.new = new
 		chart = self.chart
 		if new:
 			now = datetime.datetime.now()
@@ -171,15 +172,11 @@ class EventDialog(AstroDialog):
 		return True
 
 	def apply(self):
-		"""radix chart of the event, False if the place is not found"""
+		"""replace the basis event, keeping an overlay unless this is a new chart"""
 		chart = self.chart
 		before = (chart.name, chart.year, chart.month, chart.day, chart.hour, chart.geolat, chart.geolon)
-		if not self.updateChartData():
+		if not self.window.replaceEvent(self.updateChartData, preserve=not self.new):
 			return False
-		chart.charttype = chart.label["radix"]
-		chart.type = "Radix"
-		chart.transit = False
-		self.window.updateChart()
 		self.changed = before != (chart.name, chart.year, chart.month, chart.day, chart.hour, chart.geolat, chart.geolon)
 		return True
 

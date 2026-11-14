@@ -1236,3 +1236,15 @@ msgstr ""
 #: ./astrochart/qt/here_and_now.py ./astrochart/qt/settings_location.py
 msgid "Place of the chart 'Here and Now' and of new events"
 msgstr ""
+
+#: ./astrochart/qt/chart_types.py
+msgid "Display"
+msgstr ""
+
+#: ./astrochart/qt/chart_types.py
+msgid "Own chart"
+msgstr ""
+
+#: ./astrochart/qt/chart_types.py
+msgid "Overlay on radix"
+msgstr ""

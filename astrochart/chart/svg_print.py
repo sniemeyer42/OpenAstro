@@ -111,7 +111,11 @@ class PrintSVGMixin:
 		return out
 
 	def printSecondEvent(self):
-		"""partner of synastry and composite charts: name, local date, place"""
+		"""solar return time, or partner of synastry and composite charts"""
+		if self.type == "Transit" and self.solar_return:
+			h, m, s = self.decHour(self.t_hour)
+			moment = datetime.datetime(self.t_year, self.t_month, self.t_day, h, m, s)
+			return '%s:  %s UTC  ·  %s' % (self.secondSideLabel(), moment.strftime('%Y-%m-%d %H:%M:%S'), self.location)
 		if not (self.type == "Composite" or (self.type == "Transit" and self.synastry)):
 			return ''
 		h, m, s = self.decHour(self.t_hour)
@@ -122,7 +126,7 @@ class PrintSVGMixin:
 		"""positions of the radix (and of transit or partner), rows fitted to the height"""
 		sides = [(_('Radix'), self.bodyRows())]
 		if self.type == "Transit":
-			sides.append((_('Partner') if self.synastry else _('Transit'), self.bodyRows(transit=True)))
+			sides.append((self.secondSideLabel(), self.bodyRows(transit=True)))
 		count = sum(len(rows) for title, rows in sides)
 		headers = 26 + (len(sides) * 24 if len(sides) > 1 else 0)
 		line = max(9.0, min(18.0, (bottom - y - headers) / max(1, count)))

@@ -46,7 +46,7 @@ def scenarios(app):
 		app.geonameid = None
 		app.utcToLocal()
 		app.type = 'Radix'; app.charttype = app.label['radix']
-		app.transit = False; app.synastry = False
+		app.transit = False; app.synastry = False; app.solar_return = False
 
 	# second event as record of the event database
 	partner = {'name': 'Partner', 'year': 1985, 'month': 3, 'day': 20, 'hour': 8.0,
@@ -94,6 +94,12 @@ def scenarios(app):
 	yield from both('combine', chart())
 	natal(); app.calculate(); app.localToSolar(2026)
 	yield from both('solar', chart())
+	natal(); app.localToSolar(2026, overlay=True)
+	yield from both('solar_overlay', chart())
+	app.db.astrocfg['chartstyle'] = 'classic'
+	natal(); app.localToSolar(2026, overlay=True)
+	yield from both('classic_solar_overlay', chart())
+	app.db.astrocfg['chartstyle'] = 'modern'
 	natal(); app.calculate(); app.localToSecondaryProgression(datetime.datetime(2026, 10, 15, 12, 0))
 	yield from both('progression', chart())
 	natal(); app.calculate()

@@ -96,7 +96,7 @@ class ChartView(SvgView):
 			return ''
 		row = rows[0]
 		if chart.type == "Transit":
-			where = _('Radix') if side == 'radix' else (_('Partner') if chart.synastry else _('Transit'))
+			where = _('Radix') if side == 'radix' else chart.secondSideLabel()
 			title = '<b>%s</b>&nbsp;&nbsp;<small>%s</small>' % (escape(row['label']), escape(where))
 		else:
 			title = '<b>%s</b>' % escape(row['label'])

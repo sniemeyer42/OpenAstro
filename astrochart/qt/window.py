@@ -363,8 +363,8 @@ class MainWindow(QMainWindow):
 		self.image.setupSVG(self.chartSVGs())
 		self.updateTitle()
 		self.panels.update()
-		# date bar belongs to transit charts only (synastry: no date)
-		if self.chart.type != "Transit" or self.chart.synastry:
+		#only ordinary transits have a freely adjustable date
+		if self.chart.type != "Transit" or self.chart.synastry or self.chart.solar_return:
 			self.transitBar.setVisible(False)
 		#time bar as long as the chart is 'Here and Now'
 		self.nowBar.follow()
@@ -383,18 +383,33 @@ class MainWindow(QMainWindow):
 		self.status.setText('%s  ·  %s  ·  %s' % (chart.charttype, date, chart.location))
 
 	def openRecord(self, record):
-		#radix chart of a database or history record
-		self.chart.setEvent(record)
+		#replace the radix while keeping an active transit or solar overlay
+		self.replaceEvent(lambda: self.chart.setEvent(record))
+
+	def replaceEvent(self, load, preserve=True):
+		"""load a basis event, preserving the current overlay; False if load failed"""
+		chart = self.chart
+		overlay = preserve and chart.type == "Transit" and not chart.synastry
+		solar = overlay and chart.solar_return
+		year = chart.solar_year
+		if load() is False:
+			return False
+		chart.setRadix()
+		if solar:
+			chart.localToSolar(year, overlay=True)
+		elif overlay:
+			self.transitBar.start()
+			#start applies the moment synchronously; draw the replacement once
+			self.transitBar.redrawTimer.stop()
 		self.updateChart()
+		return True
 
 	def showHereAndNow(self):
 		"""chart 'Here and Now' at the home location, following the clock"""
 		self.nowBar.start()
 
 	def showRadix(self):
-		self.chart.type = "Radix"
-		self.chart.charttype = self.chart.label["radix"]
-		self.chart.transit = False
+		self.chart.setRadix()
 		self.updateChart()
 
 	def setSecondEvent(self, ctype, record):
