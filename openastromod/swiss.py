@@ -44,6 +44,7 @@ class ephData:
 		self.planets_sign = list(range(len(planets)))
 		self.planets_degree = list(range(len(planets)))
 		self.planets_degree_ut = list(range(len(planets)))
+		self.planets_speed = [0.0] * len(planets)
 		self.planets_info_string = list(range(len(planets)))
 		self.planets_retrograde = list(range(len(planets)))
 		#iflag
@@ -82,6 +83,7 @@ class ephData:
 		#compute a planet (longitude,latitude,distance,long.speed,lat.speed,speed)
 		for i in range(23):
 			res, flag = swe.calc_ut(self.jul_day_UT,i,iflag)
+			self.planets_speed[i] = res[3]
 			for x in range(len(zodiac)):
 				deg_low=float(x*30)
 				deg_high=float((x+1)*30)
@@ -102,6 +104,7 @@ class ephData:
 			self.planets_sign[14] = int(earth // 30) % 12
 			self.planets_degree[14] = earth - self.planets_sign[14] * 30.0
 			self.planets_degree_ut[14] = earth
+			self.planets_speed[14] = self.planets_speed[0]
 			self.planets_retrograde[14] = False
 		#available house systems:
 		"""
@@ -133,11 +136,12 @@ class ephData:
 				print("polar circle override for houses, using -66 degrees")
 		#sidereal houses
 		if(openastrocfg['zodiactype']=="sidereal"):
-			sh = swe.houses_ex(self.jul_day_UT,geolat,geolon,openastrocfg['houses_system'].encode("ascii"),swe.FLG_SIDEREAL)
+			sh = swe.houses_ex2(self.jul_day_UT,geolat,geolon,openastrocfg['houses_system'].encode("ascii"),swe.FLG_SIDEREAL)
 		else:
-			sh = swe.houses(self.jul_day_UT,geolat,geolon,openastrocfg['houses_system'].encode("ascii"))
+			sh = swe.houses_ex2(self.jul_day_UT,geolat,geolon,openastrocfg['houses_system'].encode("ascii"))
 
 		self.houses_degree_ut = list(sh[0])
+		self.houses_speed = list(sh[2])
 		#arabic parts
 		sun,moon,asc = self.planets_degree_ut[0],self.planets_degree_ut[1],self.houses_degree_ut[0]
 		dsc,venus = self.houses_degree_ut[6],self.planets_degree_ut[3]	
@@ -293,23 +297,44 @@ class ephData:
 		self.planets_degree_ut[24] = self.houses_degree_ut[9]
 		self.planets_degree_ut[25] = self.houses_degree_ut[6]
 		self.planets_degree_ut[26] = self.houses_degree_ut[3]
+		for i, cusp in ((23, 0), (24, 9), (25, 6), (26, 3)):
+			self.planets_speed[i] = self.houses_speed[cusp]
 
 		#list index 27 is day pars
 		self.planets_degree_ut[27] = asc + (moon - sun)
+		self.planets_speed[27] = self.houses_speed[0] + self.planets_speed[1] - self.planets_speed[0]
 		#list index 28 is night pars
 		self.planets_degree_ut[28] = asc + (sun - moon)
+		self.planets_speed[28] = self.houses_speed[0] + self.planets_speed[0] - self.planets_speed[1]
 		#list index 29 is South Node
 		self.planets_degree_ut[29] = self.planets_degree_ut[10] - 180.0
+		self.planets_speed[29] = self.planets_speed[10]
 		#list index 30 is marriage pars
 		self.planets_degree_ut[30] = (asc+dsc)-venus
+		self.planets_speed[30] = self.houses_speed[0] + self.houses_speed[6] - self.planets_speed[3]
 		#list index 31 is black sun
-		self.planets_degree_ut[31] = swe.nod_aps_ut(self.jul_day_UT,0,swe.NODBIT_MEAN,swe.FLG_SWIEPH)[3][0]
+		black_sun = swe.nod_aps_ut(self.jul_day_UT,0,swe.NODBIT_MEAN,swe.FLG_SWIEPH | swe.FLG_SPEED)[3]
+		self.planets_degree_ut[31] = black_sun[0]
+		self.planets_speed[31] = black_sun[3]
 		#list index 32 is vulcanus
 		self.planets_degree_ut[32] = 31.1 + (self.jul_day_UT-2425246.5) * 0.00150579
+		self.planets_speed[32] = 0.00150579
 		#list index 33 is persephone
 		self.planets_degree_ut[33] = 240.0 + (self.jul_day_UT-2425246.5) * 0.002737829
+		self.planets_speed[33] = 0.002737829
 		#list index 34 is true lilith (own calculation)
 		self.planets_degree_ut[34] = self.planets_degree_ut[12] + true_lilith
+		#Derivative of the same piecewise correction used by true_lilith_calc2.
+		angle = sun - bm
+		if angle < 0.0: angle += 360.0
+		if angle > 180.0: angle -= 180.0
+		if angle < 60.0:
+			gradient = q * math.radians(1.5) * math.cos(1.5 * math.radians(angle))
+		elif angle > 120.0:
+			gradient = -q * math.radians(1.5) * math.sin(1.5 * math.radians(angle))
+		else:
+			gradient = q * math.radians(3.0) * math.sin(3.0 * math.radians(angle))
+		self.planets_speed[34] = self.planets_speed[12] + gradient * (self.planets_speed[0] - self.planets_speed[12])
 		#swiss ephemeris version of true lilith
 		#self.planets_degree_ut[34] = swe.nod_aps_ut(self.jul_day_UT,1,swe.NODBIT_OSCU,swe.FLG_SWIEPH)[3][0]
 

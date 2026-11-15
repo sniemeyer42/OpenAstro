@@ -59,6 +59,7 @@ def main():
 	from PySide6.QtTest import QTest
 	from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFileDialog, QMessageBox
 	from astrochart.constants import ASPECT_DEFAULTS, RADIUS, WHEEL_MARGIN
+	from astrochart.chart.data import formatDegree
 	from astrochart.qt import chart_types, files
 	Button = QDialogButtonBox.StandardButton
 	T = lambda s: builtins._(s)
@@ -145,6 +146,14 @@ def main():
 		trigger(quick, 'Flow Test')
 		check('quick open: chart of the entry', chart.name == 'Flow Test' and 'Hamburg' in chart.location, (chart.name, chart.location))
 		check('quick open: title and lists', win.windowTitle().startswith('Flow Test') and win.panels.positions.topLevelItemCount() > 10, win.windowTitle())
+		aspect_rows = chart.aspectRows()
+		check('separating aspects have a minus in the list', any(row['orb'] < 0 for row in aspect_rows) and
+			[win.panels.aspects.topLevelItem(i).text(4).strip() for i in range(len(aspect_rows))] ==
+			[formatDegree(row['orb'], seconds=False) for row in aspect_rows])
+		separating = next(row for row in aspect_rows if row['orb'] < 0)
+		orb_text = formatDegree(separating['orb'], seconds=False)
+		check('separating aspect in tooltip', orb_text in win.image.tooltipHtml('radix', separating['first']['id']))
+		check('separating aspect in print', orb_text in chart.makePrintSVG(win.wheelData))
 		history = submenu(menus[T('Chart')], T('History'))
 		check('history menu', entries(history) and all(text for text, enabled in entries(history)), entries(history))
 		# ---- interactive wheel and lists

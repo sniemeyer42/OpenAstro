@@ -22,20 +22,34 @@ aspects are collected while drawing)
 def formatDegree(value, seconds=True):
 	"""degrees within the sign as 12°34′56″ (or 12°35′)"""
 	value = float(value)
+	sign = '-' if value < 0 else ''
+	value = abs(value)
 	degrees = int(value)
 	minutes_float = (value - degrees) * 60.0
 	if not seconds:
 		minutes = int(round(minutes_float))
 		if minutes == 60:
 			degrees, minutes = degrees + 1, 0
-		return '%02d°%02d′' % (degrees, minutes)
+		return '%s%02d°%02d′' % (sign, degrees, minutes)
 	minutes = int(minutes_float)
 	secs = int(round((minutes_float - minutes) * 60.0))
 	if secs == 60:
 		minutes, secs = minutes + 1, 0
 	if minutes == 60:
 		degrees, minutes = degrees + 1, 0
-	return '%02d°%02d′%02d″' % (degrees, minutes, secs)
+	return '%s%02d°%02d′%02d″' % (sign, degrees, minutes, secs)
+
+def signedAspectOrb(start, end, degree, start_speed, end_speed):
+	"""Orb with a minus when the distance from exactness is increasing.
+
+	Longitudes wrap at 360 degrees; speeds are signed degrees per day.
+	A transit uses zero speed for the fixed radix position.
+	"""
+	distance = (end - start + 180.0) % 360.0 - 180.0
+	deviation = abs(distance) - degree
+	change = (end_speed - start_speed) * (1 if distance >= 0 else -1)
+	orb = abs(deviation)
+	return -orb if deviation * change > 0 else orb
 
 def houseOf(longitude, cusps):
 	"""number (1-12) of the house of longitude between the 12 cusps"""
@@ -84,8 +98,9 @@ class ChartDataMixin:
 
 	def aspectRows(self):
 		"""
-		aspects of the aspect list or grid sorted by orb: bodies (id, symbol,
-		label, transit or partner side), aspect, orb; transits are read
+		aspects of the aspect list or grid sorted by absolute orb: bodies (id,
+		symbol, label, transit or partner side), aspect, signed orb (negative
+		when separating); transits are read
 		'transit body - aspect - radix body', so the transit body comes
 		first, synastries name the radix body first; radix charts use the
 		grid settings of bodies and aspects
@@ -94,16 +109,20 @@ class ChartDataMixin:
 		def body(i, side):
 			planet = self.planets[i]
 			return {'id': i, 'symbol': self.svgSafeHref(planet['name']), 'label': planet['label'], 'transit': side}
-		def aspect(z, diff):
+		def aspect(z, i, x, transit=False):
 			a = self.aspects[z]
-			return {'degree': a['degree'], 'name': a['name'], 'orb': abs(diff - a['degree'])}
+			start_speed = self.planets_speed[i] if not transit or self.synastry else 0.0
+			end = self.t_planets_degree_ut[x] if transit else self.planets_degree_ut[x]
+			end_speed = self.t_planets_speed[x] if transit else self.planets_speed[x]
+			return {'degree': a['degree'], 'name': a['name'], 'orb': signedAspectOrb(
+				self.planets_degree_ut[i], end, a['degree'], start_speed, end_speed)}
 		if self.type == "Transit":
 			for item in getattr(self, 'atgrid', []):
 				radix, other = body(item['p1'], False), body(item['p2'], True)
 				if self.synastry:
-					rows.append(dict(aspect(item['aid'], item['diff']), first=radix, second=other))
+					rows.append(dict(aspect(item['aid'], item['p1'], item['p2'], True), first=radix, second=other))
 				else:
-					rows.append(dict(aspect(item['aid'], item['diff']), first=other, second=radix))
+					rows.append(dict(aspect(item['aid'], item['p1'], item['p2'], True), first=other, second=radix))
 		else:
 			for i in range(len(self.planets)):
 				if self.planets[i]['visible_aspect_grid'] != 1:
@@ -114,8 +133,8 @@ class ChartDataMixin:
 					diff = float(self.degreeDiff(self.planets_degree_ut[i], self.planets_degree_ut[x]))
 					z = self.matchAspect(diff)
 					if z is not None and self.aspects[z]['visible_grid'] == 1:
-						rows.append(dict(aspect(z, diff), first=body(i, False), second=body(x, False)))
-		rows.sort(key=lambda row: row['orb'])
+						rows.append(dict(aspect(z, i, x), first=body(i, False), second=body(x, False)))
+		rows.sort(key=lambda row: abs(row['orb']))
 		return rows
 
 	def elementRows(self):

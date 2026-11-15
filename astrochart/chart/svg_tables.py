@@ -20,6 +20,7 @@ the aspects of the bodies to the house cusps
 import datetime
 from xml.sax.saxutils import escape
 from openastromod import swiss as ephemeris
+from astrochart.chart.data import signedAspectOrb
 from astrochart.chart.svg_print import FONT, INK, GREY, rule, symbol, text
 
 #page in units of 0.25 mm: A4 portrait 210 x 297 mm, pages stacked with a gap
@@ -96,7 +97,7 @@ class TablesSVGMixin:
 					if (bodies[i]['visible'] == 1) & (bodies[x]['visible_transit'] == 1):
 						z = self.matchAspect(diff, aspects)
 						if z is not None and aspects[z]['visible_grid'] == 1:
-							orb = abs(diff - aspects[z]['degree'])
+							orb = signedAspectOrb(start, end, aspects[z]['degree'], 0.0, tmoddata.planets_speed[x])
 							#aspect grid dictionary
 							s="%02d%02d%02d"%(i,z,x)
 							astypes[s]=(i,x,z)
@@ -143,10 +144,12 @@ class TablesSVGMixin:
 				out.append(symbol('orb%s' % aspects[z]['degree'], MARGIN + 25, ry + 3.5, 9))
 				out.append(symbol(self.svgSafeHref(self.planets[i]['name']), MARGIN + 42, ry + 1.5, 13))
 				orbs = atgrid[key]
-				exact = min(orbs, key=orbs.get)
+				exact = min(orbs, key=lambda d: abs(orbs[d]))
 				maxorb = aspects[z]['orb']
 				color = self.aspectColor(aspects[z]['degree'])
 				for d, orb in orbs.items():
+					sign = '-' if orb < 0 else ''
+					orb = abs(orb)
 					#opacity from .85 (exact) to .15 (at the orb of the aspect)
 					opacity = .85 - .7 * (orb / maxorb) if maxorb > 0 else .85
 					cx = x0 + d * column
@@ -156,7 +159,7 @@ class TablesSVGMixin:
 					out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="2.5" style="%s"/>\n' % (cx + 1, ry + 1.5, column - 2, row - 3, style))
 					#orb fitting the day cell: one decimal (truncated) below 10 degrees
 					value = '%.1f' % (int(orb * 10) / 10.0) if orb < 10 else '%d' % (int(orb))
-					out.append(text(cx + column / 2, ry + row - 4.5, value, 7.5, INK, weight='bold' if d == exact else 'normal', anchor='middle'))
+					out.append(text(cx + column / 2, ry + row - 4.5, sign + value, 7.5, INK, weight='bold' if d == exact else 'normal', anchor='middle'))
 					if retrogrid[key][d]:
 						out.append(text(cx + column - 2, ry + 7, '℞', 5.5, GREY, anchor='end'))
 			out.append(rule(MARGIN, bottom, PAGE_WIDTH - MARGIN))
@@ -185,14 +188,14 @@ class TablesSVGMixin:
 				out.append(symbol(self.zodiac[self.houses_sign[c]], x + column / 2 + 2, y - 11, 13))
 			out.append(rule(MARGIN, y + 6, PAGE_WIDTH - MARGIN))
 
-		def cell(x, y, start, end):
+		def cell(x, y, start, end, start_speed, end_speed):
 			#aspect symbol and orb
 			diff = float(self.degreeDiff(start, end))
 			z = self.matchAspect(diff, aspects)
 			if z is not None and aspects[z]['visible_grid'] == 1:
 				size = min(16.0, height * 0.6)
 				out.append(symbol('orb%s' % aspects[z]['degree'], x + column / 2 - size / 2, y + 2, size))
-				orb = abs(diff - aspects[z]['degree'])
+				orb = signedAspectOrb(start, end, aspects[z]['degree'], start_speed, end_speed)
 				out.append(text(x + column / 2, y + height - 2, '%.1f°' % orb, min(8.0, height * 0.32), GREY, anchor='middle'))
 
 		#bodies to the cusps
@@ -206,7 +209,8 @@ class TablesSVGMixin:
 			out.append(symbol(self.svgSafeHref(bodies[i]['name']), MARGIN + 2, ry + (height - size) / 2, size))
 			out.append(text(MARGIN + size + 8, ry + height / 2 + 4, bodies[i]['label'], min(12.0, height * 0.5)))
 			for c in range(12):
-				cell(MARGIN + label + c * column, ry, self.planets_degree_ut[i], self.houses_degree_ut[c])
+				cell(MARGIN + label + c * column, ry, self.planets_degree_ut[i], self.houses_degree_ut[c],
+					self.planets_speed[i], self.houses_speed[c])
 		y += len(rows) * height + 60
 		#cusps among each other
 		out.append(text(MARGIN, y - 30, _('Houses'), 16, weight='bold'))
@@ -217,5 +221,6 @@ class TablesSVGMixin:
 				out.append('<rect x="%s" y="%.1f" width="%s" height="%.1f" style="fill: %s;"/>\n' % (MARGIN, ry, PAGE_WIDTH - 2 * MARGIN, height, ZEBRA))
 			out.append(text(MARGIN + 2, ry + height / 2 + 4, '%s %s' % (self.label['cusp'], k + 1), min(12.0, height * 0.5)))
 			for c in range(k):
-				cell(MARGIN + label + c * column, ry, self.houses_degree_ut[k], self.houses_degree_ut[c])
+				cell(MARGIN + label + c * column, ry, self.houses_degree_ut[k], self.houses_degree_ut[c],
+					self.houses_speed[k], self.houses_speed[c])
 		return document(self.pages, printing, self.chartSymbols(), ''.join(out), title)

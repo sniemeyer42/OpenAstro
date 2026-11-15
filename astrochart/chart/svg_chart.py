@@ -109,18 +109,22 @@ class ChartSVGMixin:
 			self.t_planets_sign = t_module_data.planets_sign
 			self.t_planets_degree = t_module_data.planets_degree
 			self.t_planets_degree_ut = t_module_data.planets_degree_ut
+			self.t_planets_speed = t_module_data.planets_speed
 			self.t_planets_retrograde = t_module_data.planets_retrograde
 			self.t_houses_degree = t_module_data.houses_degree
 			self.t_houses_sign = t_module_data.houses_sign
 			self.t_houses_degree_ut = t_module_data.houses_degree_ut
+			self.t_houses_speed = t_module_data.houses_speed
 		#grab normal module data
 		self.planets_sign = module_data.planets_sign
 		self.planets_degree = module_data.planets_degree
 		self.planets_degree_ut = module_data.planets_degree_ut
+		self.planets_speed = module_data.planets_speed
 		self.planets_retrograde = module_data.planets_retrograde
 		self.houses_degree = module_data.houses_degree
 		self.houses_sign = module_data.houses_sign
 		self.houses_degree_ut = module_data.houses_degree_ut		
+		self.houses_speed = module_data.houses_speed
 		self.lunar_phase = module_data.lunar_phase
 		#make composite averages
 		if self.type == "Composite":
@@ -128,6 +132,7 @@ class ChartSVGMixin:
 			asc = self.houses_degree_ut[0]
 			t_asc = self.t_houses_degree_ut[0]
 			for i in range(12):
+				self.houses_speed[i] = (self.houses_speed[i] + self.t_houses_speed[i]) / 2.0
 				#difference in distances measured from ASC
 				diff = self.houses_degree_ut[i] - asc
 				if diff < 0:
@@ -165,6 +170,7 @@ class ChartSVGMixin:
 							self.houses_degree[i] = self.houses_degree_ut[i] - deg_low
 			#new planets
 			for i in range(23):
+				self.planets_speed[i] = (self.planets_speed[i] + self.t_planets_speed[i]) / 2.0
 				#difference in degrees
 				p1 = self.planets_degree_ut[i]
 				p2 = self.t_planets_degree_ut[i]
@@ -189,6 +195,8 @@ class ChartSVGMixin:
 			self.planets_degree_ut[24] = self.houses_degree_ut[9]
 			self.planets_degree_ut[25] = self.houses_degree_ut[6]
 			self.planets_degree_ut[26] = self.houses_degree_ut[3]
+			for i, cusp in ((23, 0), (24, 9), (25, 6), (26, 3)):
+				self.planets_speed[i] = self.houses_speed[cusp]
 			#new planet signs
 			for i in range(27):
 				for x in range(len(self.zodiac)):
