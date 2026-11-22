@@ -11,6 +11,7 @@ if not hasattr(builtins, '_'):
 	builtins._ = lambda text: text
 from astrochart.chart.data import ChartDataMixin, TRANSIT_DURATIONS, durationTitle, transitDuration
 from astrochart.chart.svg_print import PrintSVGMixin
+from astrochart.chart.svg_tables import groupPages
 
 #settings_planet names by id
 NAMES = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn',
@@ -89,6 +90,32 @@ class TransitDurationTest(unittest.TestCase):
 		self.assertEqual(Chart(rows, solar_return=True).aspectGroups(rows), [(None, rows)])
 		self.assertEqual(Chart(rows, kind='Radix').aspectGroups(rows), [(None, rows)])
 		self.assertEqual(Chart([], kind='Radix').aspectGroups([]), [(None, [])])
+
+	def test_group_pages(self):
+		self.assertEqual(groupPages([], 10), [[]])
+		for per_page in range(2, 9):
+			for short in range(0, 13):
+				for long in range(0, 13):
+					groups = [(d, ['%s%d' % (d, k) for k in range(n)]) for d, n in (('short', short), ('long', long)) if n]
+					pages = groupPages(groups, per_page)
+					with self.subTest(per_page=per_page, short=short, long=long):
+						keys = [key for page in pages for duration, key in page if key is not None]
+						self.assertEqual(keys, [key for d, group in groups for key in group])
+						for page in pages:
+							self.assertLessEqual(len(page), per_page)
+							if groups:
+								self.assertIsNone(page[0][1], 'a page starts with a heading')
+								self.assertIsNotNone(page[-1][1], 'no heading at the foot of a page')
+							#every key under the heading of its group shown above it on the page
+							shown = None
+							for duration, key in page:
+								if key is None:
+									shown = duration
+								else:
+									self.assertIsNotNone(shown, 'a key under a heading')
+									self.assertTrue(key.startswith(shown), (key, shown))
+						headings = [duration for page in pages for duration, key in page if key is None]
+						self.assertEqual(sorted(set(headings), key=TRANSIT_DURATIONS.index), [d for d, group in groups])
 
 	def test_print_headings(self):
 		def lines(chart, per_column):

@@ -26,7 +26,7 @@ HOME=$(mktemp -d) python3 tests/qt_flows.py
 HOME=$(mktemp -d) python3 tests/transit_solar_flows.py
 
 # signed orbs of applying and separating aspects; transits grouped as
-# short-term and long-term (side bar and printed page)
+# short-term and long-term (side bar, printed page, pages of the timeline)
 python3 -m unittest tests/test_aspect_motion.py tests/test_transit_duration.py
 ```
 

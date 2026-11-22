@@ -24,6 +24,7 @@ print, input and message dialogs are answered by stand-ins.
 	HOME=$(mktemp -d) python3 tests/qt_flows.py
 """
 import os
+import re
 import sys
 import shutil
 import sqlite3
@@ -60,6 +61,7 @@ def main():
 	from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFileDialog, QMessageBox
 	from astrochart.constants import ASPECT_DEFAULTS, PLANET_SHORT_TRANSIT, RADIUS, WHEEL_MARGIN
 	from astrochart.chart.data import durationTitle, formatDegree
+	from astrochart.chart.svg_tables import MARGIN as TABLE_MARGIN, PAGE_GAP as TABLE_PAGE_GAP, PAGE_HEIGHT as TABLE_PAGE_HEIGHT
 	from astrochart.qt import chart_types, files
 	Button = QDialogButtonBox.StandardButton
 	T = lambda s: builtins._(s)
@@ -277,6 +279,25 @@ def main():
 		check('timeline window', len(timeline) == 1 and timeline[0].isVisible())
 		pages = timeline[0].pages()
 		check('timeline pages', len(pages) >= 1 and all('<svg' in page for page in pages), len(pages))
+		check('timeline: short-term before long-term transits', 0 <= pages[0].find(T('Short-term')) < ''.join(pages).find(T('Long-term')))
+		#every row under the heading of its transit body, on every page (the
+		#documents of pages() differ in their viewBox only)
+		ids = {chart.svgSafeHref(planet['name']): i for i, planet in enumerate(chart.planets)}
+		column, band = '%.1f' % (TABLE_MARGIN + 2), TABLE_PAGE_HEIGHT + TABLE_PAGE_GAP
+		number, shown, wrong, count = None, None, [], 0
+		for match in re.finditer(r'<text x="%s" y="([\d.]+)"[^>]*>([^<]*)</text>|<g transform="translate\(%s,([\d.]+)\) scale\([\d.]+\)"><use xlink:href="#([^"]+)"/>' % (
+				column, column), pages[0]):
+			y = float(match.group(1) or match.group(3))
+			if int(y // band) != number:
+				number, shown = int(y // band), None
+			if match.group(1):
+				shown = match.group(2)
+			else:
+				count += 1
+				if shown is None or (ids[match.group(4)] in PLANET_SHORT_TRANSIT) != (shown == T('Short-term')):
+					wrong.append((number + 1, match.group(4), shown))
+		check('timeline: every row under the heading of its transit body', count > 20 and not wrong and number == len(pages) - 1 > 0,
+			(count, number, wrong[:5]))
 		answers(save=os.path.join(home, 'timeline.pdf'))
 		timeline[0].exportPDF()
 		check('timeline as PDF', open(os.path.join(home, 'timeline.pdf'), 'rb').read(4) == b'%PDF')

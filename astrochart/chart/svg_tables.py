@@ -20,7 +20,7 @@ the aspects of the bodies to the house cusps
 import datetime
 from xml.sax.saxutils import escape
 from openastromod import swiss as ephemeris
-from astrochart.chart.data import signedAspectOrb
+from astrochart.chart.data import TRANSIT_DURATIONS, durationTitle, signedAspectOrb, transitDuration
 from astrochart.chart.svg_print import FONT, INK, GREY, rule, symbol, text
 
 #page in units of 0.25 mm: A4 portrait 210 x 297 mm, pages stacked with a gap
@@ -48,6 +48,25 @@ def document(pages, printing, symbols, content, title):
 		'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" %s>\n'
 		'<title>%s</title>\n%s\n%s<g style="font-family: %s;">\n%s</g>\n</svg>\n') % (
 		size, escape(str(title)), symbols, paper, FONT, content)
+
+def groupPages(groups, per_page):
+	"""
+	groups (duration, keys) on pages of at most per_page lines (duration,
+	key): a heading (duration, None) before the keys of each group, repeated
+	on a page where the group goes on, never alone at the foot of a page;
+	at least one (empty) page
+	"""
+	pages = [[]]
+	for duration, keys in groups:
+		for key in [None] + list(keys):
+			page = pages[-1]
+			if page and (len(page) >= per_page or (key is None and len(page) >= per_page - 1)):
+				page = []
+				pages.append(page)
+			if key is not None and not page:
+				page.append((duration, None))
+			page.append((duration, key))
+	return pages
 
 class TablesSVGMixin:
 	"""tables of the radix chart: monthly timeline and cusp aspects"""
@@ -109,7 +128,11 @@ class TablesSVGMixin:
 		row = 16.0
 		top = MARGIN + 96
 		per_page = int((PAGE_HEIGHT - top - MARGIN - 24) // row)
-		self.pages = max(1, -(-len(keys) // per_page))
+		#short-term transits before long-term ones, by the transit body
+		groups = [(duration, [key for key in keys if transitDuration(astypes[key][1]) == duration])
+			for duration in TRANSIT_DURATIONS]
+		pages = groupPages([(duration, group) for duration, group in groups if group], per_page)
+		self.pages = len(pages)
 		label = 70.0
 		column = (PAGE_WIDTH - 2 * MARGIN - label) / days
 		x0 = MARGIN + label
@@ -119,7 +142,7 @@ class TablesSVGMixin:
 		out = []
 		for p in range(self.pages):
 			oy = p * (PAGE_HEIGHT + PAGE_GAP)
-			rows = keys[p * per_page:(p + 1) * per_page]
+			rows = pages[p]
 			out.append(self.tableHeader(oy, title, '%s  ·  %s' % (_('Transit'), self.radixLine()), p, self.pages))
 			head = oy + top - 34
 			bottom = oy + top + row * len(rows)
@@ -134,11 +157,21 @@ class TablesSVGMixin:
 					out.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="3" style="fill: none; stroke: %s; stroke-width: 1.5;"/>\n' % (
 						x + 0.5, head, column - 1, bottom - head, ACCENT))
 			out.append(rule(MARGIN, oy + top, PAGE_WIDTH - MARGIN))
-			for k, key in enumerate(rows):
-				i, x, z = astypes[key]
+			stripe = 0
+			for k, (duration, key) in enumerate(rows):
 				ry = oy + top + k * row
-				if k % 2:
+				if key is None:
+					#heading of the group, a rule between the groups
+					if k > 0:
+						out.append(rule(MARGIN, ry, PAGE_WIDTH - MARGIN))
+					out.append(text(MARGIN + 2, ry + row - 4, durationTitle(duration), 11, GREY, weight='bold'))
+					stripe = 0
+					continue
+				i, x, z = astypes[key]
+				#zebra stripes from the first row of each group
+				if stripe % 2:
 					out.append('<rect x="%s" y="%.1f" width="%s" height="%s" style="fill: %s;"/>\n' % (MARGIN, ry, label, row, ZEBRA))
+				stripe += 1
 				#transit body, aspect, radix body
 				out.append(symbol(self.svgSafeHref(self.planets[x]['name']), MARGIN + 2, ry + 1.5, 13))
 				out.append(symbol('orb%s' % aspects[z]['degree'], MARGIN + 25, ry + 3.5, 9))
