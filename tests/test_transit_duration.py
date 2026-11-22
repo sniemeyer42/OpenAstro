@@ -1,6 +1,7 @@
 """Transits listed by their duration: short-term (moon, sun, mercury, venus,
 mars, ...) and long-term (jupiter and slower, nodes, lilith, ...)."""
 import builtins
+import gettext
 import os
 import re
 import sys
@@ -22,6 +23,9 @@ NAMES = ['sun', 'moon', 'mercury', 'venus', 'mars', 'jupiter', 'saturn',
 	'true lilith']
 SHORT = {'sun', 'moon', 'mercury', 'venus', 'mars', 'earth', 'Asc', 'Mc', 'Dsc', 'Ic',
 	'day pars', 'night pars', 'marriage pars'}
+#catalogs that translate the interface
+UI_LANGUAGES = 'ar bg ca cs da de el eo es fi fr hu it ja nb nds nl pl pt_BR rom ru sv uk'.split()
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def body(ident, transit):
@@ -64,6 +68,27 @@ class TransitDurationTest(unittest.TestCase):
 		self.assertEqual({NAMES[i] for i in range(len(NAMES)) if transitDuration(i) == 'short'}, SHORT)
 		self.assertEqual(TRANSIT_DURATIONS, ('short', 'long'))
 		self.assertNotEqual(durationTitle('short'), durationTitle('long'))
+
+	def titles(self, language):
+		"""headings of both groups in a language, the catalog of the repository installed as the program does"""
+		saved = builtins._
+		builtins._ = gettext.translation('openastro', os.path.join(REPO, 'locale'), [language]).gettext
+		try:
+			return durationTitle('short'), durationTitle('long')
+		finally:
+			builtins._ = saved
+
+	def test_headings_translated(self):
+		# the words of the request
+		self.assertEqual(self.titles('de'), ('Kurzläufig', 'Langläufig'))
+		english = self.titles('en')
+		self.assertEqual(english, ('Short-term', 'Long-term'))
+		for language in UI_LANGUAGES:
+			with self.subTest(language=language):
+				short, long = self.titles(language)
+				self.assertNotIn(short, english)
+				self.assertNotIn(long, english)
+				self.assertNotEqual(short, long)
 
 	def test_groups_of_transits(self):
 		rows = [transitRow(5, 0, 0.1), transitRow(1, 3, -0.2), transitRow(12, 1, 0.3), transitRow(0, 9, 0.4),

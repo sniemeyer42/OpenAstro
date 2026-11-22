@@ -1248,3 +1248,11 @@ msgstr ""
 #: ./astrochart/qt/chart_types.py
 msgid "Overlay on radix"
 msgstr ""
+
+#: ./astrochart/chart/data.py
+msgid "Short-term"
+msgstr ""
+
+#: ./astrochart/chart/data.py
+msgid "Long-term"
+msgstr ""
