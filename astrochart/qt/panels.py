@@ -21,7 +21,7 @@ from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QIcon, QPalette
 from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFormLayout, QGridLayout, QGroupBox, QHBoxLayout,
 	QHeaderView, QLabel, QProgressBar, QTabWidget, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
-from astrochart.chart.data import formatDegree
+from astrochart.chart.data import durationTitle, formatDegree
 from astrochart.constants import HOUSE_SYSTEMS, MODERN_ELEMENT_COLORS
 from astrochart.qt.chart_view import involves
 
@@ -58,14 +58,18 @@ def numberText(text):
 	which reaches beyond its advance and would be cut off at the edge"""
 	return text + '\u2009'
 
-def treeWidget(columns, stretch):
-	"""list without header, column stretch takes the free width"""
+def treeWidget(columns, stretch, headings=False):
+	"""
+	list without header, column stretch takes the free width; a list with
+	headings of groups (addGroup) has rows of their own height, as uniform
+	rows would all take the height of a heading without symbols
+	"""
 	tree = QTreeWidget()
 	tree.setColumnCount(columns)
 	tree.setHeaderHidden(True)
 	tree.setRootIsDecorated(False)
 	tree.setItemsExpandable(False)
-	tree.setUniformRowHeights(True)
+	tree.setUniformRowHeights(not headings)
 	tree.setIconSize(QSize(20, 20))
 	tree.setFrameShape(QTreeWidget.Shape.NoFrame)
 	tree.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
@@ -82,6 +86,17 @@ def heading(text):
 	font.setBold(True)
 	label.setFont(font)
 	return label
+
+def addGroup(tree, title):
+	"""bold heading of a group of rows, over the whole width of the list"""
+	group = QTreeWidgetItem([title])
+	bold = QFont(tree.font())
+	bold.setBold(True)
+	group.setFont(0, bold)
+	group.setFlags(Qt.ItemFlag.ItemIsEnabled)
+	tree.addTopLevelItem(group)
+	group.setFirstColumnSpanned(True)
+	return group
 
 class ChartPanels(QTabWidget):
 	"""
@@ -100,7 +115,7 @@ class ChartPanels(QTabWidget):
 		#positions and elements
 		page = QWidget()
 		layout = QVBoxLayout(page)
-		self.positions = treeWidget(4, 0)
+		self.positions = treeWidget(4, 0, headings=True)
 		self.positions.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
 		self.positions.itemClicked.connect(self.onPositionClicked)
 		layout.addWidget(self.positions, 1)
@@ -126,7 +141,7 @@ class ChartPanels(QTabWidget):
 		self.allAspects.clicked.connect(lambda: self.window.selectBody(None, None))
 		row.addWidget(self.allAspects)
 		layout.addLayout(row)
-		self.aspects = treeWidget(5, 3)
+		self.aspects = treeWidget(5, 3, headings=True)
 		layout.addWidget(self.aspects, 1)
 		self.addTab(page, _('Aspects'))
 		#data of the chart
@@ -199,13 +214,7 @@ class ChartPanels(QTabWidget):
 		self.positionItems = {}
 		for side, title, rows in sides:
 			if len(sides) > 1:
-				group = QTreeWidgetItem([title])
-				bold = QFont(tree.font())
-				bold.setBold(True)
-				group.setFont(0, bold)
-				group.setFlags(Qt.ItemFlag.ItemIsEnabled)
-				tree.addTopLevelItem(group)
-				group.setFirstColumnSpanned(True)
+				addGroup(tree, title)
 			for row in rows:
 				item = QTreeWidgetItem(['  ' + row['label'], numberText(row['degree']), '℞' if row['retrograde'] else '', str(row['house'])])
 				item.setIcon(0, self.icon(row['symbol']))
@@ -291,18 +300,22 @@ class ChartPanels(QTabWidget):
 			self.aspectsTitle.setText('%s · %s (%d)' % (_('Aspects'), name, len(rows)))
 		self.allAspects.setVisible(selected is not None)
 		number = numericFont(tree.font())
-		for row in rows:
-			first, second = row['first'], row['second']
-			item = QTreeWidgetItem(['', '', '', '%s %s %s' % (first['label'], row['name'], second['label']),
-				numberText(formatDegree(row['orb'], seconds=False))])
-			item.setIcon(0, self.icon(first['symbol'], 18))
-			item.setIcon(1, self.icon('orb%s' % row['degree'], 14))
-			item.setIcon(2, self.icon(second['symbol'], 18))
-			item.setToolTip(3, item.text(3))
-			item.setFont(4, number)
-			item.setForeground(4, self.muted())
-			item.setTextAlignment(4, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-			tree.addTopLevelItem(item)
+		#transits under the headings short-term and long-term
+		for duration, group in self.chart.aspectGroups(rows):
+			if duration is not None:
+				addGroup(tree, '%s (%d)' % (durationTitle(duration), len(group)))
+			for row in group:
+				first, second = row['first'], row['second']
+				item = QTreeWidgetItem(['', '', '', '%s %s %s' % (first['label'], row['name'], second['label']),
+					numberText(formatDegree(row['orb'], seconds=False))])
+				item.setIcon(0, self.icon(first['symbol'], 18))
+				item.setIcon(1, self.icon('orb%s' % row['degree'], 14))
+				item.setIcon(2, self.icon(second['symbol'], 18))
+				item.setToolTip(3, item.text(3))
+				item.setFont(4, number)
+				item.setForeground(4, self.muted())
+				item.setTextAlignment(4, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+				tree.addTopLevelItem(item)
 
 	def updateInfo(self):
 		layout = self.info

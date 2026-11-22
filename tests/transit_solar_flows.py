@@ -19,6 +19,7 @@ def main():
 	from PySide6.QtCore import QTime, Qt
 	from PySide6.QtGui import QColor, QImage, QPalette
 	from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QPushButton
+	from astrochart.chart.data import durationTitle
 	from astrochart.events import insertEvent
 	from astrochart.qt import chart_types, files
 
@@ -54,6 +55,13 @@ def main():
 			assert chart.type == 'Transit' and not chart.synastry and not chart.solar_return
 			assert win.transitBar.isVisible() and win.transitBar.moment == moment
 			assert transitKey() == transit_time
+			# the aspects of the new radix under the headings short-term and long-term
+			aspects = win.panels.aspects
+			headings = [aspects.topLevelItem(i).text(0) for i in range(aspects.topLevelItemCount())
+				if aspects.topLevelItem(i).isFirstColumnSpanned()]
+			assert aspects.topLevelItemCount() == len(chart.aspectRows()) + len(headings)
+			assert headings == ['%s (%d)' % (durationTitle(duration), len(group))
+				for duration, group in chart.aspectGroups(chart.aspectRows())]
 
 		def menu(title):
 			return next(a.menu() for a in win.menuBar().actions() if a.text() == _(title))
@@ -167,6 +175,11 @@ def main():
 		groups = [win.panels.positions.topLevelItem(i).text(0) for i in range(win.panels.positions.topLevelItemCount())
 			if win.panels.positions.topLevelItem(i).data(0, Qt.ItemDataRole.UserRole) is None]
 		assert groups == [_('Radix'), _('Solar Return')]
+		# the solar return is no running transit: its aspects without the headings short-term and long-term
+		aspects = win.panels.aspects
+		assert aspects.topLevelItemCount() == len(chart.aspectRows()) > 0
+		assert not any(aspects.topLevelItem(i).isFirstColumnSpanned() for i in range(aspects.topLevelItemCount()))
+		assert _('Short-term') not in win.chartSVG and _('Long-term') not in win.chartSVG
 		assert _('Solar Return') in win.chartSVG and 'UTC' in win.status.text()
 		dialog = chart_types.SolarReturnDialog(win)
 		assert dialog.value() == (2026, True)

@@ -19,6 +19,19 @@ which calculate the chart and draw the wheel: element points and transit
 aspects are collected while drawing)
 """
 
+from astrochart.constants import PLANET_SHORT_TRANSIT
+
+#groups of the transits by their duration, in the order they are listed
+TRANSIT_DURATIONS = ('short', 'long')
+
+def transitDuration(ident):
+	"""'short' if the transits of body ident are short-term, else 'long'"""
+	return 'short' if ident in PLANET_SHORT_TRANSIT else 'long'
+
+def durationTitle(duration):
+	"""heading of the transits of a duration ('short' or 'long')"""
+	return _('Short-term') if duration == 'short' else _('Long-term')
+
 def formatDegree(value, seconds=True):
 	"""degrees within the sign as 12°34′56″ (or 12°35′)"""
 	value = float(value)
@@ -136,6 +149,32 @@ class ChartDataMixin:
 						rows.append(dict(aspect(z, i, x), first=body(i, False), second=body(x, False)))
 		rows.sort(key=lambda row: abs(row['orb']))
 		return rows
+
+	def groupsTransits(self):
+		"""
+		True if the aspects are transits listed by their duration: ordinary
+		transits, not synastries and solar returns, whose second side does not
+		move on
+		"""
+		return self.type == "Transit" and not self.synastry and not self.solar_return
+
+	def aspectGroups(self, rows):
+		"""
+		aspect rows in groups (duration, rows), the order of the rows kept:
+		transits by the transit body, 'short' (sun, moon, mercury, venus,
+		mars, ...) before 'long' (jupiter and slower, nodes, lilith, ...),
+		groups without rows left out; aspects of other charts are one group
+		(None, rows)
+		"""
+		if not self.groupsTransits():
+			return [(None, rows)]
+		groups = []
+		for duration in TRANSIT_DURATIONS:
+			members = [row for row in rows if transitDuration(
+				(row['first'] if row['first']['transit'] else row['second'])['id']) == duration]
+			if members:
+				groups.append((duration, members))
+		return groups
 
 	def elementRows(self):
 		"""fire, earth, air and water in percent (as on the chart page)"""

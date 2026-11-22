@@ -81,6 +81,16 @@ PLANET_TRANSIT_HIDDEN = ( 27 , 28 , 30 )
 #first id of the angles (Asc, Mc, Dsc, Ic) and of the sensitive points
 PLANET_FIRST_ANGLE = 23
 PLANET_FIRST_POINT = 27
+#bodies of short-term transits, by their mean motion through the zodiac:
+#mars (0.52 degrees a day) and faster, i.e. sun, moon, mercury, venus, mars,
+#earth, the angles and the asc based points; their transits take minutes
+#(the angles) to days, near a station of mercury, venus or mars some weeks.
+#All others move on 0.27 degrees a day (vesta) or slower: jupiter and
+#beyond, the nodes, every lilith (osc. apogee and intp. perigee swing up to
+#30 degrees around the lunar apsides, but move on with them at 0.11 degrees
+#a day), the asteroids, black sun and the hypothetical bodies; their
+#long-term transits take weeks to years.
+PLANET_SHORT_TRANSIT = ( 0 , 1 , 2 , 3 , 4 , 14 , 23 , 24 , 25 , 26 , 27 , 28 , 30 )
 #house systems of the swiss ephemeris (code: name)
 HOUSE_SYSTEMS = {
 	"P":"Placidus",

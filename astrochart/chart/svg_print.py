@@ -19,7 +19,7 @@ tables of positions, house cusps, elements and aspects
 
 import datetime
 from xml.sax.saxutils import escape
-from astrochart.chart.data import formatDegree
+from astrochart.chart.data import durationTitle, formatDegree
 from astrochart.constants import HOUSE_SYSTEMS, MODERN_ELEMENT_COLORS, RADIUS, WHEEL_MARGIN
 
 #page in units of 0.25 mm: A4 landscape 297 x 210 mm
@@ -178,19 +178,44 @@ class PrintSVGMixin:
 		return y + line * 4
 
 	def printAspects(self, out, x, y, width, bottom):
-		"""aspects sorted by orb in two columns, as many as fit"""
+		"""
+		aspects sorted by orb in two columns, the closest as many as fit;
+		transits under the headings short-term and long-term, a heading
+		never alone at the foot of a column
+		"""
 		rows = self.aspectRows()
 		line = 16
 		per_column = max(0, int((bottom - y - 26) // line))
-		shown = rows[:2 * per_column]
+
+		def layout(chosen):
+			#lines of both columns: an aspect, a heading or None (empty)
+			lines = []
+			for duration, group in self.aspectGroups(chosen):
+				if duration is not None:
+					if per_column > 1 and len(lines) % per_column == per_column - 1:
+						lines.append(None)
+					lines.append(durationTitle(duration))
+				lines.extend(group)
+			return lines
+		#the closest aspects (rows are sorted by orb) with their headings
+		shown = min(len(rows), 2 * per_column)
+		lines = layout(rows[:shown])
+		while len(lines) > 2 * per_column:
+			shown -= 1
+			lines = layout(rows[:shown])
 		out.append(text(x, y + 12, _('Aspects'), 17, weight='bold'))
-		if len(rows) > len(shown):
-			out.append(text(x + width, y + 12, '%d / %d' % (len(shown), len(rows)), 12, GREY, anchor='end'))
+		if len(rows) > shown:
+			out.append(text(x + width, y + 12, '%d / %d' % (shown, len(rows)), 12, GREY, anchor='end'))
 		y += 26
 		column = width / 2.0
-		for k, row in enumerate(shown):
+		for k, row in enumerate(lines):
 			cx = x + (k // per_column) * column
 			cy = y + line * (k % per_column + 1)
+			if row is None:
+				continue
+			if not isinstance(row, dict):
+				out.append(text(cx, cy, row, 12, GREY, weight='bold'))
+				continue
 			out.append(symbol(row['first']['symbol'], cx, cy - 12, 13))
 			out.append(symbol('orb%s' % row['degree'], cx + 16, cy - 10, 10))
 			out.append(symbol(row['second']['symbol'], cx + 29, cy - 12, 13))

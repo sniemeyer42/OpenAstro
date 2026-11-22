@@ -24,6 +24,10 @@ HOME=$(mktemp -d) python3 tests/qt_flows.py
 
 # retained transit dates, radix replacement and both solar return views
 HOME=$(mktemp -d) python3 tests/transit_solar_flows.py
+
+# signed orbs of applying and separating aspects; transits grouped as
+# short-term and long-term (side bar and printed page)
+python3 -m unittest tests/test_aspect_motion.py tests/test_transit_duration.py
 ```
 
 To watch the Qt program instead of running it offscreen, set

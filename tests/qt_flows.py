@@ -58,8 +58,8 @@ def main():
 	from PySide6.QtGui import QColor, QImage, QPalette, QWheelEvent
 	from PySide6.QtTest import QTest
 	from PySide6.QtWidgets import QApplication, QDialog, QDialogButtonBox, QFileDialog, QMessageBox
-	from astrochart.constants import ASPECT_DEFAULTS, RADIUS, WHEEL_MARGIN
-	from astrochart.chart.data import formatDegree
+	from astrochart.constants import ASPECT_DEFAULTS, PLANET_SHORT_TRANSIT, RADIUS, WHEEL_MARGIN
+	from astrochart.chart.data import durationTitle, formatDegree
 	from astrochart.qt import chart_types, files
 	Button = QDialogButtonBox.StandardButton
 	T = lambda s: builtins._(s)
@@ -194,13 +194,55 @@ def main():
 		local = bar_.local()
 		check('transit: minute carries over to the next year', (local.year, local.month, local.day, local.hour, local.minute) == (2027, 1, 1, 0, 0), local)
 		check('transit: chart follows the date bar', '2027-01-01' in chart.charttype, chart.charttype)
+		# ---- transits under the headings short-term and long-term, by the transit body
+		def aspectList():
+			"""headings (text, True) and aspects (text, False) of the aspects list"""
+			tree = win.panels.aspects
+			items = [tree.topLevelItem(i) for i in range(tree.topLevelItemCount())]
+			return [(item.text(0), True) if item.isFirstColumnSpanned() else (item.text(3), False) for item in items]
+		def headings():
+			return [text for text, heading in aspectList() if heading]
+		rows = chart.aspectRows()
+		groups = chart.aspectGroups(rows)
+		check('transit: short-term and long-term transits', [d for d, g in groups] == ['short', 'long'] and
+			all(row['first']['transit'] and (row['first']['id'] in PLANET_SHORT_TRANSIT) == (d == 'short') for d, g in groups for row in g) and
+			sum(len(g) for d, g in groups) == len(rows), [(d, len(g)) for d, g in groups])
+		expected = []
+		for d, g in groups:
+			expected.append(('%s (%d)' % (durationTitle(d), len(g)), True))
+			expected.extend(('%s %s %s' % (row['first']['label'], row['name'], row['second']['label']), False) for row in g)
+		check('transit: aspects list under both headings', aspectList() == expected and
+			[heading.rsplit(' (', 1)[0] for heading in headings()] == [T('Short-term'), T('Long-term')], headings())
+		check('transit: both headings in print', T('Short-term') in win.chartSVG and T('Long-term') in win.chartSVG)
+		def rowHeights():
+			"""heights of the first heading and of the first aspect row of the aspects list, its page shown"""
+			tree = win.panels.aspects
+			win.panels.setCurrentWidget(tree.parentWidget())
+			events()
+			items = [tree.topLevelItem(i) for i in range(tree.topLevelItemCount())]
+			heights = [tree.visualItemRect(item).height() for item in items]
+			win.panels.setCurrentIndex(0)
+			return (next((h for item, h in zip(items, heights) if item.isFirstColumnSpanned()), 0),
+				next((h for item, h in zip(items, heights) if not item.isFirstColumnSpanned()), 0))
+		heading_height, transit_height = rowHeights()
+		if len(groups) == 2:
+			win.selectBody('transit', groups[1][1][0]['first']['id'])
+			check('transit: selected long-term body under its heading', headings() == ['%s (%d)' % (T('Long-term'),
+				len([item for item in aspectList() if not item[1]]))] and len(aspectList()) > 1, headings())
+			win.clearSelection()
 		win.radixAction.trigger()
 		events()
 		check('radix: no date bar', not win.transitBar.isVisible() and chart.type == 'Radix')
+		check('radix: aspects without headings', not headings() and len(aspectList()) == len(chart.aspectRows()))
+		radix_height = rowHeights()[1]
+		check('transit: aspect rows as high as in the radix, not as the heading', 0 < heading_height and
+			transit_height == radix_height > 0, (heading_height, transit_height, radix_height))
 		# ---- second event from the database
 		types = menus[T('Chart Types')]
 		trigger(submenu(types, T('Synastry Chart')), 'Flow Test')
 		check('synastry with database entry', chart.type == 'Transit' and chart.synastry and 'Flow Test' in chart.charttype and not win.transitBar.isVisible(), chart.charttype)
+		check('synastry: aspects without headings', not headings() and len(aspectList()) == len(chart.aspectRows()) and
+			T('Short-term') not in win.chartSVG, headings())
 		trigger(submenu(types, T('Composite Chart')), 'Flow Test')
 		check('composite with database entry', 'Flow Test' in chart.charttype, chart.charttype)
 		trigger(submenu(types, T('Combine Chart')), 'Flow Test')
